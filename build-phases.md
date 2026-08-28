@@ -8,7 +8,7 @@ Phases 1–4 may use a plain developer shell for buttons, forms, logs, and map c
 
 | Phase | Outcome | Status |
 |---|---|---|
-| 1 | Deterministic city foundation | Not started |
+| 1 | Deterministic city foundation | In progress |
 | 2 | Complete offline game and campaign | Not started |
 | 3 | 0G intelligence, storage, and safety | Not started |
 | 4 | Agentic ID, chain, deployment, and full integration | Not started |
@@ -28,29 +28,29 @@ Build the technical foundation and a headless version of the city simulation. By
 
 ### Project foundation
 
-- [ ] **P1.1 Scaffold the repository**
+- [x] **P1.1 Scaffold the repository**
   - Build: Create the Next.js/TypeScript application, shared packages, formatting, linting, test runner, environment validation, and standard scripts.
   - Acceptance: A fresh install can run the application, tests, type-checking, and production build.
   - Verify: Run install, type-check, lint, unit tests, and production build.
 
-- [ ] **P1.2 Define shared game schemas**
+- [x] **P1.2 Define shared game schemas**
   - Build: Define and validate `CityState`, map, tile, building, resource, action-log, campaign, chapter, mission, event, milestone, and cause/effect schemas.
   - Acceptance: Valid fixtures parse successfully; missing fields and unsupported schema versions fail with understandable errors.
   - Verify: Unit tests for valid, boundary, and malformed fixtures.
 
-- [ ] **P1.3 Implement seeded world creation**
+- [x] **P1.3 Implement seeded world creation**
   - Build: Generate the fixed MVP river-valley map, elevation bands, flood zones, habitat values, and placeable tiles from a scenario seed.
   - Acceptance: The same seed produces the same map and map hash on repeated runs.
   - Verify: Snapshot test and deterministic hash comparison.
 
 ### Simulation engine
 
-- [ ] **P1.4 Implement the building catalogue**
+- [x] **P1.4 Implement the building catalogue**
   - Build: Add data definitions for homes, roads, water pump, treatment plant, solar array, battery, school, clinic, bus stop, recycling centre, wetland, and park/trees.
   - Acceptance: Each item defines footprint, construction cost, maintenance, prerequisites, inputs, outputs, effects, and optional coverage.
   - Verify: Catalogue-schema test and uniqueness test for all IDs.
 
-- [ ] **P1.5 Implement placement validation**
+- [x] **P1.5 Implement placement validation**
   - Build: Validate terrain, occupancy, footprint, flood restrictions, adjacency, connections, budget, and chapter unlocks. Support provisional placement, removal, and undo.
   - Acceptance: Every building can be validly placed; invalid placements return specific reason codes without mutating the city.
   - Verify: Table-driven tests covering valid placement and every rejection reason.
@@ -461,4 +461,3 @@ Do not call the MVP complete until all five phase gates pass and the following r
 - [ ] The final storm depends meaningfully on earlier city-building decisions.
 - [ ] All three endings are reachable through legitimate strategies.
 - [ ] The child never encounters a wallet, token, gas, signature, or transaction prompt.
-
