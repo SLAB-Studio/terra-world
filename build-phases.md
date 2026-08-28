@@ -55,17 +55,17 @@ Build the technical foundation and a headless version of the city simulation. By
   - Acceptance: Every building can be validly placed; invalid placements return specific reason codes without mutating the city.
   - Verify: Table-driven tests covering valid placement and every rejection reason.
 
-- [ ] **P1.6 Implement city networks**
+- [x] **P1.6 Implement city networks**
   - Build: Calculate road connectivity, water connections, electricity connections, service radius, and disconnected components.
   - Acceptance: Network coverage updates correctly when infrastructure is placed, moved, or removed.
   - Verify: Graph tests using small known map fixtures.
 
-- [ ] **P1.7 Implement turn simulation**
+- [x] **P1.7 Implement turn simulation**
   - Build: Commit placements, deduct construction costs, calculate maintenance, production, demand, utility coverage, population change, and the five indicators.
   - Acceptance: A turn returns a new immutable state plus an ordered structured cause/effect trace.
   - Verify: Golden tests for water, energy, budget, population, and indicator outcomes.
 
-- [ ] **P1.8 Implement seeded events and state progression**
+- [x] **P1.8 Implement seeded events and state progression**
   - Build: Add scheduled events, stage transitions, milestone detection, and seeded randomness utilities.
   - Acceptance: Events fire on their scheduled turns and stages advance only when their declared conditions are met.
   - Verify: Scenario tests for settlement, town, city, and resilient-city transitions.
