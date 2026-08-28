@@ -1,0 +1,49 @@
+:root {
+  color-scheme: light;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #eef7f2;
+  color: #17332b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  max-width: 720px;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 96px 24px;
+}
+
+h1 {
+  font-size: clamp(2.5rem, 7vw, 4.5rem);
+  line-height: 1;
+  margin: 12px 0 24px;
+}
+
+h2 {
+  margin-top: 40px;
+}
+
+.eyebrow {
+  color: #287457;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.intro,
+li,
+.note {
+  font-size: 1.125rem;
+  line-height: 1.6;
+}
+
+.note {
+  color: #4c635b;
+}
