@@ -9,7 +9,7 @@ Phases 1–4 may use a plain developer shell for buttons, forms, logs, and map c
 | Phase | Outcome | Status |
 |---|---|---|
 | 1 | Deterministic city foundation | Complete |
-| 2 | Complete offline game and campaign | Not started |
+| 2 | Complete offline game and campaign | In progress |
 | 3 | 0G intelligence, storage, and safety | Not started |
 | 4 | Agentic ID, chain, deployment, and full integration | Not started |
 | 5 | Finished child-facing UI and demo experience | Not started |
@@ -121,7 +121,7 @@ Turn the simulation foundation into the complete playable MVP. By the end of thi
 
 ### Full learning campaign
 
-- [ ] **P2.4 Implement chapter and mission state machines**
+- [x] **P2.4 Implement chapter and mission state machines**
   - Build: Add chapter unlocks, objectives, mission briefing, completion rules, optional objectives, and progression persistence.
   - Acceptance: Players cannot skip required foundations; resuming returns to the correct mission state.
   - Verify: Automated progression tests across all five chapters.
