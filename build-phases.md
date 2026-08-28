@@ -104,17 +104,17 @@ Turn the simulation foundation into the complete playable MVP. By the end of thi
 
 ### Functional gameplay shell
 
-- [ ] **P2.1 Build the functional map playground**
+- [x] **P2.1 Build the functional map playground**
   - Build: Render the river-valley map and placed buildings in Phaser with temporary functional graphics.
   - Acceptance: The map loads from campaign data, pans within bounds, and accurately represents simulation state.
   - Verify: Manual comparison between rendered tiles/buildings and the underlying state fixture.
 
-- [ ] **P2.2 Implement drag-and-drop construction**
+- [x] **P2.2 Implement drag-and-drop construction**
   - Build: Add catalogue selection, drag ghost, tile snapping, rotate where applicable, provisional placement, remove, undo, and commit-turn controls for mouse and touch.
   - Acceptance: All twelve items can be placed and manipulated without creating inconsistent state.
   - Verify: Manual mouse/touch path plus automated interaction tests for critical placement flows.
 
-- [ ] **P2.3 Implement functional planning overlays**
+- [x] **P2.3 Implement functional planning overlays**
   - Build: Display valid/invalid tiles, flood risk, water, electricity, transport, service coverage, habitat impact, and cost impact using temporary visual treatments.
   - Acceptance: Overlay data matches engine calculations and updates during provisional placement.
   - Verify: Known fixture screenshots and engine-to-overlay assertion tests.
@@ -126,12 +126,12 @@ Turn the simulation foundation into the complete playable MVP. By the end of thi
   - Acceptance: Players cannot skip required foundations; resuming returns to the correct mission state.
   - Verify: Automated progression tests across all five chapters.
 
-- [ ] **P2.5 Author Chapter 1: Water brings a town to life**
+- [x] **P2.5 Author Chapter 1: Water brings a town to life**
   - Build: Water source, treatment, pipes, first homes, water quality, flood-zone consequences, learning facts, and fallback explanations.
   - Acceptance: At least two valid solutions and three meaningful failure/revision paths exist.
   - Verify: Play and record every intended solution and failure branch.
 
-- [ ] **P2.6 Author Chapter 2: Power the neighbourhood**
+- [x] **P2.6 Author Chapter 2: Power the neighbourhood**
   - Build: Solar generation, battery storage, demand, day/night reliability, clinic power, and maintenance trade-offs.
   - Acceptance: Solar-only, solar-plus-storage, and backup alternatives produce distinguishable outcomes.
   - Verify: Golden scenarios for generation, storage, blackout, and stable-grid paths.
