@@ -35,6 +35,12 @@ importers:
 
   apps/web:
     dependencies:
+      '@terra/campaign-schema':
+        specifier: workspace:*
+        version: link:../../packages/campaign-schema
+      '@terra/simulation':
+        specifier: workspace:*
+        version: link:../../packages/simulation
       next:
         specifier: ^15.2.0
         version: 15.5.24(@types/node@22.20.1)(react-dom@19.2.8)(react@19.2.8)
