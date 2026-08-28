@@ -1,4 +1,5 @@
 export * from "./catalogue";
+export * from "./campaign-state";
 export * from "./events";
 export * from "./hash";
 export * from "./networks";
