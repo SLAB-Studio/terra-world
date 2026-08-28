@@ -136,17 +136,17 @@ Turn the simulation foundation into the complete playable MVP. By the end of thi
   - Acceptance: Solar-only, solar-plus-storage, and backup alternatives produce distinguishable outcomes.
   - Verify: Golden scenarios for generation, storage, blackout, and stable-grid paths.
 
-- [ ] **P2.7 Author Chapter 3: Care for residents**
+- [x] **P2.7 Author Chapter 3: Care for residents**
   - Build: School, clinic, walking access, road safety, service coverage, population health, and fairness.
   - Acceptance: A city cannot succeed by serving only one neighbourhood or maximising budget alone.
   - Verify: Accessibility and unequal-service scenario tests.
 
-- [ ] **P2.8 Author Chapter 4: Handle growth**
+- [x] **P2.8 Author Chapter 4: Handle growth**
   - Build: Recycling, waste generation, transport, congestion, pollution, maintenance, and growing population demand.
   - Acceptance: Growth creates new costs and trade-offs; at least two viable planning strategies remain.
   - Verify: High-growth, low-budget, waste-heavy, and transit-oriented scenarios.
 
-- [ ] **P2.9 Author Chapter 5: Survive the storm**
+- [x] **P2.9 Author Chapter 5: Survive the storm**
   - Build: Final storm, drainage, wetlands, flood exposure, emergency access, backup energy, damage, and recovery.
   - Acceptance: Earlier water, energy, nature, transport, and budget decisions materially change storm outcomes.
   - Verify: At least six cross-system final-storm golden scenarios.
