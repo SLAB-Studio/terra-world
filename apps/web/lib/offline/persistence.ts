@@ -432,8 +432,15 @@ function toStoredCampaignCache(entry: CampaignCacheEntry): StoredCampaignCache {
   };
 }
 function toCampaignCacheEntry(entry: StoredCampaignCache): CampaignCacheEntry {
-  const { cacheKey: _cacheKey, ...cacheEntry } = entry;
-  return cacheEntry;
+  return {
+    campaignId: entry.campaignId,
+    version: entry.version,
+    verifiedAt: entry.verifiedAt,
+    pack: entry.pack,
+    ...(entry.storageRoot === undefined
+      ? {}
+      : { storageRoot: entry.storageRoot }),
+  };
 }
 function isValidStoredCampaignCache(
   value: unknown,
