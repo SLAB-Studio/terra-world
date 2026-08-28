@@ -1,0 +1,15 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`seeded river-valley world > matches the checked-in deterministic map snapshot 1`] = `
+{
+  "hash": "4c3995770c0c2d0d",
+  "terrainRows": [
+    "mfwrwfmr",
+    "rffrwfmr",
+    "fwrffmhr",
+    "fwrffmhh",
+    "ffrffmhr",
+    "fwrffrhr",
+  ],
+}
+`;
