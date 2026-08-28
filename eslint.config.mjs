@@ -8,6 +8,7 @@ export default [
       "**/dist/**",
       "**/coverage/**",
       "**/node_modules/**",
+      "**/next-env.d.ts",
     ],
   },
   js.configs.recommended,
