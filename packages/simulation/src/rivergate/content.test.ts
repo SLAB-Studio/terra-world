@@ -2,9 +2,21 @@ import { describe, expect, it } from "vitest";
 
 import { CampaignSchema } from "@terra/campaign-schema";
 
-import { BUILDING_IDS } from "../catalogue";
+import { BUILDING_CATALOGUE, BUILDING_IDS } from "../catalogue";
 import { advanceCampaignState, createCampaignState } from "../campaign-state";
 import { createInitialCityState, createRiverValleyWorld } from "../world";
+import {
+  CHAPTER_THREE_CARE,
+  CHAPTER_THREE_CARE_MESSAGES,
+} from "./chapter-3-care";
+import {
+  CHAPTER_FOUR_GROWTH,
+  CHAPTER_FOUR_GROWTH_MESSAGES,
+} from "./chapter-4-growth";
+import {
+  CHAPTER_FIVE_STORM,
+  CHAPTER_FIVE_STORM_MESSAGES,
+} from "./chapter-5-storm";
 import {
   CHAPTER_ONE_SCENARIO,
   CHAPTER_ONE_WATER,
@@ -48,6 +60,21 @@ describe("Rivergate foundations campaign content", () => {
       "save-power-for-night",
       "protect-the-clinic-plan",
     ]);
+    expect(CHAPTER_THREE_CARE.missions.map((mission) => mission.id)).toEqual([
+      "plan-a-safe-walk",
+      "open-a-school-for-everyone",
+      "care-for-every-neighbourhood",
+    ]);
+    expect(CHAPTER_FOUR_GROWTH.missions.map((mission) => mission.id)).toEqual([
+      "sort-the-growing-pile",
+      "give-everyone-a-way-to-go",
+      "make-room-for-rivergate",
+    ]);
+    expect(CHAPTER_FIVE_STORM.missions.map((mission) => mission.id)).toEqual([
+      "make-room-for-rain",
+      "keep-help-moving",
+      "repair-together",
+    ]);
     expect(CHAPTER_ONE_SCENARIO.rules.map((rule) => rule.type)).toEqual([
       "building-count",
       "building-count",
@@ -65,7 +92,7 @@ describe("Rivergate foundations campaign content", () => {
     ]);
   });
 
-  it("runs both chapters through the existing campaign state machine", () => {
+  it("orders all 15 missions when verified gate milestones are supplied", () => {
     const world = createRiverValleyWorld("rivergate-content-test", {
       width: 8,
       height: 6,
@@ -81,18 +108,48 @@ describe("Rivergate foundations campaign content", () => {
       "water-treatment-plant",
       "home",
       "home",
+      "home",
+      "home",
+      "home",
+      "home",
       "solar-array",
       "battery",
+      "road",
+      "road",
+      "school",
+      "clinic",
+      "recycling-centre",
+      "bus-stop",
+      "wetland",
     ] as const;
     const readyCity = {
       ...initial,
+      turn: 15,
+      population: 48,
       budget: 1_000,
       indicators: {
         ...initial.indicators,
         water: 100,
         energy: 100,
+        nature: 85,
+        community: 90,
+        resilience: 90,
       },
-      milestones: ["water-ready"],
+      milestones: [
+        "water-ready",
+        "power-ready",
+        "care-ready",
+        "growth-ready",
+        "storm-ready",
+      ],
+      actionLog: [
+        {
+          type: "advance-turn" as const,
+          actionId: "verified-final-storm-turn",
+          turn: 15,
+          sequence: 0,
+        },
+      ],
       buildings: definitionIds.map((definitionId, index) => ({
         instanceId: `${definitionId}-${index}`,
         definitionId,
@@ -107,7 +164,11 @@ describe("Rivergate foundations campaign content", () => {
       readyCity,
     );
 
-    for (let step = 0; step < 6; step += 1) {
+    const missionCount = RIVERGATE_FOUNDATIONS_CAMPAIGN.chapters.reduce(
+      (total, chapter) => total + chapter.missions.length,
+      0,
+    );
+    for (let step = 0; step < missionCount; step += 1) {
       const result = advanceCampaignState(
         RIVERGATE_FOUNDATIONS_CAMPAIGN,
         readyCity,
@@ -119,9 +180,64 @@ describe("Rivergate foundations campaign content", () => {
     }
 
     expect(progress.phase).toBe("completed");
-    expect(progress.completedMissionKeys).toHaveLength(6);
+    expect(progress.completedMissionKeys).toHaveLength(15);
     expect(progress.completedObjectiveKeys).toContain(
-      "chapter-2-power::protect-the-clinic-plan::keep-night-power",
+      "chapter-5-storm::repair-together::weather-the-final-storm",
+    );
+  });
+
+  it("funds a conservative complete-campaign building and upkeep path", () => {
+    const minimumPath = [
+      "water-pump",
+      "water-treatment-plant",
+      "home",
+      "home",
+      "home",
+      "home",
+      "home",
+      "home",
+      "solar-array",
+      "battery",
+      "road",
+      "road",
+      "school",
+      "clinic",
+      "recycling-centre",
+      "bus-stop",
+      "wetland",
+    ] as const;
+    const catalogue = new Map(
+      BUILDING_CATALOGUE.map((definition) => [definition.id, definition]),
+    );
+    const definitions = minimumPath.map((id) => {
+      const definition = catalogue.get(id);
+      if (!definition) throw new Error(`Missing building definition: ${id}`);
+      return definition;
+    });
+    const construction = definitions.reduce(
+      (total, definition) => total + definition.constructionCost,
+      0,
+    );
+    const maintenancePerTurn = definitions.reduce(
+      (total, definition) => total + definition.maintenanceCost,
+      0,
+    );
+    const eventCosts = RIVERGATE_FOUNDATIONS_CAMPAIGN.events.reduce(
+      (total, event) =>
+        total +
+        event.effects.reduce(
+          (eventTotal, effect) =>
+            effect.metric === "budget" && effect.amount < 0
+              ? eventTotal - effect.amount
+              : eventTotal,
+          0,
+        ),
+      0,
+    );
+
+    expect(construction).toBe(2_550);
+    expect(RIVERGATE_FOUNDATIONS_CAMPAIGN.initialBudget).toBeGreaterThanOrEqual(
+      construction + maintenancePerTurn * 15 + eventCosts,
     );
   });
 
@@ -133,6 +249,17 @@ describe("Rivergate foundations campaign content", () => {
         expect.any(String),
       );
       expect(RIVERGATE_EN_MESSAGES[key]?.trim().length).toBeGreaterThan(0);
+    }
+    for (const messages of [
+      CHAPTER_THREE_CARE_MESSAGES,
+      CHAPTER_FOUR_GROWTH_MESSAGES,
+      CHAPTER_FIVE_STORM_MESSAGES,
+    ]) {
+      for (const [key, value] of Object.entries(messages)) {
+        expect(RIVERGATE_EN_MESSAGES[key], `Unmerged message: ${key}`).toBe(
+          value,
+        );
+      }
     }
   });
 
@@ -174,7 +301,11 @@ describe("Rivergate foundations campaign content", () => {
     }
     expect(
       RIVERGATE_FOUNDATIONS_CAMPAIGN.events.map((event) => `event.${event.id}`),
-    ).toContain("event.chapter-1-river-rain");
+    ).toEqual([
+      "event.chapter-1-river-rain",
+      "event.chapter-4-growth-surge",
+      "event.chapter-5-river-storm",
+    ]);
   });
 });
 

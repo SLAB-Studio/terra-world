@@ -1,3 +1,7 @@
+import { CHAPTER_THREE_CARE_MESSAGES } from "./chapter-3-care";
+import { CHAPTER_FOUR_GROWTH_MESSAGES } from "./chapter-4-growth";
+import { CHAPTER_FIVE_STORM_MESSAGES } from "./chapter-5-storm";
+
 export const RIVERGATE_EN_MESSAGES: Readonly<Record<string, string>> = {
   "rivergate.campaign.title": "Rivergate Foundations",
   "rivergate.chapter-1.title": "Water brings a town to life",
@@ -62,8 +66,13 @@ export const RIVERGATE_EN_MESSAGES: Readonly<Record<string, string>> = {
     "More equipment can improve reliability, but every building adds upkeep costs.",
   "rivergate.chapter-2.scenario.title": "Check the neighbourhood power plan",
   "rivergate.event.river-rain.title": "River rain",
+  "rivergate.event.growth-surge.title": "Rivergate grows",
+  "rivergate.event.river-storm.title": "The final river storm",
   "rivergate.milestone.water-ready.title": "Water-ready town",
   "rivergate.milestone.power-ready.title": "Power-ready neighbourhood",
+  "rivergate.milestone.care-ready.title": "Care reaches every neighbourhood",
+  "rivergate.milestone.growth-ready.title": "Growth in balance",
+  "rivergate.milestone.storm-ready.title": "Ready for the river storm",
   "rivergate.fallback.water.no-source":
     "Rivergate has no water source yet, so no water can enter the system.",
   "rivergate.hint.water.no-source":
@@ -108,4 +117,7 @@ export const RIVERGATE_EN_MESSAGES: Readonly<Record<string, string>> = {
     "The equipment works now, but the budget cannot cover its upkeep.",
   "rivergate.hint.energy.maintenance":
     "Try a smaller reliable system or keep more budget for maintenance.",
+  ...CHAPTER_THREE_CARE_MESSAGES,
+  ...CHAPTER_FOUR_GROWTH_MESSAGES,
+  ...CHAPTER_FIVE_STORM_MESSAGES,
 };

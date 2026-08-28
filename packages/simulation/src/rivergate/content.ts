@@ -6,6 +6,9 @@ import {
 } from "@terra/campaign-schema";
 
 import { BUILDING_IDS } from "../catalogue";
+import { CHAPTER_THREE_CARE } from "./chapter-3-care";
+import { CHAPTER_FOUR_GROWTH } from "./chapter-4-growth";
+import { CHAPTER_FIVE_STORM } from "./chapter-5-storm";
 import type { ScenarioDefinition } from "./scenario-types";
 
 export const CHAPTER_ONE_WATER: Chapter = ChapterSchema.parse({
@@ -358,9 +361,15 @@ export const RIVERGATE_FOUNDATIONS_CAMPAIGN: Campaign = CampaignSchema.parse({
   titleKey: "rivergate.campaign.title",
   mapId: "river-valley",
   buildingIds: BUILDING_IDS,
-  initialBudget: 2_000,
+  initialBudget: 8_000,
   initialPopulation: 0,
-  chapters: [CHAPTER_ONE_WATER, CHAPTER_TWO_POWER],
+  chapters: [
+    CHAPTER_ONE_WATER,
+    CHAPTER_TWO_POWER,
+    CHAPTER_THREE_CARE,
+    CHAPTER_FOUR_GROWTH,
+    CHAPTER_FIVE_STORM,
+  ],
   events: [
     {
       id: "chapter-1-river-rain",
@@ -371,6 +380,31 @@ export const RIVERGATE_FOUNDATIONS_CAMPAIGN: Campaign = CampaignSchema.parse({
       effects: [
         { metric: "water", amount: -10 },
         { metric: "budget", amount: -20 },
+      ],
+    },
+    {
+      id: "chapter-4-growth-surge",
+      titleKey: "rivergate.event.growth-surge.title",
+      kind: "growth",
+      scheduledTurn: 9,
+      magnitude: 3,
+      effects: [
+        { metric: "population", amount: 16 },
+        { metric: "budget", amount: -50 },
+      ],
+    },
+    {
+      id: "chapter-5-river-storm",
+      titleKey: "rivergate.event.river-storm.title",
+      kind: "storm",
+      scheduledTurn: 15,
+      magnitude: 5,
+      effects: [
+        { metric: "water", amount: -15 },
+        { metric: "energy", amount: -15 },
+        { metric: "nature", amount: -10 },
+        { metric: "resilience", amount: -20 },
+        { metric: "budget", amount: -100 },
       ],
     },
   ],
@@ -431,5 +465,7 @@ export const RIVERGATE_FOUNDATIONS_CAMPAIGN: Campaign = CampaignSchema.parse({
         },
       ],
     },
+    // Later readiness milestones are derived by the Rivergate campaign
+    // director because their rules combine multiple simulation systems.
   ],
 });
