@@ -8,7 +8,7 @@ Phases 1–4 may use a plain developer shell for buttons, forms, logs, and map c
 
 | Phase | Outcome | Status |
 |---|---|---|
-| 1 | Deterministic city foundation | In progress |
+| 1 | Deterministic city foundation | Complete |
 | 2 | Complete offline game and campaign | Not started |
 | 3 | 0G intelligence, storage, and safety | Not started |
 | 4 | Agentic ID, chain, deployment, and full integration | Not started |
@@ -86,11 +86,11 @@ Build the technical foundation and a headless version of the city simulation. By
 
 Phase 1 is complete only when:
 
-- [ ] Type-check, lint, tests, and production build pass.
-- [ ] A scripted scenario creates a city, places infrastructure, runs multiple turns, saves, reloads, and replays.
-- [ ] Repeated runs produce identical final-state hashes.
-- [ ] No AI or 0G service is required for the simulation to work.
-- [ ] Phase 1 decision log and known limitations are documented.
+- [x] Type-check, lint, tests, and production build pass.
+- [x] A scripted scenario creates a city, places infrastructure, runs multiple turns, saves, reloads, and replays.
+- [x] Repeated runs produce identical final-state hashes.
+- [x] No AI or 0G service is required for the simulation to work.
+- [x] Phase 1 decision log and known limitations are documented.
 
 ---
 
