@@ -72,12 +72,12 @@ Build the technical foundation and a headless version of the city simulation. By
 
 ### Persistence and replay
 
-- [ ] **P1.9 Implement local persistence**
+- [x] **P1.9 Implement local persistence**
   - Build: Store current city, action log, campaign cache, settings, and pending sync operations in IndexedDB with migrations.
   - Acceptance: Refreshing or closing the browser preserves the last committed turn; a corrupted save is rejected safely.
   - Verify: Browser persistence test and migration unit tests.
 
-- [ ] **P1.10 Implement replay and state hashing**
+- [x] **P1.10 Implement replay and state hashing**
   - Build: Recreate a city from seed plus ordered actions and produce canonical action-log and final-state hashes.
   - Acceptance: Browser and server executions produce identical states and hashes for the same run.
   - Verify: Replay the same golden scenario in both environments and compare hashes.
