@@ -7,7 +7,8 @@ import {
   detectMilestones,
   type StageTransitionDefinition,
 } from "./progression";
-import { makeTestCity, placedBuilding } from "./test-fixtures";
+import { FULL_COVERAGE, makeTestCity, placedBuilding } from "./test-fixtures";
+import { simulateTurn } from "./turn";
 
 const TRANSITIONS: StageTransitionDefinition[] = [
   {
@@ -158,21 +159,55 @@ describe("milestone detection", () => {
     },
   ];
 
-  it("earns scheduled-event and dependent milestones in stable order", () => {
-    const city = makeTestCity({ turn: 5 });
-    const result = detectMilestones(city, [...milestones].reverse(), [event]);
+  it("earns scheduled-event and dependent milestones after simulating its turn", () => {
+    const result = simulateTurn({
+      city: makeTestCity({ turn: 4 }),
+      network: FULL_COVERAGE,
+      progression: { milestones: [...milestones].reverse(), events: [event] },
+    });
+
+    expect(result.state.actionLog).toContainEqual(
+      expect.objectContaining({ type: "advance-turn", turn: 5 }),
+    );
     expect(result.earnedMilestoneIds).toEqual([
       "storm-ready",
       "storm-champion",
     ]);
     expect(result.state.milestones).toEqual(["storm-ready", "storm-champion"]);
-    expect(city.milestones).toEqual([]);
   });
 
   it("does not earn an event milestone before its scheduled turn", () => {
     expect(
-      detectMilestones(makeTestCity({ turn: 4 }), milestones, [event])
-        .earnedMilestoneIds,
+      detectMilestones(
+        makeTestCity({
+          turn: 4,
+          actionLog: [advanceTurnAction(4, 0)],
+        }),
+        milestones,
+        [event],
+      ).earnedMilestoneIds,
+    ).toEqual([]);
+  });
+
+  it("does not treat a later advance as completion when the event turn was skipped", () => {
+    expect(
+      detectMilestones(
+        makeTestCity({
+          turn: 6,
+          actionLog: [advanceTurnAction(6, 0)],
+        }),
+        milestones,
+        [event],
+      ).earnedMilestoneIds,
     ).toEqual([]);
   });
 });
+
+function advanceTurnAction(turn: number, sequence: number) {
+  return {
+    type: "advance-turn" as const,
+    actionId: `advance-turn-${turn}-${sequence}`,
+    turn,
+    sequence,
+  };
+}

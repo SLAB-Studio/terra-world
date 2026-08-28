@@ -52,7 +52,14 @@ export function evaluateProgressCondition(
       const event = events.find(
         (candidate) => candidate.id === condition.eventId,
       );
-      return event !== undefined && event.scheduledTurn <= city.turn;
+      return (
+        event !== undefined &&
+        city.actionLog.some(
+          (action) =>
+            action.type === "advance-turn" &&
+            action.turn === event.scheduledTurn,
+        )
+      );
     }
     case "milestone-earned":
       return city.milestones.includes(condition.milestoneId);
