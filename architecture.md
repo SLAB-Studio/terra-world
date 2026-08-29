@@ -563,6 +563,7 @@ POST /api/runs/:cityId/milestone
 profiles          Child-facing local avatar and preferences
 cities            Current local CityState
 campaign-cache    Verified campaign packs
+campaign-sessions Atomic, versioned gameplay resume state (campaign, history, ending, and provisional plan)
 action-logs       Ordered deterministic actions
 sync-queue        Pending checkpoints and milestones
 settings          Accessibility and device preferences
@@ -570,7 +571,8 @@ settings          Accessibility and device preferences
 
 ### Sync strategy
 
-- Save locally after every committed turn.
+- Save the local campaign session after every committed or provisional change.
+- Replay and verify the ordered action log before accepting a restored session.
 - Upload checkpoints only at chapter boundaries.
 - Update Agentic ID only for verified milestones.
 - Use idempotency keys for retryable server requests.
