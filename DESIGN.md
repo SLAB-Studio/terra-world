@@ -55,29 +55,22 @@ essential control may be clipped or depend on hover.
 
 ### Central town board
 
-The middle play area is one continuous isometric green town board, rather than
-a collection of cards or separated plots. A broad diagonal river crosses the
-land and gives the valley an immediate spatial reading. Trees and subtle
-diagonal grid texture can support the board, but never divide it into boxed
-sections.
+The child map is one simple, continuous, scrollable aerial landscape—not a
+collection of cards, plots, or a detailed simulation. A broad river remains
+visible as a persistent landmark. Trees, paths, and gentle ambient life give
+the valley warmth without competing with its purpose; reduced-motion removes
+all nonessential movement.
 
-Place the three family compounds directly on this shared land at distinct
-positions. Each is a small, labelled scene—not a container card—and retains
-its own house and garden character. On hover, focus, or drag-over, indicate
-the target with a warm sunflower outline and lift; do not add a panel behind
-the compound.
+Render houses only for actionable family homes. Owner labels and short speech
+bubbles show when a repair is needed; a house's details and diagnostics stay
+hidden until the child clicks or taps it. Keep River persistent beside the map
+on desktop and available from the sticky expert control on small screens.
 
-Keep River's compact coaching bubble inside the board, alongside the immediate
-action, so it reads as contextual help rather than a competing side panel.
-Upgrades must produce visible local reactions (for example lit windows, water,
-garden growth, or recycling) and the town may briefly animate its river when
-run. Preserve reduced-motion support by removing that nonessential animation.
-
-The left toy shelf and right River panel remain stable companions to the board;
-the board itself carries the place, targets, coaching, and visual consequence.
-On narrow screens, retain the continuous board, scale and reposition the three
-compounds, widen the river's diagonal sweep, and keep the guide bubble and
-primary action visible without horizontal page overflow.
+On desktop, drag an item to an actionable home; click selects a home and opens
+its details. On touch, tap a home to select it, then choose the available
+action—do not require a drag gesture. Responsive layouts keep the map
+continuous and center the entry view on actionable homes, while preserving the
+river and avoiding horizontal page overflow.
 
 ## Interaction
 
