@@ -8,13 +8,13 @@ import {
   Vector3,
 } from "@babylonjs/core";
 
-import {
-  createSegmentBox,
-  makeRoute,
-  quadraticPoint,
-  routePose,
-} from "./geometry";
+import { createSegmentBox, makeRoute } from "./geometry";
 import type { TownMaterials } from "./materials";
+import {
+  renderedRoadHeight,
+  ROAD_HALF_WIDTH_METERS,
+  sampleRoadFrame,
+} from "./road";
 
 export type TownEnvironment = Readonly<{
   root: TransformNode;
@@ -41,7 +41,7 @@ export function createTownEnvironment(
 
   const terrain = MeshBuilder.CreateBox(
     "terrain-extruded-base",
-    { width: 132, height: 3, depth: 92 },
+    { width: 160, height: 3, depth: 145 },
     scene,
   );
   terrain.position.y = -1.5;
@@ -52,7 +52,7 @@ export function createTownEnvironment(
 
   const terrainInset = MeshBuilder.CreateBox(
     "terrain-raised-inset",
-    { width: 122, height: 0.55, depth: 82 },
+    { width: 152, height: 0.55, depth: 137 },
     scene,
   );
   terrainInset.position.y = 0.18;
@@ -63,7 +63,7 @@ export function createTownEnvironment(
 
   const playField = MeshBuilder.CreateBox(
     "terrain-play-field",
-    { width: 119, height: 0.45, depth: 79 },
+    { width: 148, height: 0.45, depth: 133 },
     scene,
   );
   playField.position.y = 0.48;
@@ -73,10 +73,12 @@ export function createTownEnvironment(
   playField.receiveShadows = true;
 
   const riverPoints = makeRoute((t) => {
-    const z = -46 + t * 92;
+    const z = -70 + t * 140;
     const x = 12 + Math.sin(t * Math.PI * 2 - Math.PI / 2) * 3.4;
     return new Vector3(x, 0, z);
   }, 42);
+  const waterSegments: Mesh[] = [];
+  const bankSegments: Mesh[] = [];
 
   for (let index = 0; index < riverPoints.length - 1; index += 1) {
     const start = riverPoints[index];
@@ -86,91 +88,125 @@ export function createTownEnvironment(
       `river-water-${index}`,
       start,
       end,
-      11,
-      0.72,
-      0.28,
+      13,
+      0.2,
+      0.82,
       materials.river,
       root,
       scene,
     );
-    riverMeshes.push(water);
+    waterSegments.push(water);
 
     const delta = end.subtract(start);
     const normal = new Vector3(-delta.z, 0, delta.x).normalize();
     for (const side of [-1, 1]) {
-      const offset = normal.scale(side * 6.15);
+      const offset = normal.scale(side * 7.05);
       const bank = createSegmentBox(
         `river-bank-${side}-${index}`,
         start.add(offset),
         end.add(offset),
-        1.5,
-        0.7,
-        0.58,
+        1.1,
+        0.34,
+        0.86,
         materials.riverBank,
         root,
         scene,
       );
-      riverMeshes.push(bank);
+      bankSegments.push(bank);
     }
   }
 
-  const roadPoints = makeRoute(
-    (t) =>
-      quadraticPoint(
-        new Vector3(-66, 0, -5),
-        new Vector3(0, 0, 6),
-        new Vector3(66, 0, -4),
-        t,
-      ),
-    46,
+  const waterRibbon = Mesh.MergeMeshes(
+    waterSegments,
+    true,
+    true,
+    undefined,
+    false,
+    true,
   );
+  const riverBanks = Mesh.MergeMeshes(
+    bankSegments,
+    true,
+    true,
+    undefined,
+    false,
+    true,
+  );
+  if (waterRibbon !== null) riverMeshes.push(waterRibbon);
+  if (riverBanks !== null) riverMeshes.push(riverBanks);
 
-  for (let index = 0; index < roadPoints.length - 1; index += 1) {
-    const start = roadPoints[index];
-    const end = roadPoints[index + 1];
-    if (start === undefined || end === undefined) continue;
-    const shoulder = createSegmentBox(
-      `road-shoulder-${index}`,
-      start,
-      end,
-      10.8,
-      0.5,
-      0.72,
-      materials.bridge,
-      root,
-      scene,
+  const roadSamples = 160;
+  const roadLeft: Vector3[] = [];
+  const roadRight: Vector3[] = [];
+  const shoulderLeft: Vector3[] = [];
+  const shoulderRight: Vector3[] = [];
+  for (let index = 0; index < roadSamples; index += 1) {
+    const frame = sampleRoadFrame(index / roadSamples);
+    const center = new Vector3(
+      frame.center.x,
+      renderedRoadHeight(frame.center.y),
+      frame.center.z,
     );
-    const asphalt = createSegmentBox(
-      `road-asphalt-${index}`,
-      start,
-      end,
-      8.3,
-      0.7,
-      1.05,
-      materials.road,
-      root,
-      scene,
+    const lateral = new Vector3(frame.lateral.x, 0, frame.lateral.z);
+    roadLeft.push(center.add(lateral.scale(ROAD_HALF_WIDTH_METERS)));
+    roadRight.push(center.add(lateral.scale(-ROAD_HALF_WIDTH_METERS)));
+    shoulderLeft.push(center.add(lateral.scale(ROAD_HALF_WIDTH_METERS + 1.3)));
+    shoulderRight.push(
+      center.add(lateral.scale(-(ROAD_HALF_WIDTH_METERS + 1.3))),
     );
-    roadMeshes.push(shoulder, asphalt);
   }
 
-  for (let t = 0.045; t < 0.97; t += 0.055) {
-    const pose = routePose(roadPoints, t);
+  const shoulder = MeshBuilder.CreateRibbon(
+    "road-continuous-shoulder",
+    {
+      pathArray: [shoulderLeft, shoulderRight],
+      closePath: true,
+      sideOrientation: Mesh.DOUBLESIDE,
+    },
+    scene,
+  );
+  shoulder.material = materials.bridge;
+  shoulder.parent = root;
+  shoulder.isPickable = false;
+  shoulder.receiveShadows = true;
+
+  const asphalt = MeshBuilder.CreateRibbon(
+    "road-continuous-asphalt",
+    {
+      pathArray: [roadLeft, roadRight],
+      closePath: true,
+      sideOrientation: Mesh.DOUBLESIDE,
+    },
+    scene,
+  );
+  asphalt.position.y = 0.12;
+  asphalt.material = materials.road;
+  asphalt.parent = root;
+  asphalt.isPickable = false;
+  asphalt.receiveShadows = true;
+  roadMeshes.push(shoulder, asphalt);
+
+  for (let progress = 0; progress < 1; progress += 0.042) {
+    const frame = sampleRoadFrame(progress);
     const dash = MeshBuilder.CreateBox(
-      `road-centre-mark-${Math.round(t * 1000)}`,
-      { width: 2.8, height: 0.08, depth: 0.18 },
+      `road-centre-mark-${Math.round(progress * 1000)}`,
+      { width: 0.22, height: 0.08, depth: 2.8 },
       scene,
     );
-    dash.position.copyFrom(pose.position);
-    dash.position.y = 1.44;
-    dash.rotation.y = pose.yaw;
+    dash.position.set(
+      frame.center.x,
+      renderedRoadHeight(frame.center.y) + 0.15,
+      frame.center.z,
+    );
+    dash.rotation.y = Math.atan2(frame.tangent.x, frame.tangent.z);
     dash.material = materials.roadLine;
     dash.parent = root;
     dash.isPickable = false;
     roadMeshes.push(dash);
   }
 
-  createBridge(scene, root, roadPoints, materials, shadows, roadMeshes);
+  createBridge(scene, root, 0.283, materials, shadows, roadMeshes, "north");
+  createBridge(scene, root, 0.705, materials, shadows, roadMeshes, "south");
 
   for (const [index, t, side] of [
     [0, 0.11, -1],
@@ -179,10 +215,18 @@ export function createTownEnvironment(
     [3, 0.72, 1],
     [4, 0.89, -1],
   ] as const) {
-    const pose = routePose(roadPoints, t);
-    const offset = pose.normal.scale(side * 7.25);
+    const frame = sampleRoadFrame(t);
+    const offset = new Vector3(
+      frame.lateral.x * side * 7.25,
+      0,
+      frame.lateral.z * side * 7.25,
+    );
     const lightRoot = new TransformNode(`streetlight-${index}`, scene);
-    lightRoot.position.copyFrom(pose.position.add(offset));
+    lightRoot.position.set(
+      frame.center.x + offset.x,
+      renderedRoadHeight(frame.center.y) - 0.1,
+      frame.center.z + offset.z,
+    );
     lightRoot.parent = root;
 
     const pole = MeshBuilder.CreateCylinder(
@@ -254,16 +298,6 @@ export function createTownEnvironment(
     );
   });
 
-  const sky = MeshBuilder.CreateSphere(
-    "town-sky-dome",
-    { diameter: 260, segments: 20 },
-    scene,
-  );
-  sky.material = materials.sky;
-  sky.isPickable = false;
-  sky.infiniteDistance = true;
-  sky.parent = root;
-
   for (const [index, x, z, scale] of [
     [0, -48, -32, 1.2],
     [1, 2, 28, 0.85],
@@ -287,23 +321,28 @@ export function createTownEnvironment(
 function createBridge(
   scene: Scene,
   root: TransformNode,
-  roadPoints: readonly Vector3[],
+  progress: number,
   materials: TownMaterials,
   shadows: ShadowGenerator,
   roadMeshes: Mesh[],
+  suffix: string,
 ) {
-  const pose = routePose(roadPoints, 0.59);
-  const bridgeRoot = new TransformNode("rivergate-bridge", scene);
-  bridgeRoot.position.copyFrom(pose.position);
-  bridgeRoot.rotation.y = pose.yaw;
+  const frame = sampleRoadFrame(progress);
+  const bridgeRoot = new TransformNode(`rivergate-bridge-${suffix}`, scene);
+  bridgeRoot.position.set(
+    frame.center.x,
+    renderedRoadHeight(frame.center.y) - 0.2,
+    frame.center.z,
+  );
+  bridgeRoot.rotation.y = Math.atan2(frame.tangent.x, frame.tangent.z);
   bridgeRoot.parent = root;
 
   const deck = MeshBuilder.CreateBox(
-    "bridge-extruded-deck",
-    { width: 19, height: 1.25, depth: 10.9 },
+    `bridge-extruded-deck-${suffix}`,
+    { width: 12.4, height: 0.45, depth: 20 },
     scene,
   );
-  deck.position.y = 1.15;
+  deck.position.y = 0.02;
   deck.material = materials.bridge;
   deck.parent = bridgeRoot;
   deck.isPickable = false;
@@ -312,11 +351,11 @@ function createBridge(
   roadMeshes.push(deck);
 
   const bridgeRoad = MeshBuilder.CreateBox(
-    "bridge-road-surface",
-    { width: 19.4, height: 0.3, depth: 8.2 },
+    `bridge-road-surface-${suffix}`,
+    { width: 10.4, height: 0.16, depth: 20.4 },
     scene,
   );
-  bridgeRoad.position.y = 1.91;
+  bridgeRoad.position.y = 0.35;
   bridgeRoad.material = materials.road;
   bridgeRoad.parent = bridgeRoot;
   bridgeRoad.isPickable = false;
@@ -325,23 +364,23 @@ function createBridge(
 
   for (const side of [-1, 1]) {
     const rail = MeshBuilder.CreateBox(
-      `bridge-rail-${side}`,
-      { width: 19.5, height: 0.55, depth: 0.34 },
+      `bridge-rail-${suffix}-${side}`,
+      { width: 0.34, height: 0.55, depth: 20.5 },
       scene,
     );
-    rail.position.set(0, 2.45, side * 5.05);
+    rail.position.set(side * 5.75, 0.88, 0);
     rail.material = materials.white;
     rail.parent = bridgeRoot;
     rail.isPickable = false;
     shadows.addShadowCaster(rail);
 
-    for (const x of [-8, -4, 0, 4, 8]) {
+    for (const z of [-8, -4, 0, 4, 8]) {
       const post = MeshBuilder.CreateBox(
-        `bridge-post-${side}-${x}`,
+        `bridge-post-${suffix}-${side}-${z}`,
         { width: 0.34, height: 1.3, depth: 0.34 },
         scene,
       );
-      post.position.set(x, 2.1, side * 5.05);
+      post.position.set(side * 5.75, 0.65, z);
       post.material = materials.white;
       post.parent = bridgeRoot;
       post.isPickable = false;
@@ -349,23 +388,23 @@ function createBridge(
     }
   }
 
-  for (const x of [-7.2, -2.4, 2.4, 7.2]) {
+  for (const z of [-7.2, -2.4, 2.4, 7.2]) {
     const dash = MeshBuilder.CreateBox(
-      `bridge-centre-mark-${x}`,
-      { width: 2.8, height: 0.08, depth: 0.2 },
+      `bridge-centre-mark-${suffix}-${z}`,
+      { width: 0.2, height: 0.08, depth: 2.8 },
       scene,
     );
-    dash.position.set(x, 2.1, 0);
+    dash.position.set(0, 2.1, z);
     dash.material = materials.roadLine;
     dash.parent = bridgeRoot;
     dash.isPickable = false;
     roadMeshes.push(dash);
   }
 
-  for (const x of [-6, 6]) {
-    for (const z of [-3.65, 3.65]) {
+  for (const z of [-6, 6]) {
+    for (const x of [-3.65, 3.65]) {
       const pier = MeshBuilder.CreateCylinder(
-        `bridge-pier-${x}-${z}`,
+        `bridge-pier-${suffix}-${x}-${z}`,
         { height: 3.2, diameter: 0.9, tessellation: 12 },
         scene,
       );

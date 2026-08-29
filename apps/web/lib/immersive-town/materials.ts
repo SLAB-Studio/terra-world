@@ -14,8 +14,8 @@ export const TOWN_PALETTE = {
   leafLight: "#79BC62",
   orchardRoof: "#D86B55",
   orchardWall: "#F4D8B2",
-  river: "#4EA6C8",
-  riverDeep: "#287B9B",
+  river: "#2F9ED6",
+  riverDeep: "#176A98",
   riverRoof: "#4787B7",
   riverWall: "#D9EEF0",
   road: "#46545A",
@@ -59,16 +59,17 @@ export function createTownMaterials(scene: Scene): TownMaterials {
   const make = (name: string, color: string, specularPower = 24) => {
     const material = new StandardMaterial(`town-material-${name}`, scene);
     material.diffuseColor = Color3.FromHexString(color);
-    material.specularColor = Color3.FromHexString(color).scale(0.12);
+    material.specularColor = Color3.White().scale(0.08);
     material.specularPower = specularPower;
     return material;
   };
 
   const river = make("river", TOWN_PALETTE.river, 96);
-  river.alpha = 0.88;
+  river.alpha = 1;
   river.backFaceCulling = false;
-  river.emissiveColor = Color3.FromHexString(TOWN_PALETTE.riverDeep).scale(
-    0.12,
+  river.specularColor = Color3.White().scale(0.46);
+  river.emissiveColor = Color3.FromHexString(TOWN_PALETTE.river).scale(
+    0.18,
   );
 
   const lamp = make("lamp", TOWN_PALETTE.lamp, 96);

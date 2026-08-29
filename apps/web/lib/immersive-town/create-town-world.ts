@@ -33,19 +33,21 @@ export function createImmersiveTownWorld(
   scene.ambientColor = Color3.FromHexString("#DCEED1").scale(0.28);
   scene.fogMode = Scene.FOGMODE_LINEAR;
   scene.fogColor = Color3.FromHexString(TOWN_PALETTE.sky);
-  scene.fogStart = 90;
-  scene.fogEnd = 185;
+  scene.fogStart = 115;
+  scene.fogEnd = 230;
+  scene.imageProcessingConfiguration.contrast = 1.08;
+  scene.imageProcessingConfiguration.exposure = 0.98;
 
   const target = options.cameraTarget?.clone() ?? new Vector3(0, 2.4, 0);
   const camera = new ArcRotateCamera(
     "rivergate-camera",
     -Math.PI / 2.15,
-    1.02,
-    104,
+    0.86,
+    92,
     target,
     scene,
   );
-  camera.lowerRadiusLimit = 62;
+  camera.lowerRadiusLimit = 56;
   camera.upperRadiusLimit = 132;
   camera.lowerBetaLimit = 0.64;
   camera.upperBetaLimit = 1.34;
@@ -65,7 +67,7 @@ export function createImmersiveTownWorld(
     new Vector3(0.2, 1, -0.1),
     scene,
   );
-  ambient.intensity = 0.76;
+  ambient.intensity = 0.56;
   ambient.diffuse = Color3.FromHexString("#FFF5D6");
   ambient.groundColor = Color3.FromHexString("#315A46");
   ambient.specular = Color3.FromHexString("#D9F2ED").scale(0.36);
@@ -76,7 +78,7 @@ export function createImmersiveTownWorld(
     scene,
   );
   sun.position.set(54, 82, -48);
-  sun.intensity = 1.08;
+  sun.intensity = 1.18;
   sun.diffuse = Color3.FromHexString("#FFF0C2");
   sun.specular = Color3.FromHexString("#FFF9E8").scale(0.58);
   sun.autoCalcShadowZBounds = true;

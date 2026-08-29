@@ -30,6 +30,11 @@ export const ROAD_HALF_WIDTH_METERS = 5.2;
 export const LANE_CENTER_OFFSET_METERS = 2.25;
 export const VEHICLE_HALF_WIDTH_METERS = 0.9;
 
+/** Shared presentation height so road, bridges, markings and vehicles agree. */
+export function renderedRoadHeight(splineHeight: number): number {
+  return 0.86 + splineHeight * 0.18;
+}
+
 export const LANES: Readonly<Record<LaneId, LaneDefinition>> = {
   clockwise: {
     id: "clockwise",
@@ -48,16 +53,17 @@ export const LANES: Readonly<Record<LaneId, LaneDefinition>> = {
  * y variation gives the town road real elevation while keeping cars upright.
  */
 export const ROAD_CONTROL_POINTS: readonly Vec3[] = [
-  { x: -68, y: 0.4, z: -8 },
-  { x: -55, y: 1.1, z: -44 },
-  { x: -21, y: 2.1, z: -63 },
-  { x: 20, y: 2.6, z: -61 },
-  { x: 58, y: 1.4, z: -39 },
-  { x: 72, y: 0.3, z: -4 },
-  { x: 60, y: -0.4, z: 34 },
-  { x: 27, y: -0.8, z: 57 },
-  { x: -16, y: -0.3, z: 60 },
-  { x: -53, y: 0.2, z: 36 },
+  { x: -72, y: 0.4, z: -6 },
+  { x: -46, y: 0.8, z: -8 },
+  { x: -18, y: 1.2, z: -3 },
+  { x: 12, y: 1.6, z: 2 },
+  { x: 43, y: 1.1, z: 3 },
+  { x: 72, y: 0.4, z: -5 },
+  { x: 62, y: 0.1, z: 30 },
+  { x: 35, y: -0.2, z: 52 },
+  { x: 0, y: -0.35, z: 60 },
+  { x: -38, y: -0.1, z: 52 },
+  { x: -63, y: 0.2, z: 28 },
 ] as const;
 
 const UP: Vec3 = { x: 0, y: 1, z: 0 };

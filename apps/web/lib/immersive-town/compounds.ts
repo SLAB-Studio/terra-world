@@ -65,16 +65,10 @@ export function createTownCompounds(
       },
       houses: [
         {
-          id: "sunflower-aminas-home",
-          displayName: "Amina's home",
-          position: new Vector3(-7.5, 0, -2.8),
-          rotation: 0.08,
-        },
-        {
-          id: "sunflower-kojos-home",
-          displayName: "Kojo's home",
-          position: new Vector3(7.4, 0, -1.5),
-          rotation: -0.13,
+          id: "sunny",
+          displayName: "Ayo's Sunny House",
+          position: new Vector3(0, 0, -1.8),
+          rotation: 0.04,
         },
       ],
     },
@@ -90,16 +84,10 @@ export function createTownCompounds(
       },
       houses: [
         {
-          id: "riverbend-lelas-home",
-          displayName: "Lela's home",
-          position: new Vector3(-7.3, 0, -2.5),
-          rotation: 0.12,
-        },
-        {
-          id: "riverbend-tobias-home",
-          displayName: "Tobi's home",
-          position: new Vector3(7.1, 0, -1.8),
-          rotation: -0.1,
+          id: "bluebell",
+          displayName: "Mina's Bluebell House",
+          position: new Vector3(0, 0, -1.8),
+          rotation: -0.05,
         },
       ],
     },
@@ -115,16 +103,10 @@ export function createTownCompounds(
       },
       houses: [
         {
-          id: "orchard-nadis-home",
-          displayName: "Nadi's home",
-          position: new Vector3(-7.8, 0, -2.3),
-          rotation: 0.05,
-        },
-        {
-          id: "orchard-maris-home",
-          displayName: "Mari's home",
-          position: new Vector3(7.3, 0, -2.2),
-          rotation: -0.11,
+          id: "mango",
+          displayName: "Tomi's Mango House",
+          position: new Vector3(0, 0, -1.8),
+          rotation: 0.03,
         },
       ],
     },
