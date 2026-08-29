@@ -244,6 +244,25 @@ describe("server-only 0G checkpoint bridge", () => {
     expect(upload).toHaveBeenCalledTimes(1);
   });
 
+  it("rejects non-envelope plaintext before it reaches sponsored storage", async () => {
+    const bytes = new TextEncoder().encode('{"schemaVersion":1,"budget":900}');
+    const contentHash = hash(bytes);
+    const upload = vi.fn();
+    const remote = createZeroGCheckpointRemoteStorage(
+      storageAdapter({ upload }),
+    );
+
+    await expect(
+      remote.upload({
+        idempotencyKey: `checkpoint-v1-${contentHash.slice(7)}`,
+        encryptedEnvelope: new TextDecoder().decode(bytes),
+        contentHash,
+        byteLength: bytes.byteLength,
+      }),
+    ).rejects.toEqual(new CheckpointRemoteError("invalid_request", false));
+    expect(upload).not.toHaveBeenCalled();
+  });
+
   it("uploads and restores through the coordinator without any child wallet", async () => {
     const { key, envelope } = await encryptedFixture();
     const storage = new ContentAddressedStorage();

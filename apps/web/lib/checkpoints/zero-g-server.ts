@@ -7,6 +7,7 @@ import {
   type CheckpointRemoteStorage,
   type CheckpointUploadRequest,
 } from "./backup";
+import { assertEncryptedCheckpointEnvelope } from "./encryption";
 
 const CONTENT_HASH = /^sha256:[a-f0-9]{64}$/u;
 const IDEMPOTENCY_KEY = /^checkpoint-v1-([a-f0-9]{64})$/u;
@@ -124,6 +125,12 @@ async function validateUploadRequest(
   }
   assertContentHash(request.contentHash);
   if (typeof request.encryptedEnvelope !== "string") {
+    throw new CheckpointRemoteError("invalid_request", false);
+  }
+  try {
+    const envelope = JSON.parse(request.encryptedEnvelope) as unknown;
+    assertEncryptedCheckpointEnvelope(envelope);
+  } catch {
     throw new CheckpointRemoteError("invalid_request", false);
   }
   const bytes = new TextEncoder().encode(request.encryptedEnvelope);
