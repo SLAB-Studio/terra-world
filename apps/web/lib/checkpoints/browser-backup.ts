@@ -121,7 +121,12 @@ function decodeBase64Url(value: string): Uint8Array<ArrayBuffer> {
     throw new TypeError("Invalid recovery code");
   }
   if (binary.length !== KEY_BYTES) throw new TypeError("Invalid recovery code");
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  if (encodeBase64Url(bytes) !== value) {
+    bytes.fill(0);
+    throw new TypeError("Invalid recovery code");
+  }
+  return bytes;
 }
 
 function validTimestamp(value: number): number {
