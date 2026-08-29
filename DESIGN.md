@@ -11,8 +11,9 @@ Direction seed: `514fbb03`.
 
 ## Experience boundaries
 
-- Child play contains no wallet, token, transaction, account, purchase, public
-  score, or personal-data prompt.
+- Child play contains no wallet, token, transaction, account, purchase, or
+  public score. A short builder nickname is kept only on the current device;
+  it is never sent to 0G, guide requests, analytics, or a public profile.
 - Building the city remains the primary action. Explanations are short,
   interruptible, and never block simulation.
 - Adult recovery, accessibility, reset, and technical proof live behind the
@@ -59,7 +60,9 @@ The child map is one simple, continuous, scrollable aerial landscape—not a
 collection of cards, plots, or a detailed simulation. A broad river remains
 visible as a persistent landmark. Trees, paths, and gentle ambient life give
 the valley warmth without competing with its purpose; reduced-motion removes
-all nonessential movement.
+all nonessential movement. People chat, children play, birds cross the sky,
+and small cars travel the paths so the town feels inhabited without becoming a
+traffic simulation.
 
 Render houses only for actionable family homes. Owner labels and short speech
 bubbles show when a repair is needed; a house's details and diagnostics stay
@@ -134,6 +137,7 @@ or compute proof when the matching service is not configured.
 - Semantic headings, regions, labels, status, and live announcements
 - Complete keyboard alternative to drag-and-drop
 - High-contrast option and non-colour map states
-- Adjustable text scale, reduced-motion support, and muted-by-default audio
+- Adjustable text scale, reduced-motion support, and consent-based audio with
+  a persistent mute control
 - Mobile layout without horizontal page overflow
 - Technical errors translated into safe, actionable child or adult language
