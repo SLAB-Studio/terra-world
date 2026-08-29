@@ -60,9 +60,18 @@ The child map is one simple, continuous, scrollable aerial landscape—not a
 collection of cards, plots, or a detailed simulation. A broad river remains
 visible as a persistent landmark. Trees, paths, and gentle ambient life give
 the valley warmth without competing with its purpose; reduced-motion removes
-all nonessential movement. People chat, children play, birds cross the sky,
-and small cars travel the paths so the town feels inhabited without becoming a
-traffic simulation.
+all nonessential movement. People chat, children play, and birds cross the sky
+so the town feels inhabited without becoming a traffic simulation.
+
+The landscape uses a transparent Phaser 2.5D simulation layer beneath the
+semantic house controls. One continuous Rivergate Boulevard is the only motor
+road: the visible asphalt, both opposing lanes, and every moving car share the
+same sampled centreline, so traffic cannot drift onto lawns or through homes.
+Road shoulders, crossings, lamps, cloud shadows, and vehicle depth add
+immersion without adding child-facing controls. With reduced motion enabled,
+traffic and cloud movement freeze. No essential action or information lives
+inside the canvas, and the CSS landscape remains a usable fallback if the game
+engine cannot start.
 
 Render houses only for actionable family homes. Owner labels and short speech
 bubbles show when a repair is needed; a house's details and diagnostics stay
