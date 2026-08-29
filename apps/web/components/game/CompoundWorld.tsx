@@ -20,6 +20,11 @@ import {
   TERRA_CHALLENGES,
 } from "../../lib/challenges/catalog";
 import { nextChallengeAction } from "../../lib/challenges/next-action";
+import {
+  neighborhoodHomeProfile,
+  NEIGHBORHOOD_HOME_PROFILES,
+  startingNeighborhoodUpgrades,
+} from "../../lib/immersive-town/neighborhood-home-stories";
 import ChallengeTrail from "./ChallengeTrail";
 import { GameIcon } from "./GameIcon";
 import HouseDiagnostics, {
@@ -28,9 +33,12 @@ import HouseDiagnostics, {
   HOUSE_UPGRADE_IDS,
   type CoreHouseUpgradeId,
   type HouseId,
+  type HouseProfile,
   type HouseUpgradeId,
 } from "./HouseDiagnostics";
-import ImmersiveTownMap from "./ImmersiveTownMap";
+import ImmersiveTownMap, {
+  type NeighborhoodHouseSelection,
+} from "./ImmersiveTownMap";
 
 type UpgradeId = HouseUpgradeId;
 type CompoundId = HouseId;
@@ -205,6 +213,15 @@ function initialCompoundState(): Record<CompoundId, readonly UpgradeId[]> {
   return copyChallengeSetup(FIRST_CHALLENGE);
 }
 
+function initialNeighborhoodState(): Record<string, readonly UpgradeId[]> {
+  return Object.fromEntries(
+    NEIGHBORHOOD_HOME_PROFILES.map((home) => [
+      home.id,
+      startingNeighborhoodUpgrades(home.need),
+    ]),
+  );
+}
+
 export default function CompoundWorld({
   backgroundInert = false,
   onRiverMessage,
@@ -231,6 +248,11 @@ export default function CompoundWorld({
   } | null>(null);
   const [selectedCompound, setSelectedCompound] = useState<CompoundId | null>(
     null,
+  );
+  const [selectedNeighborhoodHouse, setSelectedNeighborhoodHouse] =
+    useState<NeighborhoodHouseSelection | null>(null);
+  const [neighborhoodHomes, setNeighborhoodHomes] = useState(
+    initialNeighborhoodState,
   );
   const [dragPiece, setDragPiece] = useState<DragPiece | null>(null);
   const [hoveredCompound, setHoveredCompound] = useState<CompoundId | null>(
@@ -274,6 +296,42 @@ export default function CompoundWorld({
       ? null
       : (UPGRADES.find((upgrade) => upgrade.id === nextAction.upgradeId) ??
         null);
+  const nextChallenge =
+    nextChallengeId(activeChallenge.id) === null
+      ? null
+      : challengeById(nextChallengeId(activeChallenge.id) ?? "");
+  const selectedNeighborhoodStory =
+    selectedNeighborhoodHouse === null
+      ? null
+      : neighborhoodHomeProfile(
+          selectedNeighborhoodHouse.id,
+          selectedNeighborhoodHouse.displayName,
+        );
+  const selectedNeighborhoodTemplate =
+    selectedNeighborhoodStory === null
+      ? "sunny"
+      : houseTemplateFor(selectedNeighborhoodStory.id);
+  const selectedNeighborhoodProfile = useMemo<HouseProfile | undefined>(() => {
+    if (selectedNeighborhoodStory === null) return undefined;
+    const otherNeeds = CORE_HOUSE_UPGRADE_IDS.filter(
+      (upgrade) => upgrade !== selectedNeighborhoodStory.need,
+    );
+    return {
+      id: selectedNeighborhoodTemplate,
+      homeName: selectedNeighborhoodStory.homeName,
+      ownerName: selectedNeighborhoodStory.ownerName,
+      gardenName: "neighbourhood garden",
+      hello: selectedNeighborhoodStory.problem,
+      defaultUpgrades: startingNeighborhoodUpgrades(
+        selectedNeighborhoodStory.need,
+      ),
+      recommendedOrder: [selectedNeighborhoodStory.need, ...otherNeeds],
+    };
+  }, [selectedNeighborhoodStory, selectedNeighborhoodTemplate]);
+  const nextNeighborhoodCall = NEIGHBORHOOD_HOME_PROFILES.find((home) => {
+    const upgrades = neighborhoodHomes[home.id] ?? [];
+    return !upgrades.includes(home.need);
+  });
 
   const litHomes = useMemo(
     () =>
@@ -298,10 +356,7 @@ export default function CompoundWorld({
 
     function move(event: PointerEvent) {
       const active = dragPieceRef.current;
-      if (
-        active === null ||
-        dragPointerIdRef.current !== event.pointerId
-      )
+      if (active === null || dragPointerIdRef.current !== event.pointerId)
         return;
       const origin = dragOriginRef.current;
       if (
@@ -318,10 +373,7 @@ export default function CompoundWorld({
 
     function release(event: PointerEvent) {
       const active = dragPieceRef.current;
-      if (
-        active === null ||
-        dragPointerIdRef.current !== event.pointerId
-      )
+      if (active === null || dragPointerIdRef.current !== event.pointerId)
         return;
       const target = compoundAt(event.clientX, event.clientY);
       suppressNextUpgradeClickRef.current = dragMovedRef.current;
@@ -380,7 +432,18 @@ export default function CompoundWorld({
       setChallengeHintsUsed(restored.hintsUsed);
       setCompletedChallengeIds(restored.completedIds);
       setBestChallengeStars(restored.bestStars);
-      setAttemptComplete(isChallengeComplete(restoredChallenge, restored.town));
+      setNeighborhoodHomes(restored.neighborhoodHomes);
+      const restoredComplete = isChallengeComplete(
+        restoredChallenge,
+        restored.town,
+      );
+      setAttemptComplete(restoredComplete);
+      if (restoredComplete) {
+        const restoredStars = restored.bestStars[restoredChallenge.id];
+        const stars: 1 | 2 | 3 =
+          restoredStars === 3 ? 3 : restoredStars === 2 ? 2 : 1;
+        setCompletionNotice({ challengeId: restoredChallenge.id, stars });
+      }
     }
     setChallengeProgressReady(true);
   }, []);
@@ -398,6 +461,7 @@ export default function CompoundWorld({
           hintsUsed: challengeHintsUsed,
           completedIds: completedChallengeIds,
           bestStars: bestChallengeStars,
+          neighborhoodHomes,
         }),
       );
     } catch {
@@ -411,6 +475,7 @@ export default function CompoundWorld({
     challengeProgressReady,
     completedChallengeIds,
     compounds,
+    neighborhoodHomes,
   ]);
 
   function addUpgrade(compoundId: CompoundId, upgradeId: UpgradeId) {
@@ -471,6 +536,51 @@ export default function CompoundWorld({
     }
   }
 
+  function addNeighborhoodUpgrade(
+    house: NeighborhoodHouseSelection,
+    upgradeId: UpgradeId,
+  ) {
+    dragPieceRef.current = null;
+    dragPointerIdRef.current = null;
+    dragOriginRef.current = null;
+    dragMovedRef.current = false;
+    setDragPiece(null);
+    setHoveredCompound(null);
+    setArmedUpgrade(null);
+
+    const story = neighborhoodHomeProfile(house.id, house.displayName);
+    const installed =
+      neighborhoodHomes[house.id] ?? startingNeighborhoodUpgrades(story.need);
+    if (installed.includes(story.need)) {
+      onRiverMessage(
+        `${story.ownerName}'s home is healthy now. Another neighbour is still waiting—tap any other house to visit them.`,
+      );
+      return;
+    }
+    if (upgradeId !== story.need) {
+      onRiverMessage(
+        `${upgradeLabel(upgradeId)} can help another problem, but ${story.ownerName} needs ${upgradeLabel(story.need).toLowerCase()} here. Try that helper next.`,
+      );
+      setSelectedNeighborhoodHouse(house);
+      return;
+    }
+
+    setNeighborhoodHomes((current) => ({
+      ...current,
+      [house.id]: [...(current[house.id] ?? installed), upgradeId],
+    }));
+    setTownAwake(true);
+    if (celebrationTimerRef.current !== null)
+      window.clearTimeout(celebrationTimerRef.current);
+    celebrationTimerRef.current = window.setTimeout(
+      () => setTownAwake(false),
+      2200,
+    );
+    onRiverMessage(
+      `${story.ownerName}'s home is working again! ${story.healthy} Another neighbour is ready for a visit whenever you tap a house.`,
+    );
+  }
+
   addUpgradeRef.current = addUpgrade;
 
   function startChallenge(challengeId: string) {
@@ -489,6 +599,7 @@ export default function CompoundWorld({
     setAttemptComplete(false);
     setCompletionNotice(null);
     setSelectedCompound(null);
+    setSelectedNeighborhoodHouse(null);
     setChallengeTrailOpen(false);
     onRiverMessage(
       `Take a look before changing anything. ${challenge.story} What do you notice? ${challenge.instruction}`,
@@ -703,8 +814,19 @@ export default function CompoundWorld({
                 activeUpgradeId={dragPiece?.id ?? armedUpgrade}
                 houses={compounds}
                 onHouseDrop={addUpgrade}
-                onHouseSelect={setSelectedCompound}
+                onHouseSelect={(houseId) => {
+                  setSelectedNeighborhoodHouse(null);
+                  setSelectedCompound(houseId);
+                }}
+                onNeighborhoodHouseDrop={addNeighborhoodUpgrade}
+                onNeighborhoodHouseSelect={(house) => {
+                  setSelectedCompound(null);
+                  setSelectedNeighborhoodHouse(house);
+                }}
                 selectedHouseId={selectedCompound}
+                selectedNeighborhoodHouseId={
+                  selectedNeighborhoodHouse?.id ?? null
+                }
               />
               <div className="compound-grid">
                 {COMPOUNDS.map((compound) => {
@@ -830,6 +952,24 @@ export default function CompoundWorld({
             <GameIcon name="play" size={22} />
             Watch the town!
           </button>
+          <button
+            className="neighbor-call-button"
+            disabled={nextNeighborhoodCall === undefined}
+            onClick={() => {
+              if (nextNeighborhoodCall === undefined) return;
+              setSelectedCompound(null);
+              setSelectedNeighborhoodHouse({
+                id: nextNeighborhoodCall.id,
+                displayName: nextNeighborhoodCall.displayName,
+              });
+            }}
+            type="button"
+          >
+            <GameIcon name="home" size={22} />
+            {nextNeighborhoodCall === undefined
+              ? "All neighbours happy"
+              : "Visit a neighbour"}
+          </button>
         </footer>
 
         {completionNotice !== null && !challengeTrailOpen && (
@@ -838,16 +978,21 @@ export default function CompoundWorld({
               <GameIcon name="nature" size={27} />
             </span>
             <div>
-              <strong>Challenge complete!</strong>
+              <strong>
+                {nextChallenge === null
+                  ? "Rivergate is thriving!"
+                  : "A new neighbour needs you!"}
+              </strong>
               <span>
-                {completionNotice.stars}{" "}
-                {completionNotice.stars === 1 ? "leaf" : "leaves"} earned
+                {nextChallenge === null
+                  ? `${completionNotice.stars} ${completionNotice.stars === 1 ? "leaf" : "leaves"} earned`
+                  : `Next: ${nextChallenge.title}`}
               </span>
             </div>
             <button onClick={startNextChallenge} type="button">
               {nextChallengeId(completionNotice.challengeId) === null
                 ? "See my trail"
-                : "Next challenge"}
+                : "Answer the call"}
               <GameIcon name="arrow" size={19} />
             </button>
           </div>
@@ -890,10 +1035,29 @@ export default function CompoundWorld({
 
       <HouseDiagnostics
         houseId={selectedCompound ?? "sunny"}
-        onChooseUpgrade={(houseId, upgradeId) => addUpgrade(houseId, upgradeId)}
+        onChooseUpgrade={(upgradeId) =>
+          addUpgrade(selectedCompound ?? "sunny", upgradeId)
+        }
         onClose={() => setSelectedCompound(null)}
         open={selectedCompound !== null}
         upgrades={compounds[selectedCompound ?? "sunny"]}
+      />
+
+      <HouseDiagnostics
+        houseId={selectedNeighborhoodTemplate}
+        instanceId={`neighbor-${selectedNeighborhoodHouse?.id ?? "home"}`}
+        onChooseUpgrade={(upgradeId) => {
+          if (selectedNeighborhoodHouse !== null)
+            addNeighborhoodUpgrade(selectedNeighborhoodHouse, upgradeId);
+        }}
+        onClose={() => setSelectedNeighborhoodHouse(null)}
+        open={selectedNeighborhoodHouse !== null}
+        profile={selectedNeighborhoodProfile}
+        upgrades={
+          selectedNeighborhoodHouse === null
+            ? undefined
+            : neighborhoodHomes[selectedNeighborhoodHouse.id]
+        }
       />
     </>
   );
@@ -911,6 +1075,14 @@ function upgradeLabel(id: UpgradeId): string {
   return UPGRADES.find((upgrade) => upgrade.id === id)?.label ?? id;
 }
 
+function houseTemplateFor(id: string): HouseId {
+  const index = [...id].reduce(
+    (total, character) => total + character.charCodeAt(0),
+    0,
+  );
+  return (["sunny", "bluebell", "mango"] as const)[index % 3] ?? "sunny";
+}
+
 function missingChallengeCatalogue(): never {
   throw new Error("Terra World requires at least one challenge");
 }
@@ -918,6 +1090,7 @@ function missingChallengeCatalogue(): never {
 type RestoredChallengeProgress = Readonly<{
   activeChallengeId: string;
   town: Record<CompoundId, readonly UpgradeId[]>;
+  neighborhoodHomes: Record<string, readonly UpgradeId[]>;
   moves: number;
   hintsUsed: number;
   completedIds: readonly string[];
@@ -957,6 +1130,7 @@ function restoreChallengeProgress(): RestoredChallengeProgress | null {
     return {
       activeChallengeId: value.activeChallengeId,
       town: value.town,
+      neighborhoodHomes: restoreNeighborhoodHomes(value.neighborhoodHomes),
       moves: value.moves,
       hintsUsed: value.hintsUsed,
       completedIds,
@@ -965,6 +1139,26 @@ function restoreChallengeProgress(): RestoredChallengeProgress | null {
   } catch {
     return null;
   }
+}
+
+function restoreNeighborhoodHomes(
+  value: unknown,
+): Record<string, readonly UpgradeId[]> {
+  const initial = initialNeighborhoodState();
+  if (!isRecord(value)) return initial;
+  return Object.fromEntries(
+    NEIGHBORHOOD_HOME_PROFILES.map((home) => {
+      const upgrades = value[home.id];
+      if (
+        !Array.isArray(upgrades) ||
+        upgrades.length > UPGRADES.length ||
+        new Set(upgrades).size !== upgrades.length ||
+        !upgrades.every(isHouseUpgradeId)
+      )
+        return [home.id, initial[home.id] ?? []];
+      return [home.id, upgrades];
+    }),
+  );
 }
 
 function isChallengeTown(

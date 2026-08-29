@@ -8,11 +8,22 @@ import type { ImmersiveTownWorld } from "../../lib/immersive-town/types";
 import type { VehicleFleet } from "../../lib/immersive-town/vehicles-3d";
 import type { HouseId, HouseUpgradeId } from "./HouseDiagnostics";
 
+export type NeighborhoodHouseSelection = Readonly<{
+  id: string;
+  displayName: string;
+}>;
+
 type ImmersiveTownMapProps = Readonly<{
   activeUpgradeId: HouseUpgradeId | null;
   houses: Readonly<Record<HouseId, readonly HouseUpgradeId[]>>;
   onHouseDrop: (houseId: HouseId, upgradeId: HouseUpgradeId) => void;
   onHouseSelect: (houseId: HouseId) => void;
+  onNeighborhoodHouseDrop: (
+    house: NeighborhoodHouseSelection,
+    upgradeId: HouseUpgradeId,
+  ) => void;
+  onNeighborhoodHouseSelect: (house: NeighborhoodHouseSelection) => void;
+  selectedNeighborhoodHouseId: string | null;
   selectedHouseId: HouseId | null;
 }>;
 
@@ -23,7 +34,7 @@ type RuntimeHandle = Readonly<{
   world: ImmersiveTownWorld;
   cancelCameraAnimation(): void;
   resetCamera(): void;
-  focusHouse(houseId: HouseId): void;
+  focusHouse(houseId: string): void;
   dispose(): void;
 }>;
 
@@ -36,6 +47,9 @@ function ImmersiveTownMap({
   houses,
   onHouseDrop,
   onHouseSelect,
+  onNeighborhoodHouseDrop,
+  onNeighborhoodHouseSelect,
+  selectedNeighborhoodHouseId,
   selectedHouseId,
 }: ImmersiveTownMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -45,6 +59,9 @@ function ImmersiveTownMap({
     houses,
     onHouseDrop,
     onHouseSelect,
+    onNeighborhoodHouseDrop,
+    onNeighborhoodHouseSelect,
+    selectedNeighborhoodHouseId,
     selectedHouseId,
   });
   const [engineStatus, setEngineStatus] = useState<
@@ -56,6 +73,9 @@ function ImmersiveTownMap({
     houses,
     onHouseDrop,
     onHouseSelect,
+    onNeighborhoodHouseDrop,
+    onNeighborhoodHouseSelect,
+    selectedNeighborhoodHouseId,
     selectedHouseId,
   };
 
@@ -142,8 +162,8 @@ function ImmersiveTownMap({
         });
 
         let cancelCameraAnimation: () => void = () => undefined;
-        let hoveredHouseId: HouseId | null = null;
-        const setHoveredHouse = (houseId: HouseId | null) => {
+        let hoveredHouseId: string | null = null;
+        const setHoveredHouse = (houseId: string | null) => {
           if (houseId === hoveredHouseId) return;
           world.houses.forEach((house) => {
             const highlighted = house.id === houseId;
@@ -161,9 +181,7 @@ function ImmersiveTownMap({
             const hovered = world.getHouseFromMesh(
               pointer.pickInfo?.pickedMesh ?? null,
             );
-            setHoveredHouse(
-              hovered !== null && isHouseId(hovered.id) ? hovered.id : null,
-            );
+            setHoveredHouse(hovered?.id ?? null);
             return;
           }
           if (pointer.type === Babylon.PointerEventTypes.POINTERDOWN) {
@@ -174,9 +192,17 @@ function ImmersiveTownMap({
           const house = world.getHouseFromMesh(
             pointer.pickInfo?.pickedMesh ?? null,
           );
-          if (house === null || !isHouseId(house.id)) return;
+          if (house === null) return;
           const active = propsRef.current.activeUpgradeId;
-          if (active === null) propsRef.current.onHouseSelect(house.id);
+          if (active !== null) return;
+          if (isHouseId(house.id)) {
+            propsRef.current.onHouseSelect(house.id);
+          } else {
+            propsRef.current.onNeighborhoodHouseSelect({
+              id: house.id,
+              displayName: house.displayName,
+            });
+          }
         });
 
         const dropUpgradeOnHouse = (event: PointerEvent) => {
@@ -195,8 +221,14 @@ function ImmersiveTownMap({
           const house = world.getHouseFromMesh(
             world.scene.pick(x, y)?.pickedMesh ?? null,
           );
-          if (house !== null && isHouseId(house.id)) {
+          if (house === null) return;
+          if (isHouseId(house.id)) {
             propsRef.current.onHouseDrop(house.id, active);
+          } else {
+            propsRef.current.onNeighborhoodHouseDrop(
+              { id: house.id, displayName: house.displayName },
+              active,
+            );
           }
         };
         window.addEventListener("pointerup", dropUpgradeOnHouse);
@@ -230,7 +262,7 @@ function ImmersiveTownMap({
             reducedMotionQuery.matches,
           );
         };
-        const focusHouse = (houseId: HouseId) => {
+        const focusHouse = (houseId: string) => {
           const house = world.houses.find((item) => item.id === houseId);
           if (house === undefined) return;
           const target = cameraTools.cameraTargetForWorldPoint({
@@ -294,10 +326,13 @@ function ImmersiveTownMap({
             isRendering = true;
           }
         };
-        const intersectionObserver = new IntersectionObserver(([entry]) => {
-          isOnscreen = entry?.isIntersecting === true;
-          syncPauseState();
-        }, { threshold: 0.08 });
+        const intersectionObserver = new IntersectionObserver(
+          ([entry]) => {
+            isOnscreen = entry?.isIntersecting === true;
+            syncPauseState();
+          },
+          { threshold: 0.08 },
+        );
         intersectionObserver.observe(canvas);
         const updateVisibility = () => {
           isPageVisible = document.visibilityState === "visible";
@@ -339,9 +374,9 @@ function ImmersiveTownMap({
   }, [houses, selectedHouseId]);
 
   useEffect(() => {
-    if (selectedHouseId !== null)
-      runtimeRef.current?.focusHouse(selectedHouseId);
-  }, [selectedHouseId]);
+    const focusedHouseId = selectedHouseId ?? selectedNeighborhoodHouseId;
+    if (focusedHouseId !== null) runtimeRef.current?.focusHouse(focusedHouseId);
+  }, [selectedHouseId, selectedNeighborhoodHouseId]);
 
   const changeCamera = useCallback(
     (command: "left" | "right" | "closer" | "farther" | "home") => {
@@ -443,7 +478,11 @@ function animateCamera(
     camera.alpha = target.alpha;
     camera.beta = target.beta;
     camera.radius = target.radius;
-    camera.target.copyFromFloats(target.target.x, target.target.y, target.target.z);
+    camera.target.copyFromFloats(
+      target.target.x,
+      target.target.y,
+      target.target.z,
+    );
     return () => undefined;
   }
   const start = {

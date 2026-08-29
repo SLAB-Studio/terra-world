@@ -64,10 +64,12 @@ export type HouseHealth = Readonly<{
 export type HouseDiagnosticsProps = Readonly<{
   open: boolean;
   houseId: HouseId;
+  instanceId?: string | undefined;
+  profile?: HouseProfile | undefined;
   /** When omitted, the selected profile's example starting upgrades are used. */
-  upgrades?: readonly HouseUpgradeId[];
+  upgrades?: readonly HouseUpgradeId[] | undefined;
   onClose: () => void;
-  onChooseUpgrade: (houseId: HouseId, upgradeId: HouseUpgradeId) => void;
+  onChooseUpgrade: (upgradeId: HouseUpgradeId) => void;
 }>;
 
 export const HOUSE_PROFILES: Readonly<Record<HouseId, HouseProfile>> = {
@@ -180,9 +182,10 @@ const DIAGNOSTIC_DETAILS: readonly Readonly<{
 export function getHouseHealth(
   houseId: HouseId,
   upgrades: readonly HouseUpgradeId[],
+  profileOverride?: HouseProfile,
 ): HouseHealth {
   const installed = new Set(upgrades);
-  const profile = HOUSE_PROFILES[houseId];
+  const profile = profileOverride ?? HOUSE_PROFILES[houseId];
   const diagnostics = DIAGNOSTIC_DETAILS.map<HouseDiagnostic>((item) => {
     const healthy = installed.has(item.upgrade);
     return {
@@ -211,6 +214,8 @@ export function getHouseHealth(
 export default function HouseDiagnostics({
   open,
   houseId,
+  instanceId,
+  profile: profileOverride,
   upgrades,
   onClose,
   onChooseUpgrade,
@@ -220,15 +225,15 @@ export default function HouseDiagnostics({
   const [selectedRoomId, setSelectedRoomId] = useState<InteriorRoomId | null>(
     null,
   );
-  const profile = HOUSE_PROFILES[houseId];
+  const profile = profileOverride ?? HOUSE_PROFILES[houseId];
   const activeUpgrades = upgrades ?? profile.defaultUpgrades;
   const interiorUpgrades = activeUpgrades.filter(
     (upgrade): upgrade is InteriorUpgradeId =>
       CORE_HOUSE_UPGRADE_IDS.some((core) => core === upgrade),
   );
   const health = useMemo(
-    () => getHouseHealth(houseId, activeUpgrades),
-    [activeUpgrades, houseId],
+    () => getHouseHealth(houseId, activeUpgrades, profile),
+    [activeUpgrades, houseId, profile],
   );
   const missingUpgrades = health.diagnostics
     .filter((item) => item.status === "needs-fixing")
@@ -252,8 +257,12 @@ export default function HouseDiagnostics({
   const ownerMessage = health.allHealthy
     ? "Everything feels happy and healthy now. Thank you for caring for our home!"
     : `Could you help us with ${recommended?.label.toLowerCase() ?? "one small fix"} next?`;
-  const titleId = `house-diagnostics-title-${houseId}`;
-  const descriptionId = `house-diagnostics-description-${houseId}`;
+  const dialogIdentity = (instanceId ?? houseId).replace(
+    /[^a-zA-Z0-9-_]/g,
+    "-",
+  );
+  const titleId = `house-diagnostics-title-${dialogIdentity}`;
+  const descriptionId = `house-diagnostics-description-${dialogIdentity}`;
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -276,7 +285,7 @@ export default function HouseDiagnostics({
       aria-describedby={descriptionId}
       aria-labelledby={titleId}
       className={styles.dialog}
-      data-house={houseId}
+      data-house={dialogIdentity}
       onCancel={(event) => {
         event.preventDefault();
         onClose();
@@ -452,9 +461,7 @@ export default function HouseDiagnostics({
                       <button
                         aria-label={`${upgrade.action} in the ${selectedRoom.label} at ${profile.homeName}. ${upgrade.benefit}`}
                         className={`${styles.upgradeButton} ${styles.recommendedUpgrade}`}
-                        onClick={() =>
-                          onChooseUpgrade(houseId, selectedRoom.upgradeId)
-                        }
+                        onClick={() => onChooseUpgrade(selectedRoom.upgradeId)}
                         type="button"
                       >
                         <span className={styles.upgradeIcon} aria-hidden="true">
