@@ -153,12 +153,12 @@ Turn the simulation foundation into the complete playable MVP. By the end of thi
 
 ### Completion and learning feedback
 
-- [ ] **P2.10 Implement city explanations without AI**
+- [x] **P2.10 Implement city explanations without AI**
   - Build: Convert structured cause/effect traces into safe, prewritten explanations, reflective questions, and hints for every mission branch.
   - Acceptance: Every supported outcome has an understandable fallback; gameplay never requires AI.
   - Verify: Coverage test proving no cause/effect code lacks fallback content.
 
-- [ ] **P2.11 Implement endings and learning summary**
+- [x] **P2.11 Implement endings and learning summary**
   - Build: Add three endings, milestone traits, final city classification, action-history summary, and adult-readable learning summary data.
   - Acceptance: Endings are based on declared deterministic conditions and explain the strongest and weakest city systems.
   - Verify: Golden runs reaching all three endings.
