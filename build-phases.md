@@ -11,8 +11,8 @@ Phases 1–4 may use a plain developer shell for buttons, forms, logs, and map c
 | 1 | Deterministic city foundation | Complete |
 | 2 | Complete offline game and campaign | In progress |
 | 3 | 0G intelligence, storage, and safety | In progress |
-| 4 | Agentic ID, chain, deployment, and full integration | Not started |
-| 5 | Finished child-facing UI and demo experience | Not started |
+| 4 | Agentic ID, chain, deployment, and full integration | In progress |
+| 5 | Finished child-facing UI and demo experience | In progress |
 
 Status values: `Not started`, `In progress`, `Blocked`, `Ready for gate`, or `Complete`.
 
@@ -217,7 +217,7 @@ Connect the complete offline game to 0G Compute and 0G Storage without making ei
   - Build: Upload chapter checkpoints to 0G Storage, store roots in the adult-controlled session, restore on a new profile, and integrate the background sync queue.
   - Acceptance: Local gameplay continues during upload failure and later synchronises idempotently.
   - Verify: Offline-save, failed-upload, reconnect, duplicate-retry, and new-device restore tests.
-  - Current: Durable IndexedDB queueing and the proof-bound server 0G bridge are complete; the browser-to-server checkpoint route and adult-session UI wiring remain.
+  - Current: Durable IndexedDB queueing, proof-bound server bridge, short-lived adult session, browser encryption, recovery-pack import, and local demo restore are complete. A live 0G Storage/new-device rehearsal remains.
 
 ### City intelligence
 
@@ -265,9 +265,9 @@ Phase 3 is complete only when:
 - [ ] Rivergate campaign v1 is uploaded and proof-verified from 0G Storage.
 - [ ] Encrypted checkpoints can be backed up and restored.
 - [ ] Rivergate produces validated in-character explanations through 0G Compute.
-- [ ] Private-provider failure uses the local fallback without silent downgrade.
-- [ ] Automated tests demonstrate that child PII cannot reach Compute, Storage plaintext, or logs.
-- [ ] The complete game still works with all 0G services disabled.
+- [x] Private-provider failure uses the local fallback without silent downgrade.
+- [x] Automated tests demonstrate that child PII cannot reach Compute, Storage plaintext, or logs.
+- [x] The complete game still works with all 0G services disabled.
 
 ---
 
@@ -281,17 +281,17 @@ Make Rivergate a persistent evolving city through its Agentic ID, anchor officia
 
 ### Smart contracts
 
-- [ ] **P4.1 Implement `TerraCampaignRegistry`**
+- [x] **P4.1 Implement `TerraCampaignRegistry`**
   - Build: Add publisher access control, campaign version registration, storage root, ruleset hash, deprecation status, events, and reads.
   - Acceptance: Only authorised publishers can register versions; previous versions remain auditable.
   - Verify: Contract unit tests for success, duplicate, unauthorised, deprecated, and historical reads.
 
-- [ ] **P4.2 Implement `TerraCityAgent`**
+- [x] **P4.2 Implement `TerraCityAgent`**
   - Build: Add city minting, owner, authorised executor, encrypted intelligence URI, metadata hash, campaign reference, capabilities, and paused-transfer policy.
   - Acceptance: Only valid owners/executors can perform their permitted operations; direct child/browser mutation is impossible.
   - Verify: Contract tests for mint, ownership, authorisation, metadata update, permission revocation, and transfer pause.
 
-- [ ] **P4.3 Implement milestone commitments**
+- [x] **P4.3 Implement milestone commitments**
   - Build: Record milestone ID, salted run commitment, intelligence hash, city token ID, campaign version, and event timestamp.
   - Acceptance: Duplicate or unverified milestone submissions fail; no child data appears in event fields.
   - Verify: Contract tests plus ABI/event privacy review.
@@ -303,7 +303,7 @@ Make Rivergate a persistent evolving city through its Agentic ID, anchor officia
 
 ### Sponsored city lifecycle
 
-- [ ] **P4.5 Implement sponsor-wallet controls**
+- [x] **P4.5 Implement sponsor-wallet controls**
   - Build: Create a server-only transaction service with operation allowlist, per-session rate limits, spending limits, idempotency, nonce handling, monitoring, and emergency pause.
   - Acceptance: The browser cannot request arbitrary transactions, recipients, contracts, or calldata.
   - Verify: Authorisation, rate-limit, replay, malformed-call, and secret-exposure tests.
@@ -325,7 +325,7 @@ Make Rivergate a persistent evolving city through its Agentic ID, anchor officia
 
 ### Completion, APIs, and deployment
 
-- [ ] **P4.9 Implement server replay verification**
+- [x] **P4.9 Implement server replay verification**
   - Build: Resolve the registered campaign/ruleset, replay the submitted ordered actions, compare claimed state, and produce the salted run commitment.
   - Acceptance: Modified state, reordered actions, wrong campaign version, and invalid seed are rejected.
   - Verify: Valid and tampered full-run tests.
@@ -353,7 +353,7 @@ Phase 4 is complete only when:
 - [ ] A sponsored city Agentic ID can be created without child wallet interaction.
 - [ ] The city intelligence commitment updates after a verified milestone.
 - [ ] A full run can be replayed and recorded anonymously on 0G Chain.
-- [ ] Sponsor controls reject arbitrary or abusive transaction requests.
+- [x] Sponsor controls reject arbitrary or abusive transaction requests.
 - [ ] The deployed functional MVP completes the entire end-to-end path.
 - [ ] Proof evidence matches live Storage, Compute, Agentic ID, and Chain data.
 
@@ -369,7 +369,7 @@ Replace the developer shell with a cohesive, delightful, accessible child-facing
 
 ### Visual system and game world
 
-- [ ] **P5.1 Establish the Terra City visual system**
+- [x] **P5.1 Establish the Terra City visual system**
   - Build: Define art direction, colour tokens, typography, icon language, elevation, spacing, motion rules, sound direction, and child-readable component states.
   - Acceptance: The system is documented and works at desktop, tablet, and supported mobile-web sizes.
   - Verify: Token/component review against contrast, legibility, touch, and reduced-motion requirements.
@@ -386,7 +386,7 @@ Replace the developer shell with a cohesive, delightful, accessible child-facing
   - Acceptance: A first-time child can reach the first meaningful placement without wallet, account, or technical terminology.
   - Verify: Clean-profile moderated usability test and interaction analytics check.
 
-- [ ] **P5.4 Design and implement the main city-builder layout**
+- [x] **P5.4 Design and implement the main city-builder layout**
   - Build: City canvas, indicators, budget, turn/storm status, building tray, inspect/build modes, selected-building details, commit button, and navigation.
   - Acceptance: The map remains primary; essential status and next action are understandable without opening technical panels.
   - Verify: Desktop, tablet, touch, keyboard, and narrow-width interaction tests.
@@ -396,7 +396,7 @@ Replace the developer shell with a cohesive, delightful, accessible child-facing
   - Acceptance: Every rejection explains why; children can confidently predict what will happen before committing.
   - Verify: Usability pass across all twelve buildings and all placement rejection codes.
 
-- [ ] **P5.6 Design Rivergate's voice and learning moments**
+- [x] **P5.6 Design Rivergate's voice and learning moments**
   - Build: City dialogue, explain/hint controls, reflective question, vocabulary help, memory callbacks, read-aloud, fallback state, and clear computer-character disclosure.
   - Acceptance: Dialogue is brief, interruptible, age-appropriate, and never blocks building.
   - Verify: Content review for every chapter, age band, fallback, and long-text edge case.
@@ -454,11 +454,11 @@ Phase 5—and therefore the MVP—is complete only when:
 Do not call the MVP complete until all five phase gates pass and the following release checks are satisfied:
 
 - [ ] Clean install, type-check, lint, tests, and production build pass.
-- [ ] No secrets appear in the client bundle, logs, repository, or screenshots.
-- [ ] No child PII appears in Compute requests, Storage plaintext, Agentic ID metadata, chain events, or telemetry.
+- [x] No secrets appear in the client bundle, logs, repository, or screenshots.
+- [x] No child PII appears in Compute requests, Storage plaintext, Agentic ID metadata, chain events, or telemetry.
 - [ ] A complete offline run and a complete 0G-connected run both succeed.
-- [ ] A delayed or failed 0G operation never loses local city progress.
+- [x] A delayed or failed 0G operation never loses local city progress.
 - [ ] Live campaign, Agentic ID, Storage, Compute, and milestone evidence agree.
-- [ ] The final storm depends meaningfully on earlier city-building decisions.
-- [ ] All three endings are reachable through legitimate strategies.
-- [ ] The child never encounters a wallet, token, gas, signature, or transaction prompt.
+- [x] The final storm depends meaningfully on earlier city-building decisions.
+- [x] All three endings are reachable through legitimate strategies.
+- [x] The child never encounters a wallet, token, gas, signature, or transaction prompt.

@@ -36,18 +36,22 @@ horizontal page overflow was detected at 390 px.
 1. “Adults & judges” opens a separate modal and requires a simple adult check.
 2. The unlocked view contains accessibility controls, a learning snapshot,
    deterministic package/state/action hashes, truthful 0G readiness states,
-   and a protected reset flow.
+   an adult-created family code, and a protected reset flow.
 3. High contrast, text scaling, sound/read-aloud state, and local-save status do
    not introduce technical language into the child workspace.
 4. The proof view does not claim a live root, transaction, Agentic ID, or TEE
    result when the corresponding deployment configuration is absent.
 
-Result: passed. Live links remain intentionally unavailable until Galileo,
+5. An adult can create an encrypted recovery point, copy its bounded recovery
+   pack, reload, import the pack, and restore the same verified city. Escape
+   closes the dialog and returns keyboard focus to **Adults & judges**.
+
+Result: passed in local demo mode. Live links remain intentionally unavailable until Galileo,
 Storage, Compute, and sponsor credentials are configured.
 
 ## Automated evidence
 
-- Full Vitest suite: 46 files, 450 tests passed.
+- Full Vitest suite: 54 files, 515 tests passed.
 - Complete clean-profile campaign: all 15 missions finish and restore from a
   serialized session.
 - Ending coverage: River Guardian, Steady Restorer, and Brave Rebuilder are
@@ -58,6 +62,10 @@ Storage, Compute, and sponsor credentials are configured.
   durable queueing, idempotent retry, and proof-bound remote receipts.
 - Storage coverage: canonical package publication, fresh-reader retrieval,
   content/root/package checks, and deliberate tamper rejection.
+- Sponsor coverage: fixed operation targets, rate and spending limits,
+  idempotency, serialized nonces, pause control, and malformed-call rejection.
+- Replay coverage: valid full runs pass; changed state, action order, campaign,
+  seed, and origin fail through the bounded verification route.
 
 ## Demo rehearsal
 
