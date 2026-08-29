@@ -12,8 +12,10 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { Coordinate } from "@terra/campaign-schema";
+import type { SafeCityPersonality } from "../../../../packages/safety/src/city-guide";
 import {
   RIVERGATE_EN_MESSAGES,
+  RIVERGATE_FOUNDATIONS_CAMPAIGN,
   hashActionLog,
   hashCityState,
 } from "@terra/simulation";
@@ -34,8 +36,22 @@ import {
   operationCount,
   provisionalCost,
   restoreGameSession,
+  type GameState,
   type OverlayId,
 } from "../../lib/game/controller";
+import {
+  backUpCampaignSession,
+  createCheckpointBackupStore,
+  createCheckpointHttpRemoteStorage,
+  restoreCampaignSession,
+  type AdultBackupKit,
+  type DurableCheckpointBackupStore,
+} from "../../lib/checkpoints";
+import {
+  createCityGuideController,
+  type CityGuideControllerSnapshot,
+  type CityGuideProof,
+} from "../../lib/guide";
 import {
   createOfflinePersistence,
   type OfflinePersistence,
@@ -65,6 +81,7 @@ const LOCAL_PROFILE_ID = "local-builder";
 
 type PlayerRole = "water-keeper" | "neighbour-helper" | "nature-planner";
 type SaveState = "loading" | "saving" | "saved" | "temporary";
+type BackupState = "idle" | "backing-up" | "ready" | "restoring" | "error";
 
 const PLAYER_ROLES: readonly {
   id: PlayerRole;
@@ -128,11 +145,38 @@ export default function GameShell() {
   const [textScale, setTextScale] = useState(1);
   const [highContrast, setHighContrast] = useState(false);
   const [muted, setMuted] = useState(true);
+  const [backupKit, setBackupKit] = useState<AdultBackupKit | null>(null);
+  const [backupState, setBackupState] = useState<BackupState>("idle");
+  const [backupMessage, setBackupMessage] = useState(
+    "Create an encrypted recovery point when an adult is ready.",
+  );
+  const [guideController] = useState(() => createCityGuideController());
+  const [guideSnapshot, setGuideSnapshot] = useState(() =>
+    guideController.getSnapshot(),
+  );
+  const previousCommittedStateRef = useRef<GameState>(state);
   const planningCity = useMemo(() => getPlanningCity(state), [state]);
   const overlay = useMemo(() => getOverlayView(state), [state]);
   const cursorSummary = useMemo(() => getCursorSummary(state), [state]);
   const currentMission = useMemo(() => getCurrentMission(state), [state]);
   const childFeedback = useMemo(() => getChildFeedback(state), [state]);
+  const displayedFeedback = useMemo(() => {
+    const result = guideSnapshot.result;
+    if (guideSnapshot.status !== "ready" || result === null || !result.ok) {
+      return childFeedback;
+    }
+    return {
+      explanation: result.guide.message,
+      question:
+        result.guide.reflectiveQuestion ??
+        childFeedback?.question ??
+        "What did this choice change in Rivergate?",
+      hint:
+        result.guide.hints?.[0] ??
+        childFeedback?.hint ??
+        "Compare the city systems before building again.",
+    };
+  }, [childFeedback, guideSnapshot]);
   const unlockedChapterIds = useMemo(
     () => getUnlockedChapterIds(state),
     [state],
@@ -147,6 +191,43 @@ export default function GameShell() {
     [state.city.actionLog],
   );
   const cityStateHash = useMemo(() => hashCityState(state.city), [state.city]);
+
+  useEffect(() => {
+    return guideController.subscribe(() => {
+      setGuideSnapshot(guideController.getSnapshot());
+    });
+  }, [guideController]);
+
+  useEffect(() => {
+    return () => guideController.dispose();
+  }, [guideController]);
+
+  useEffect(() => {
+    const before = previousCommittedStateRef.current;
+    previousCommittedStateRef.current = state;
+    if (state.city.turn !== before.city.turn + 1) return;
+
+    const action = state.city.actionLog.at(-1);
+    const causes = state.turnHistory.at(-1)?.causes;
+    const mission = RIVERGATE_FOUNDATIONS_CAMPAIGN.chapters
+      .flatMap((chapter) => chapter.missions)
+      .find((candidate) => candidate.id === before.campaign.missionId);
+    if (action === undefined || causes === undefined || mission === undefined)
+      return;
+
+    void guideController.request({
+      ageBand: "8-10",
+      task: "explain",
+      cityPersonality: personalityFor(playerRole),
+      mission,
+      before: before.city,
+      action,
+      after: state.city,
+      causes,
+      allowedFactKeys: mission.learningFactKeys,
+      relevantMemories: [],
+    });
+  }, [guideController, playerRole, state]);
 
   useEffect(() => {
     let disposed = false;
@@ -314,6 +395,83 @@ export default function GameShell() {
       return;
     }
     setAdultGateError(true);
+  }
+
+  async function openAdultBackupStore(): Promise<{
+    store: DurableCheckpointBackupStore;
+    remote: ReturnType<typeof createCheckpointHttpRemoteStorage>;
+  }> {
+    const response = await fetch("/api/checkpoints/session", {
+      method: "POST",
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        schemaVersion: 1,
+        operation: "begin-adult-session",
+        adultConfirmed: true,
+      }),
+    });
+    if (!response.ok) throw new Error("adult-session-unavailable");
+    return {
+      store: await createCheckpointBackupStore(),
+      remote: createCheckpointHttpRemoteStorage(),
+    };
+  }
+
+  async function backUpRivergate() {
+    setBackupState("backing-up");
+    setBackupMessage("Encrypting this Rivergate recovery point…");
+    let store: DurableCheckpointBackupStore | null = null;
+    try {
+      const opened = await openAdultBackupStore();
+      store = opened.store;
+      const kit = await backUpCampaignSession({
+        session: createGameSessionSave(state),
+        store,
+        remote: opened.remote,
+      });
+      setBackupKit(kit);
+      setBackupState("ready");
+      setBackupMessage(
+        "Encrypted recovery point ready. Keep the recovery code private.",
+      );
+    } catch {
+      setBackupState("error");
+      setBackupMessage(
+        "The network backup is waiting. Rivergate is still safe on this device.",
+      );
+    } finally {
+      store?.close();
+    }
+  }
+
+  async function restoreRivergateFromBackup() {
+    if (backupKit === null) return;
+    setBackupState("restoring");
+    setBackupMessage("Checking and restoring the encrypted recovery point…");
+    let store: DurableCheckpointBackupStore | null = null;
+    try {
+      const opened = await openAdultBackupStore();
+      store = opened.store;
+      const session = await restoreCampaignSession({
+        kit: backupKit,
+        store,
+        remote: opened.remote,
+      });
+      dispatch({ type: "restore", state: restoreGameSession(session) });
+      setBackupState("ready");
+      setBackupMessage(
+        "Rivergate was restored from the encrypted recovery point.",
+      );
+    } catch {
+      setBackupState("error");
+      setBackupMessage(
+        "That recovery point could not be restored. The local city was not changed.",
+      );
+    } finally {
+      store?.close();
+    }
   }
 
   async function resetRivergate() {
@@ -719,7 +877,8 @@ export default function GameShell() {
             <EndingCard ending={state.ending} />
           ) : (
             <MissionCard
-              feedback={childFeedback}
+              feedback={displayedFeedback}
+              guideLoading={guideSnapshot.status === "loading"}
               mission={currentMission}
               muted={muted}
               progress={state.campaign.completedMissionKeys.length}
@@ -874,11 +1033,17 @@ export default function GameShell() {
             ) : (
               <AdultControls
                 actionLogHash={actionLogHash}
+                backupKit={backupKit}
+                backupMessage={backupMessage}
+                backupState={backupState}
                 cityStateHash={cityStateHash}
+                guideProof={guideProofFor(guideSnapshot)}
                 highContrast={highContrast}
                 muted={muted}
                 onAccessibilityChange={saveAccessibilitySettings}
+                onBackup={() => void backUpRivergate()}
                 onReset={() => void resetRivergate()}
+                onRestore={() => void restoreRivergateFromBackup()}
                 saveState={saveState}
                 state={state}
                 textScale={textScale}
@@ -943,11 +1108,18 @@ function CatalogueItem({
 type MissionCardProps = {
   readonly mission: ReturnType<typeof getCurrentMission>;
   readonly feedback: ReturnType<typeof getChildFeedback>;
+  readonly guideLoading: boolean;
   readonly muted: boolean;
   readonly progress: number;
 };
 
-function MissionCard({ feedback, mission, muted, progress }: MissionCardProps) {
+function MissionCard({
+  feedback,
+  guideLoading,
+  mission,
+  muted,
+  progress,
+}: MissionCardProps) {
   if (mission === null) return null;
   const activeMission = mission;
 
@@ -1019,6 +1191,11 @@ function MissionCard({ feedback, mission, muted, progress }: MissionCardProps) {
           </li>
         ))}
       </ul>
+      {guideLoading && (
+        <p className="guide-loading" role="status">
+          Rivergate is checking what this city change means…
+        </p>
+      )}
       {feedback !== null && (
         <div className="mission-feedback" aria-label="Rivergate guide">
           <button
@@ -1096,8 +1273,12 @@ function EndingCard({ ending }: EndingCardProps) {
 type AdultControlsProps = {
   readonly state: ReturnType<typeof createDeveloperGame>;
   readonly saveState: SaveState;
+  readonly backupKit: AdultBackupKit | null;
+  readonly backupMessage: string;
+  readonly backupState: BackupState;
   readonly actionLogHash: string;
   readonly cityStateHash: string;
+  readonly guideProof: CityGuideProof;
   readonly highContrast: boolean;
   readonly textScale: number;
   readonly muted: boolean;
@@ -1106,16 +1287,24 @@ type AdultControlsProps = {
     textScale?: number;
     muted?: boolean;
   }) => void;
+  readonly onBackup: () => void;
   readonly onReset: () => void;
+  readonly onRestore: () => void;
 };
 
 function AdultControls({
   actionLogHash,
+  backupKit,
+  backupMessage,
+  backupState,
   cityStateHash,
+  guideProof,
   highContrast,
   muted,
   onAccessibilityChange,
+  onBackup,
   onReset,
+  onRestore,
   saveState,
   state,
   textScale,
@@ -1208,6 +1397,46 @@ function AdultControls({
         </dl>
       </section>
 
+      <section className="adult-section" aria-labelledby="backup-heading">
+        <h3 id="backup-heading">Encrypted family recovery</h3>
+        <p className="backup-message" role="status">
+          {backupMessage}
+        </p>
+        <div className="backup-actions">
+          <button
+            disabled={
+              backupState === "backing-up" || backupState === "restoring"
+            }
+            onClick={onBackup}
+            type="button"
+          >
+            {backupState === "backing-up"
+              ? "Encrypting…"
+              : "Create recovery point"}
+          </button>
+          <button
+            disabled={
+              backupKit === null ||
+              backupState === "backing-up" ||
+              backupState === "restoring"
+            }
+            onClick={onRestore}
+            type="button"
+          >
+            {backupState === "restoring" ? "Restoring…" : "Test restore"}
+          </button>
+        </div>
+        {backupKit !== null && (
+          <details className="recovery-code">
+            <summary>Show private recovery code</summary>
+            <p>
+              Store this with an adult. Anyone with it can open this backup.
+            </p>
+            <code>{backupKit.recoveryCode}</code>
+          </details>
+        )}
+      </section>
+
       <section
         className="adult-section proof-section"
         aria-labelledby="proof-heading"
@@ -1242,15 +1471,25 @@ function AdultControls({
           <div>
             <dt>Private city guide</dt>
             <dd>
-              <span>0G Compute route ready</span>
-              <span>Local fallback always available</span>
+              <span>{guideProof.label}</span>
+              <span>
+                {guideProof.source === "private-compute"
+                  ? "Verified private compute"
+                  : guideProof.source === "unavailable"
+                    ? "Guide route not reached"
+                    : "Safety-checked local lesson"}
+              </span>
             </dd>
           </div>
           <div>
             <dt>Encrypted backup</dt>
             <dd>
-              <span>Adult-sponsored route</span>
-              <span>No child wallet</span>
+              <span>
+                {backupKit === null
+                  ? "Adult-sponsored route ready"
+                  : `Recovery root ${backupKit.reference.root.slice(0, 18)}…`}
+              </span>
+              <span>No child wallet · ciphertext only</span>
             </dd>
           </div>
         </dl>
@@ -1344,4 +1583,50 @@ function chapterLabel(chapterId: string): string {
 
 function messageFor(key: string): string {
   return RIVERGATE_EN_MESSAGES[key] ?? key;
+}
+
+function personalityFor(role: PlayerRole): SafeCityPersonality {
+  if (role === "water-keeper") {
+    return {
+      voice: "curious",
+      pace: "brief",
+      traits: ["careful-planner", "resourceful-helper"],
+    };
+  }
+  if (role === "neighbour-helper") {
+    return {
+      voice: "cheerful",
+      pace: "brief",
+      traits: ["kind-neighbour", "resilient-thinker"],
+    };
+  }
+  return {
+    voice: "hopeful",
+    pace: "brief",
+    traits: ["nature-friend", "curious-builder"],
+  };
+}
+
+function guideProofFor(snapshot: CityGuideControllerSnapshot): CityGuideProof {
+  if (snapshot.status === "ready" && snapshot.result !== null) {
+    return snapshot.result.proof;
+  }
+  if (snapshot.status === "loading") {
+    return {
+      route: "/api/guide",
+      source: "unavailable",
+      serverSource: "none",
+      validation: "unavailable",
+      network: "not-reached",
+      label: "Checking a private guide response…",
+    };
+  }
+  return {
+    route: "/api/guide",
+    source: "authored-local",
+    serverSource: "none",
+    validation: "passed",
+    network: "not-reached",
+    label: "Safety-checked local lesson ready",
+  };
 }
