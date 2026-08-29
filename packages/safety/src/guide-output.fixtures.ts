@@ -122,7 +122,7 @@ export function makeGuideRequest(
 export const GOLDEN_EXPLAIN_RESPONSE: CityGuideResponse = {
   headline: "Clean water reaches home",
   message:
-    "Your connected treatment system carries clean water to the new homes.",
+    "My connected treatment system carries clean water to the new homes.",
   reflectiveQuestion: "What might happen if a pipe route is broken?",
   vocabulary: [
     {
@@ -141,7 +141,8 @@ export const GOLDEN_EXPLAIN_RESPONSE: CityGuideResponse = {
 
 export const GOLDEN_HINT_RESPONSE: CityGuideResponse = {
   headline: "Trace the water path",
-  message: "Try the smallest clue first, then reveal more only if needed.",
+  message:
+    "I will offer the smallest clue first, then reveal more only if needed.",
   hints: [
     "Look at which homes need clean water.",
     "Trace the connected route from each home.",

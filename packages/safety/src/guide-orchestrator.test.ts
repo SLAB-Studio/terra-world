@@ -388,7 +388,7 @@ function genericResponse(request: CityGuideRequest): CityGuideResponse {
 
   return {
     headline: "A useful city pattern",
-    message: "Connected systems work together and help the city stay ready.",
+    message: "I stay ready when my connected systems work together.",
     reflectiveQuestion: "Which connection helps the whole system?",
     vocabulary: [
       {

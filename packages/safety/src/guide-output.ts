@@ -144,6 +144,7 @@ export type CityGuideValidationFailureCode =
   | "not-json"
   | "schema-invalid"
   | "wrong-task-shape"
+  | "voice-invalid"
   | "reading-limit"
   | "ungrounded"
   | "prohibited-content";
@@ -218,6 +219,9 @@ export function validateCityGuideResponse(
   }
   if (!hasSafeContent(response)) {
     return { ok: false, code: "prohibited-content" };
+  }
+  if (!hasRivergateVoice(response)) {
+    return { ok: false, code: "voice-invalid" };
   }
 
   return { ok: true, value: response };
@@ -407,6 +411,12 @@ function hasSafeContent(response: CityGuideResponse): boolean {
   if (scanProhibitedComputeData(response).length > 0) return false;
   return visibleText(response).every((text) =>
     PROHIBITED_CONTENT_RULES.every(({ pattern }) => !pattern.test(text)),
+  );
+}
+
+function hasRivergateVoice(response: CityGuideResponse): boolean {
+  return /\b(?:I|I'm|I've|I'll|me|my|mine|we|we're|we've|we'll|us|our|ours)\b/iu.test(
+    response.message,
   );
 }
 

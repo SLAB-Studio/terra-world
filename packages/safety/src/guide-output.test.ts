@@ -66,6 +66,18 @@ describe("CityGuide provider output validation", () => {
     expect(result).toEqual({ ok: false, code: "reading-limit" });
   });
 
+  it("requires Rivergate's first-person city voice", () => {
+    expect(
+      validateCityGuideResponse(
+        makeGuideRequest("explain"),
+        JSON.stringify({
+          ...GOLDEN_EXPLAIN_RESPONSE,
+          message: "The connected treatment system carries clean water home.",
+        }),
+      ),
+    ).toEqual({ ok: false, code: "voice-invalid" });
+  });
+
   it("allows at most one properly formed reflective question", () => {
     expect(
       validateCityGuideResponse(
