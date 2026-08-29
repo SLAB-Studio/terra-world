@@ -7,4 +7,5 @@ export * from "./en";
 export * from "./endings";
 export * from "./evaluate";
 export * from "./explanations";
+export * from "./package";
 export * from "./scenario-types";
