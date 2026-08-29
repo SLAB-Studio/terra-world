@@ -13,6 +13,7 @@ import {
   ROAD_HALF_WIDTH_METERS,
   sampleRoadFrame,
 } from "./road";
+import { createTownDistricts } from "./town-districts";
 
 export type TownEnvironment = Readonly<{
   root: TransformNode;
@@ -295,6 +296,10 @@ export function createTownEnvironment(
       createTree(scene, root, shadows, materials, index, x, z, scale),
     );
   });
+
+  const districts = createTownDistricts(scene, materials, shadows);
+  districts.root.parent = root;
+  treeCanopies.push(...districts.treeCanopies);
 
   for (const [index, x, z, scale] of [
     [0, -48, -32, 1.2],
