@@ -238,6 +238,13 @@ export default function CompoundWorld({
   );
   const [townAwake, setTownAwake] = useState(false);
   const dragPieceRef = useRef<DragPiece | null>(null);
+  const dragPointerIdRef = useRef<number | null>(null);
+  const dragOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const dragMovedRef = useRef(false);
+  const suppressNextUpgradeClickRef = useRef(false);
+  const addUpgradeRef = useRef<
+    (compoundId: CompoundId, upgradeId: UpgradeId) => void
+  >(() => undefined);
   const worldScrollRef = useRef<HTMLDivElement>(null);
   const challengeTrailButtonRef = useRef<HTMLButtonElement>(null);
   const celebrationTimerRef = useRef<number | null>(null);
@@ -280,9 +287,29 @@ export default function CompoundWorld({
     [compounds],
   );
   useEffect(() => {
+    function clearDrag() {
+      dragPieceRef.current = null;
+      dragPointerIdRef.current = null;
+      dragOriginRef.current = null;
+      dragMovedRef.current = false;
+      setDragPiece(null);
+      setHoveredCompound(null);
+    }
+
     function move(event: PointerEvent) {
       const active = dragPieceRef.current;
-      if (active === null) return;
+      if (
+        active === null ||
+        dragPointerIdRef.current !== event.pointerId
+      )
+        return;
+      const origin = dragOriginRef.current;
+      if (
+        origin !== null &&
+        Math.hypot(event.clientX - origin.x, event.clientY - origin.y) >= 6
+      ) {
+        dragMovedRef.current = true;
+      }
       const next = { ...active, x: event.clientX, y: event.clientY };
       dragPieceRef.current = next;
       setDragPiece(next);
@@ -291,29 +318,39 @@ export default function CompoundWorld({
 
     function release(event: PointerEvent) {
       const active = dragPieceRef.current;
-      if (active === null) return;
+      if (
+        active === null ||
+        dragPointerIdRef.current !== event.pointerId
+      )
+        return;
       const target = compoundAt(event.clientX, event.clientY);
-      dragPieceRef.current = null;
-      setDragPiece(null);
-      setHoveredCompound(null);
-      if (target !== null) addUpgrade(target, active.id);
+      suppressNextUpgradeClickRef.current = dragMovedRef.current;
+      clearDrag();
+      if (target !== null) addUpgradeRef.current(target, active.id);
     }
 
     function cancel() {
-      dragPieceRef.current = null;
-      setDragPiece(null);
-      setHoveredCompound(null);
+      suppressNextUpgradeClickRef.current = false;
+      clearDrag();
+    }
+
+    function cancelWhenHidden() {
+      if (document.visibilityState === "hidden") cancel();
     }
 
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", release);
     window.addEventListener("pointercancel", cancel);
+    window.addEventListener("blur", cancel);
+    document.addEventListener("visibilitychange", cancelWhenHidden);
     return () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", release);
       window.removeEventListener("pointercancel", cancel);
+      window.removeEventListener("blur", cancel);
+      document.removeEventListener("visibilitychange", cancelWhenHidden);
     };
-  });
+  }, []);
 
   useEffect(
     () => () => {
@@ -377,6 +414,12 @@ export default function CompoundWorld({
   ]);
 
   function addUpgrade(compoundId: CompoundId, upgradeId: UpgradeId) {
+    dragPieceRef.current = null;
+    dragPointerIdRef.current = null;
+    dragOriginRef.current = null;
+    dragMovedRef.current = false;
+    setDragPiece(null);
+    setHoveredCompound(null);
     setArmedUpgrade(null);
     if (!compounds[compoundId].includes(upgradeId)) {
       const nextTown = {
@@ -428,6 +471,8 @@ export default function CompoundWorld({
     }
   }
 
+  addUpgradeRef.current = addUpgrade;
+
   function startChallenge(challengeId: string) {
     const challenge = challengeById(challengeId);
     if (
@@ -471,6 +516,10 @@ export default function CompoundWorld({
   ) {
     if (event.pointerType === "mouse" && event.button !== 0) return;
     setArmedUpgrade(null);
+    suppressNextUpgradeClickRef.current = false;
+    dragPointerIdRef.current = event.pointerId;
+    dragOriginRef.current = { x: event.clientX, y: event.clientY };
+    dragMovedRef.current = false;
     const next = { id: upgradeId, x: event.clientX, y: event.clientY };
     dragPieceRef.current = next;
     setDragPiece(next);
@@ -534,6 +583,10 @@ export default function CompoundWorld({
                       }`}
                       key={upgrade.id}
                       onClick={() => {
+                        if (suppressNextUpgradeClickRef.current) {
+                          suppressNextUpgradeClickRef.current = false;
+                          return;
+                        }
                         setArmedUpgrade((current) =>
                           current === upgrade.id ? null : upgrade.id,
                         );
