@@ -9,7 +9,6 @@ const validTestnetEnvironment = {
   ZERO_G_COMPUTE_API_KEY: "sk-test-key-12345",
   ZERO_G_COMPUTE_MODEL: "private-model-from-live-catalog",
   ZERO_G_SPONSOR_PRIVATE_KEY: TEST_PRIVATE_KEY,
-  ZERO_G_STORAGE_INDEXER_URL: "https://indexer.testnet.example",
 };
 
 describe("loadZeroGServerConfig", () => {
@@ -24,6 +23,9 @@ describe("loadZeroGServerConfig", () => {
         verifyTee: true,
       },
       request: { timeoutMs: 12_000, maxRetries: 2 },
+      storage: {
+        indexerUrl: "https://indexer-storage-testnet-turbo.0g.ai",
+      },
     });
   });
 
@@ -32,7 +34,6 @@ describe("loadZeroGServerConfig", () => {
     "ZERO_G_COMPUTE_API_KEY",
     "ZERO_G_COMPUTE_MODEL",
     "ZERO_G_SPONSOR_PRIVATE_KEY",
-    "ZERO_G_STORAGE_INDEXER_URL",
   ])("fails closed when %s is missing", (field) => {
     const environment = { ...validTestnetEnvironment, [field]: undefined };
     expect(() => loadZeroGServerConfig(environment)).toThrowError(

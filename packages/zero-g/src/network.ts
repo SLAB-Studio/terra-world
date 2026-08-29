@@ -17,6 +17,7 @@ const TESTNET: ZeroGPublicNetwork = Object.freeze({
   chainRpcUrl: "https://evmrpc-testnet.0g.ai",
   chainExplorerUrl: "https://chainscan-galileo.0g.ai",
   computeRouterUrl: "https://router-api-testnet.integratenetwork.work/v1",
+  storageIndexerUrl: "https://indexer-storage-testnet-turbo.0g.ai",
 });
 
 const MAINNET: ZeroGPublicNetwork = Object.freeze({
