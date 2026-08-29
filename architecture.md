@@ -194,6 +194,24 @@ A completely unrestricted sandbox may overwhelm first-time players. The MVP begi
 
 The sandbox opens progressively as the child learns each system.
 
+### 5.5 Neighbourhood Adventure Trail
+
+The child-facing MVP exposes the same learning arc as fifteen compact map
+challenges grouped into five stages of three:
+
+1. **Home Helpers** — notice one problem and make one direct repair.
+2. **Street Team** — recognise and solve the same need across several homes.
+3. **Eco Planners** — combine power, water, nature, and waste decisions.
+4. **Weather Watchers** — restore homes after drought, blackout, and rain.
+5. **City Guardians** — sequence repairs and recover the whole neighbourhood.
+
+Each challenge owns a deterministic starting town, one to three verifiable
+goals, an authored three-step hint ladder, a target move count, and a learning
+statement. Completion never fails because of move count or hint use; those
+values affect only an encouraging one-to-three leaf result. Unlocks are strictly
+sequential, replays are allowed, and progress is stored locally without identity,
+account, or wallet data.
+
 ## 6. Deterministic simulation engine
 
 The simulation engine is a pure TypeScript package shared between the browser and server.
@@ -444,14 +462,15 @@ three-step hints, reflective questions, and structured memory candidates. The
 request has no free-form child text, and user-supplied values are explicitly
 treated as inert data rather than instructions.
 
-`POST /api/guide` is the only browser-facing Compute boundary. It validates a
-bounded JSON request before provider use, constructs the prompt server-side,
-requires private and TEE-verified provider metadata, caps extracted assistant
-content, and passes the result through the guide validator. Configuration,
-network, quota, timeout, privacy, rate-limit, malformed-output, and unsafe-output
-failures return only validated authored fallback content. Responses are
-`private, no-store`, and the anonymous fixed-window limiter keeps no IP, account,
-wallet, or child identifier.
+`POST /api/guide` and the narrower `POST /api/challenges/hint` are the
+browser-facing Compute boundaries. Both validate bounded JSON before provider
+use, construct prompts server-side, require private and TEE-verified provider
+metadata, and cap and validate extracted assistant content. The challenge route
+accepts only a known challenge ID, known completed goal IDs, and a bounded move
+count—never free-form child text. Configuration, network, quota, timeout,
+privacy, rate-limit, malformed-output, and unsafe-output failures return only
+validated authored fallback content. Responses are `private, no-store`, and the
+anonymous fixed-window limiters keep no IP, account, wallet, or child identifier.
 
 ## 9. 0G Storage
 

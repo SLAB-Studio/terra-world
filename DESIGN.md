@@ -66,6 +66,22 @@ bubbles show when a repair is needed; a house's details and diagnostics stay
 hidden until the child clicks or taps it. Keep River persistent beside the map
 on desktop and available from the sticky expert control on small screens.
 
+### Adventure Trail
+
+The map is wrapped in a fifteen-challenge Adventure Trail. Five groups of three
+missions move from one obvious home repair, to repeated neighbourhood patterns,
+to combined systems, weather recovery, and a whole-town finale. Each mission
+starts from a deliberate town setup, asks for one short outcome, and shows no
+more than three visible goals. A child may finish after any number of moves;
+the one-to-three leaf result is encouraging feedback, never a failure wall.
+
+Only the next mission is unlocked. Completed missions remain replayable, and
+the current town, moves, clues used, unlocked missions, and best leaf results
+resume locally without an account or wallet. The Trail is a focused panel with
+clear stage labels, a short story, one instruction, the learning idea, and an
+optional three-step River clue ladder. On small screens it owns the viewport and
+must sit above the persistent River shortcut.
+
 On desktop, drag an item to an actionable home; click selects a home and opens
 its details. On touch, tap a home to select it, then choose the available
 action—do not require a drag gesture. Responsive layouts keep the map
@@ -96,6 +112,14 @@ one consistent rhythm:
 
 Read-aloud begins off and can be enabled only in adult controls. No essential
 meaning depends on sound.
+
+Adventure Trail clues use a narrower form of the same contract: the browser
+sends only a known challenge ID, completed goal IDs, and a bounded move count.
+The private server route may ask 0G Compute to restate the authored clue ladder,
+but accepts only strict, short JSON from a private TEE-verified response. It
+falls back to the authored ladder for missing configuration, network errors,
+rate limits, invalid output, or privacy downgrade. No child's free-form text is
+part of this request.
 
 ## Adult and proof mode
 
