@@ -32,11 +32,17 @@ import {
   type CityGuideControllerSnapshot,
   type CityGuideProof,
 } from "../../lib/guide";
+import { CHALLENGE_PROGRESS_STORAGE_KEY } from "../../lib/challenges/catalog";
+import {
+  readChallengeWelcomeProgress,
+  type ChallengeWelcomeProgress,
+} from "../../lib/challenges/welcome-progress";
 import {
   createOfflinePersistence,
   type OfflinePersistence,
 } from "../../lib/offline";
 import CompoundWorld from "./CompoundWorld";
+import GameLanding from "./GameLanding";
 import { GameIcon } from "./GameIcon";
 
 const RIVERGATE_CITY_ID = "rivergate-city";
@@ -60,19 +66,19 @@ const PLAYER_ROLES: readonly {
 }[] = [
   {
     id: "water-keeper",
-    label: "Water keeper",
+    label: "Water Keeper",
     description: "Help clean water reach every home.",
     icon: "water",
   },
   {
     id: "neighbour-helper",
-    label: "Neighbour helper",
+    label: "Neighbour Helper",
     description: "Plan a city where everyone can thrive.",
     icon: "home",
   },
   {
     id: "nature-planner",
-    label: "Nature planner",
+    label: "Nature Planner",
     description: "Make room for people, wetlands, and wildlife.",
     icon: "nature",
   },
@@ -92,6 +98,11 @@ export default function GameShell() {
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [persistenceReady, setPersistenceReady] = useState(false);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
+  const [hasSavedGame, setHasSavedGame] = useState(false);
+  const [welcomeProgress, setWelcomeProgress] =
+    useState<ChallengeWelcomeProgress | null>(null);
+  const [entryBusy, setEntryBusy] = useState(false);
+  const [entryError, setEntryError] = useState<string | null>(null);
   const [playerRole, setPlayerRole] = useState<PlayerRole>("water-keeper");
   const [colourTheme, setColourTheme] = useState<
     "sunrise" | "river" | "forest"
@@ -335,10 +346,11 @@ export default function GameShell() {
           setHighContrast(settings.highContrast);
           setMuted(settings.muted);
         }
+        let campaignRestored = false;
         if (saved !== null) {
           try {
             dispatch({ type: "restore", state: restoreGameSession(saved) });
-            setOnboardingComplete(true);
+            campaignRestored = true;
           } catch {
             await persistence.deleteCampaignSession(RIVERGATE_CITY_ID);
             dispatch({
@@ -351,6 +363,11 @@ export default function GameShell() {
             });
           }
         }
+        const localChallengeProgress = readChallengeWelcomeProgress(
+          window.localStorage.getItem(CHALLENGE_PROGRESS_STORAGE_KEY),
+        );
+        setWelcomeProgress(localChallengeProgress);
+        setHasSavedGame(campaignRestored || localChallengeProgress !== null);
         if (!disposed) {
           setSaveState(persistence.kind === "memory" ? "temporary" : "saved");
           setPersistenceReady(true);
@@ -358,6 +375,11 @@ export default function GameShell() {
       })
       .catch(() => {
         if (!disposed) {
+          const localChallengeProgress = readChallengeWelcomeProgress(
+            window.localStorage.getItem(CHALLENGE_PROGRESS_STORAGE_KEY),
+          );
+          setWelcomeProgress(localChallengeProgress);
+          setHasSavedGame(localChallengeProgress !== null);
           setSaveState("temporary");
           setPersistenceReady(true);
         }
@@ -406,7 +428,7 @@ export default function GameShell() {
     );
   }, [textScale]);
 
-  function beginRivergate() {
+  function enterRivergate() {
     const persistence = persistenceRef.current;
     const now = Date.now();
     if (persistence !== null) {
@@ -429,6 +451,38 @@ export default function GameShell() {
         }),
       ]).catch(() => setSaveState("temporary"));
     }
+    setOnboardingComplete(true);
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }
+
+  async function startNewRivergate() {
+    if (entryBusy) return;
+    setEntryBusy(true);
+    setEntryError(null);
+    try {
+      const persistence = persistenceRef.current;
+      if (persistence !== null) {
+        await Promise.all([
+          persistence.deleteCampaignSession(RIVERGATE_CITY_ID),
+          persistence.deleteCity(RIVERGATE_CITY_ID),
+        ]);
+      }
+      const fresh = createDeveloperGame();
+      window.localStorage.removeItem(CHALLENGE_PROGRESS_STORAGE_KEY);
+      dispatch({ type: "restore", state: fresh });
+      setWelcomeProgress(null);
+      setHasSavedGame(false);
+      enterRivergate();
+    } catch {
+      setEntryError(
+        "Rivergate could not start over yet. Your saved town is still safe—please try again.",
+      );
+    } finally {
+      setEntryBusy(false);
+    }
+  }
+
+  function continueRivergate() {
     setOnboardingComplete(true);
     window.scrollTo({ top: 0, behavior: "auto" });
   }
@@ -599,6 +653,10 @@ export default function GameShell() {
       persistenceRef.current?.deleteCampaignSession(RIVERGATE_CITY_ID),
       persistenceRef.current?.deleteCity(RIVERGATE_CITY_ID),
     ]);
+    window.localStorage.removeItem(CHALLENGE_PROGRESS_STORAGE_KEY);
+    setWelcomeProgress(null);
+    setHasSavedGame(false);
+    setOnboardingComplete(false);
     setAdultPanelOpen(false);
     setAdultUnlocked(false);
     setAdultAnswer("");
@@ -650,96 +708,18 @@ export default function GameShell() {
 
   if (!onboardingComplete) {
     return (
-      <main
-        className={`welcome-shell theme-${colourTheme}${highContrast ? " high-contrast" : ""}`}
-      >
-        <section className="welcome-landscape" aria-hidden="true">
-          <span className="welcome-sun" />
-          <span className="welcome-hill welcome-hill-far" />
-          <span className="welcome-hill welcome-hill-near" />
-          <span className="welcome-river" />
-          <span className="welcome-town welcome-town-one" />
-          <span className="welcome-town welcome-town-two" />
-          <span className="welcome-town welcome-town-three" />
-        </section>
-        <section className="welcome-card" aria-labelledby="welcome-heading">
-          <div className="welcome-brand">
-            <span className="brand-mark" aria-hidden="true">
-              <span />
-            </span>
-            <strong>Terra World</strong>
-          </div>
-          <h1 id="welcome-heading">A city is waiting for your ideas.</h1>
-          <p className="welcome-lead">
-            Grow Rivergate from an empty valley. Bring clean water, power,
-            homes, care, and nature together—then watch how every choice changes
-            the city.
-          </p>
-
-          <fieldset className="role-picker">
-            <legend>Choose your planner badge</legend>
-            <div>
-              {PLAYER_ROLES.map((role) => (
-                <label key={role.id}>
-                  <input
-                    checked={playerRole === role.id}
-                    name="planner-role"
-                    onChange={() => setPlayerRole(role.id)}
-                    type="radio"
-                    value={role.id}
-                  />
-                  <span className="role-icon">
-                    <GameIcon name={role.icon} size={26} />
-                  </span>
-                  <strong>{role.label}</strong>
-                  <small>{role.description}</small>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
-          <fieldset className="theme-picker">
-            <legend>Pick a city-colour flag</legend>
-            <div>
-              {(["river", "forest", "sunrise"] as const).map((theme) => (
-                <label key={theme}>
-                  <input
-                    checked={colourTheme === theme}
-                    name="colour-theme"
-                    onChange={() => setColourTheme(theme)}
-                    type="radio"
-                    value={theme}
-                  />
-                  <span className={`theme-flag flag-${theme}`} />
-                  {capitalize(theme)}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
-          <div className="computer-guide-note">
-            <GameIcon name="spark" size={22} />
-            <p>
-              <strong>Meet Rivergate, your computer guide.</strong>
-              It can explain verified city changes, but it never controls your
-              city. The game and its local explanations work offline.
-            </p>
-          </div>
-
-          <button
-            className="welcome-start"
-            onClick={beginRivergate}
-            type="button"
-          >
-            Start the water mission
-            <GameIcon name="arrow" />
-          </button>
-          <p className="welcome-privacy">
-            No account, wallet, real name, public score, or purchase needed.
-            Your city starts saved on this device.
-          </p>
-        </section>
-      </main>
+      <GameLanding
+        errorMessage={entryError}
+        hasSavedGame={hasSavedGame}
+        loading={entryBusy}
+        onContinue={continueRivergate}
+        onStart={startNewRivergate}
+        playerRoleLabel={
+          PLAYER_ROLES.find((role) => role.id === playerRole)?.label ??
+          "City Builder"
+        }
+        progress={welcomeProgress}
+      />
     );
   }
 
@@ -1365,10 +1345,6 @@ function AdultControls({
       </section>
     </div>
   );
-}
-
-function capitalize(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function chapterLabel(chapterId: string): string {

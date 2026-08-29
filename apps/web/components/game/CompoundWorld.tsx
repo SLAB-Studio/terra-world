@@ -10,6 +10,7 @@ import {
 
 import {
   challengeById,
+  CHALLENGE_PROGRESS_STORAGE_KEY,
   challengeStars,
   completedGoalIds,
   copyChallengeSetup,
@@ -107,7 +108,6 @@ const OWNER_HELP: Readonly<Record<UpgradeId, string>> = {
   recycle: "Can we tidy our yard?",
 };
 
-const CHALLENGE_PROGRESS_KEY = "terra-world-challenge-progress-v1";
 const FIRST_CHALLENGE = TERRA_CHALLENGES[0];
 
 function initialCompoundState(): Record<CompoundId, readonly UpgradeId[]> {
@@ -245,7 +245,7 @@ export default function CompoundWorld({
   useEffect(() => {
     if (!challengeProgressReady) return;
     window.localStorage.setItem(
-      CHALLENGE_PROGRESS_KEY,
+      CHALLENGE_PROGRESS_STORAGE_KEY,
       JSON.stringify({
         schemaVersion: 1,
         activeChallengeId,
@@ -683,7 +683,9 @@ type RestoredChallengeProgress = Readonly<{
 
 function restoreChallengeProgress(): RestoredChallengeProgress | null {
   try {
-    const serialized = window.localStorage.getItem(CHALLENGE_PROGRESS_KEY);
+    const serialized = window.localStorage.getItem(
+      CHALLENGE_PROGRESS_STORAGE_KEY,
+    );
     if (serialized === null) return null;
     const value = JSON.parse(serialized) as unknown;
     if (!isRecord(value) || value.schemaVersion !== 1) return null;

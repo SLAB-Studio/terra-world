@@ -5,6 +5,8 @@ export const CHALLENGE_UPGRADE_IDS = [
   "garden",
   "recycle",
 ] as const;
+export const CHALLENGE_PROGRESS_STORAGE_KEY =
+  "terra-world-challenge-progress-v1";
 
 export type ChallengeHouseId = (typeof CHALLENGE_HOUSE_IDS)[number];
 export type ChallengeUpgradeId = (typeof CHALLENGE_UPGRADE_IDS)[number];
