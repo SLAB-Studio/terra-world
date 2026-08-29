@@ -4,5 +4,7 @@ export * from "./chapter-5-storm";
 export * from "./content";
 export * from "./director";
 export * from "./en";
+export * from "./endings";
 export * from "./evaluate";
+export * from "./explanations";
 export * from "./scenario-types";

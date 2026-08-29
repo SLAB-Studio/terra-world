@@ -1,6 +1,8 @@
 import { CHAPTER_THREE_CARE_MESSAGES } from "./chapter-3-care";
 import { CHAPTER_FOUR_GROWTH_MESSAGES } from "./chapter-4-growth";
 import { CHAPTER_FIVE_STORM_MESSAGES } from "./chapter-5-storm";
+import { RIVERGATE_ENDING_MESSAGES } from "./endings";
+import { RIVERGATE_EXPLANATION_MESSAGES } from "./explanations";
 
 export const RIVERGATE_EN_MESSAGES: Readonly<Record<string, string>> = {
   "rivergate.campaign.title": "Rivergate Foundations",
@@ -120,4 +122,6 @@ export const RIVERGATE_EN_MESSAGES: Readonly<Record<string, string>> = {
   ...CHAPTER_THREE_CARE_MESSAGES,
   ...CHAPTER_FOUR_GROWTH_MESSAGES,
   ...CHAPTER_FIVE_STORM_MESSAGES,
+  ...RIVERGATE_EXPLANATION_MESSAGES,
+  ...RIVERGATE_ENDING_MESSAGES,
 };
