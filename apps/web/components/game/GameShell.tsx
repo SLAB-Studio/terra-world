@@ -43,7 +43,9 @@ import {
   backUpCampaignSession,
   createCheckpointBackupStore,
   createCheckpointHttpRemoteStorage,
+  parseAdultBackupKit,
   restoreCampaignSession,
+  serializeAdultBackupKit,
   type AdultBackupKit,
   type DurableCheckpointBackupStore,
 } from "../../lib/checkpoints";
@@ -78,6 +80,7 @@ type DragGhost = {
 
 const RIVERGATE_CITY_ID = "rivergate-city";
 const LOCAL_PROFILE_ID = "local-builder";
+const ADULT_PIN_STORAGE_KEY = "terra-world-adult-pin-v1";
 
 type PlayerRole = "water-keeper" | "neighbour-helper" | "nature-planner";
 type SaveState = "loading" | "saving" | "saved" | "temporary";
@@ -130,6 +133,8 @@ export default function GameShell() {
   const dragGhostRef = useRef<DragGhost | null>(null);
   const persistenceRef = useRef<OfflinePersistence | null>(null);
   const adultSessionReadyRef = useRef(false);
+  const adultEntryRef = useRef<HTMLButtonElement | null>(null);
+  const adultDialogRef = useRef<HTMLElement | null>(null);
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [persistenceReady, setPersistenceReady] = useState(false);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
@@ -142,11 +147,14 @@ export default function GameShell() {
   const [adultPanelOpen, setAdultPanelOpen] = useState(false);
   const [adultUnlocked, setAdultUnlocked] = useState(false);
   const [adultAnswer, setAdultAnswer] = useState("");
+  const [adultConfirm, setAdultConfirm] = useState("");
+  const [adultPinConfigured, setAdultPinConfigured] = useState(false);
   const [adultGateError, setAdultGateError] = useState(false);
   const [textScale, setTextScale] = useState(1);
   const [highContrast, setHighContrast] = useState(false);
   const [muted, setMuted] = useState(true);
   const [backupKit, setBackupKit] = useState<AdultBackupKit | null>(null);
+  const [backupKitImported, setBackupKitImported] = useState(false);
   const [backupState, setBackupState] = useState<BackupState>("idle");
   const [backupMessage, setBackupMessage] = useState(
     "Create an encrypted recovery point when an adult is ready.",
@@ -174,8 +182,7 @@ export default function GameShell() {
         "What did this choice change in Rivergate?",
       hint:
         result.guide.hints?.[0] ??
-        childFeedback?.hint ??
-        "Compare the city systems before building again.",
+        "Use the planning lenses to compare the system you just changed.",
     };
   }, [childFeedback, guideSnapshot]);
   const unlockedChapterIds = useMemo(
@@ -198,6 +205,53 @@ export default function GameShell() {
       setGuideSnapshot(guideController.getSnapshot());
     });
   }, [guideController]);
+
+  useEffect(() => {
+    setAdultPinConfigured(
+      window.localStorage.getItem(ADULT_PIN_STORAGE_KEY) !== null,
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!adultPanelOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const dialog = adultDialogRef.current;
+
+    function handleDialogKey(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setAdultPanelOpen(false);
+        setAdultUnlocked(false);
+        setAdultAnswer("");
+        setAdultConfirm("");
+        return;
+      }
+      if (event.key !== "Tab" || dialog === null) return;
+      const controls = [
+        ...dialog.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
+        ),
+      ].filter((control) => control.getClientRects().length > 0);
+      const first = controls[0];
+      const last = controls.at(-1);
+      if (first === undefined || last === undefined) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleDialogKey);
+    return () => {
+      document.removeEventListener("keydown", handleDialogKey);
+      document.body.style.overflow = previousOverflow;
+      adultEntryRef.current?.focus();
+    };
+  }, [adultPanelOpen]);
 
   useEffect(() => {
     return () => guideController.dispose();
@@ -363,6 +417,7 @@ export default function GameShell() {
       ]).catch(() => setSaveState("temporary"));
     }
     setOnboardingComplete(true);
+    window.scrollTo({ top: 0, behavior: "auto" });
   }
 
   function saveAccessibilitySettings(next: {
@@ -389,8 +444,28 @@ export default function GameShell() {
       .catch(() => setSaveState("temporary"));
   }
 
-  function unlockAdultPanel() {
-    if (adultAnswer.trim() === "7") {
+  async function unlockAdultPanel() {
+    const pin = adultAnswer.trim();
+    if (!/^\d{4,8}$/u.test(pin)) {
+      setAdultGateError(true);
+      return;
+    }
+    if (!adultPinConfigured) {
+      if (pin !== adultConfirm.trim()) {
+        setAdultGateError(true);
+        return;
+      }
+      window.localStorage.setItem(
+        ADULT_PIN_STORAGE_KEY,
+        await hashAdultPin(pin),
+      );
+      setAdultPinConfigured(true);
+      setAdultUnlocked(true);
+      setAdultGateError(false);
+      return;
+    }
+    const expected = window.localStorage.getItem(ADULT_PIN_STORAGE_KEY);
+    if (expected !== null && (await hashAdultPin(pin)) === expected) {
       setAdultUnlocked(true);
       setAdultGateError(false);
       return;
@@ -398,11 +473,19 @@ export default function GameShell() {
     setAdultGateError(true);
   }
 
-  async function openAdultBackupStore(): Promise<{
+  function closeAdultPanel() {
+    setAdultPanelOpen(false);
+    setAdultUnlocked(false);
+    setAdultAnswer("");
+    setAdultConfirm("");
+    setAdultGateError(false);
+  }
+
+  async function openAdultBackupStore(startSession = true): Promise<{
     store: DurableCheckpointBackupStore;
     remote: ReturnType<typeof createCheckpointHttpRemoteStorage>;
   }> {
-    if (!adultSessionReadyRef.current) {
+    if (startSession && !adultSessionReadyRef.current) {
       const response = await fetch("/api/checkpoints/session", {
         method: "POST",
         cache: "no-store",
@@ -436,6 +519,7 @@ export default function GameShell() {
         remote: opened.remote,
       });
       setBackupKit(kit);
+      setBackupKitImported(false);
       setBackupState("ready");
       setBackupMessage(
         "Encrypted recovery point ready. Keep the recovery code private.",
@@ -456,7 +540,7 @@ export default function GameShell() {
     setBackupMessage("Checking and restoring the encrypted recovery point…");
     let store: DurableCheckpointBackupStore | null = null;
     try {
-      const opened = await openAdultBackupStore();
+      const opened = await openAdultBackupStore(!backupKitImported);
       store = opened.store;
       const session = await restoreCampaignSession({
         kit: backupKit,
@@ -475,6 +559,23 @@ export default function GameShell() {
       );
     } finally {
       store?.close();
+    }
+  }
+
+  function importRecoveryPack(value: string) {
+    try {
+      const kit = parseAdultBackupKit(value.trim());
+      setBackupKit(kit);
+      setBackupKitImported(true);
+      setBackupState("ready");
+      setBackupMessage(
+        "Recovery pack loaded. Restore checks its encrypted city before changing anything.",
+      );
+    } catch {
+      setBackupState("error");
+      setBackupMessage(
+        "That recovery pack is not valid. The local city was not changed.",
+      );
     }
   }
 
@@ -680,7 +781,11 @@ export default function GameShell() {
     <main
       className={`game-shell theme-${colourTheme}${highContrast ? " high-contrast" : ""}`}
     >
-      <header className="game-header">
+      <header
+        aria-hidden={adultPanelOpen || undefined}
+        className="game-header"
+        inert={adultPanelOpen || undefined}
+      >
         <div className="brand-lockup">
           <span className="brand-mark" aria-hidden="true">
             <span />
@@ -707,6 +812,7 @@ export default function GameShell() {
           <button
             className="adult-entry"
             onClick={() => setAdultPanelOpen(true)}
+            ref={adultEntryRef}
             type="button"
           >
             <GameIcon name="shield" size={19} />
@@ -736,7 +842,9 @@ export default function GameShell() {
       </header>
 
       <section
+        aria-hidden={adultPanelOpen || undefined}
         className="game-workspace"
+        inert={adultPanelOpen || undefined}
         aria-label="Rivergate planning workspace"
       >
         <aside className="catalogue-panel" aria-labelledby="catalogue-heading">
@@ -985,19 +1093,20 @@ export default function GameShell() {
         <div
           className="adult-dialog-backdrop"
           onMouseDown={(event) => {
-            if (event.currentTarget === event.target) setAdultPanelOpen(false);
+            if (event.currentTarget === event.target) closeAdultPanel();
           }}
         >
           <section
             aria-labelledby="adult-dialog-heading"
             aria-modal="true"
             className="adult-dialog"
+            ref={adultDialogRef}
             role="dialog"
           >
             <button
               aria-label="Close adult controls"
               className="dialog-close"
-              onClick={() => setAdultPanelOpen(false)}
+              onClick={closeAdultPanel}
               type="button"
             >
               <GameIcon name="close" />
@@ -1012,25 +1121,50 @@ export default function GameShell() {
                   Backup, reset, learning notes, and technical proof live here
                   so children can focus on building.
                 </p>
-                <label htmlFor="adult-check">What is 4 + 3?</label>
+                <p className="adult-gate-note">
+                  {adultPinConfigured
+                    ? "Ask the adult who set up this device for the private family code."
+                    : "An adult should create a private 4–8 digit family code before continuing."}
+                </p>
+                <label htmlFor="adult-check">
+                  {adultPinConfigured ? "Family code" : "Create family code"}
+                </label>
                 <div className="adult-check-row">
                   <input
                     autoFocus
+                    autoComplete="off"
                     id="adult-check"
                     inputMode="numeric"
+                    maxLength={8}
                     onChange={(event) => setAdultAnswer(event.target.value)}
                     onKeyDown={(event) => {
-                      if (event.key === "Enter") unlockAdultPanel();
+                      if (event.key === "Enter" && adultPinConfigured)
+                        void unlockAdultPanel();
                     }}
+                    type="password"
                     value={adultAnswer}
                   />
-                  <button onClick={unlockAdultPanel} type="button">
+                  {!adultPinConfigured && (
+                    <input
+                      aria-label="Confirm family code"
+                      autoComplete="off"
+                      inputMode="numeric"
+                      maxLength={8}
+                      onChange={(event) => setAdultConfirm(event.target.value)}
+                      placeholder="Repeat code"
+                      type="password"
+                      value={adultConfirm}
+                    />
+                  )}
+                  <button onClick={() => void unlockAdultPanel()} type="button">
                     Continue
                   </button>
                 </div>
                 {adultGateError && (
                   <p className="adult-gate-error" role="alert">
-                    That answer did not match. Try once more.
+                    {adultPinConfigured
+                      ? "That family code did not match. Ask the adult who set it up."
+                      : "Use 4–8 digits and enter the same code twice."}
                   </p>
                 )}
               </div>
@@ -1046,11 +1180,15 @@ export default function GameShell() {
                 muted={muted}
                 onAccessibilityChange={saveAccessibilitySettings}
                 onBackup={() => void backUpRivergate()}
+                onImportRecoveryPack={importRecoveryPack}
                 onReset={() => void resetRivergate()}
                 onRestore={() => void restoreRivergateFromBackup()}
                 saveState={saveState}
                 state={state}
                 textScale={textScale}
+                recoveryPack={
+                  backupKit === null ? null : serializeAdultBackupKit(backupKit)
+                }
               />
             )}
           </section>
@@ -1280,6 +1418,7 @@ type AdultControlsProps = {
   readonly backupKit: AdultBackupKit | null;
   readonly backupMessage: string;
   readonly backupState: BackupState;
+  readonly recoveryPack: string | null;
   readonly actionLogHash: string;
   readonly cityStateHash: string;
   readonly guideProof: CityGuideProof;
@@ -1292,6 +1431,7 @@ type AdultControlsProps = {
     muted?: boolean;
   }) => void;
   readonly onBackup: () => void;
+  readonly onImportRecoveryPack: (value: string) => void;
   readonly onReset: () => void;
   readonly onRestore: () => void;
 };
@@ -1307,13 +1447,17 @@ function AdultControls({
   muted,
   onAccessibilityChange,
   onBackup,
+  onImportRecoveryPack,
   onReset,
   onRestore,
   saveState,
   state,
   textScale,
+  recoveryPack,
 }: AdultControlsProps) {
   const [resetArmed, setResetArmed] = useState(false);
+  const [recoveryInput, setRecoveryInput] = useState("");
+  const [recoveryCopied, setRecoveryCopied] = useState(false);
 
   return (
     <div className="adult-controls">
@@ -1430,15 +1574,44 @@ function AdultControls({
             {backupState === "restoring" ? "Restoring…" : "Test restore"}
           </button>
         </div>
-        {backupKit !== null && (
+        {backupKit !== null && recoveryPack !== null && (
           <details className="recovery-code">
-            <summary>Show private recovery code</summary>
+            <summary>Save private recovery pack</summary>
             <p>
-              Store this with an adult. Anyone with it can open this backup.
+              Store this with an adult. Anyone with this pack can open the
+              encrypted backup.
             </p>
-            <code>{backupKit.recoveryCode}</code>
+            <code>{recoveryPack}</code>
+            <button
+              onClick={() => {
+                void navigator.clipboard
+                  .writeText(recoveryPack)
+                  .then(() => setRecoveryCopied(true))
+                  .catch(() => setRecoveryCopied(false));
+              }}
+              type="button"
+            >
+              {recoveryCopied ? "Copied" : "Copy recovery pack"}
+            </button>
           </details>
         )}
+        <div className="recovery-import">
+          <label htmlFor="recovery-pack-input">Restore a saved pack</label>
+          <textarea
+            id="recovery-pack-input"
+            onChange={(event) => setRecoveryInput(event.target.value)}
+            placeholder="Paste the adult recovery pack"
+            rows={3}
+            value={recoveryInput}
+          />
+          <button
+            disabled={recoveryInput.trim().length === 0}
+            onClick={() => onImportRecoveryPack(recoveryInput)}
+            type="button"
+          >
+            Check recovery pack
+          </button>
+        </div>
       </section>
 
       <section
@@ -1481,7 +1654,11 @@ function AdultControls({
                   ? "Verified private compute"
                   : guideProof.source === "unavailable"
                     ? "Guide route not reached"
-                    : "Safety-checked local lesson"}
+                    : guideProof.source === "authored-server"
+                      ? "Safety-checked server lesson"
+                      : guideProof.source === "verified-cache"
+                        ? "Verified cached lesson"
+                        : "Safety-checked local lesson"}
               </span>
             </dd>
           </div>
@@ -1490,8 +1667,10 @@ function AdultControls({
             <dd>
               <span>
                 {backupKit === null
-                  ? "Adult-sponsored route ready"
-                  : `Recovery root ${backupKit.reference.root.slice(0, 18)}…`}
+                  ? "Recovery network not checked"
+                  : backupKit.reference.root.startsWith("demo:")
+                    ? "Local demo recovery verified"
+                    : `Recovery root ${backupKit.reference.root.slice(0, 18)}…`}
               </span>
               <span>No child wallet · ciphertext only</span>
             </dd>
@@ -1587,6 +1766,16 @@ function chapterLabel(chapterId: string): string {
 
 function messageFor(key: string): string {
   return RIVERGATE_EN_MESSAGES[key] ?? key;
+}
+
+async function hashAdultPin(pin: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(`terra-world-adult-gate:${pin}`),
+  );
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 function personalityFor(role: PlayerRole): SafeCityPersonality {

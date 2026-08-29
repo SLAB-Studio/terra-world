@@ -1484,6 +1484,14 @@ button:disabled {
   color: #9d382c !important;
   font-weight: 750;
 }
+.adult-gate-note {
+  margin: 16px auto 0;
+  max-width: 42ch;
+  padding: 10px 12px;
+  font-size: 0.74rem;
+  background: #edf3ed;
+  border-radius: 10px;
+}
 .adult-controls {
   clear: both;
   padding: 22px clamp(20px, 5vw, 46px) 44px;
@@ -1614,6 +1622,50 @@ button:disabled {
   border-radius: 8px;
   user-select: all;
 }
+.recovery-code button,
+.recovery-import button {
+  min-height: 42px;
+  margin-top: 9px;
+  padding: 8px 12px;
+  color: #fff;
+  font-weight: 850;
+  background: #195a48;
+  border: 0;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.recovery-import {
+  margin-top: 14px;
+  display: grid;
+  gap: 7px;
+}
+.recovery-import label {
+  color: #294b40;
+  font-size: 0.74rem;
+  font-weight: 850;
+}
+.recovery-import textarea {
+  width: 100%;
+  resize: vertical;
+  padding: 10px;
+  color: #274c40;
+  font:
+    0.72rem/1.45 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  background: #fff;
+  border: 1px solid #9eb8aa;
+  border-radius: 9px;
+}
+.recovery-import button {
+  width: fit-content;
+  margin-top: 0;
+}
+.recovery-import button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
 .proof-section {
   color: #e9f3ed;
   padding: 24px;
@@ -1698,6 +1750,9 @@ button:disabled {
   }
 }
 @media (max-width: 720px) {
+  .game-shell {
+    padding-bottom: 82px;
+  }
   .welcome-shell {
     align-items: start;
     padding: 0;
@@ -1755,5 +1810,56 @@ button:disabled {
     height: 100dvh;
     max-height: none;
     border-radius: 0;
+  }
+  .commit-area {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 25;
+    min-height: 76px;
+    border-top: 1px solid #aac0b3;
+  }
+  .adult-dialog .adult-check-row {
+    flex-wrap: wrap;
+  }
+}
+
+@media (min-width: 721px) and (max-height: 850px) {
+  .welcome-shell {
+    align-items: start;
+    overflow: auto;
+    padding: 16px;
+  }
+  .welcome-card {
+    width: min(900px, 100%);
+    padding: 22px 28px;
+  }
+  .welcome-card h1 {
+    margin-top: 12px;
+    font-size: clamp(2.6rem, 6vh, 3.5rem);
+  }
+  .welcome-lead,
+  .role-picker,
+  .theme-picker {
+    margin-top: 12px;
+  }
+  .role-picker label {
+    min-height: 96px;
+    padding: 10px 12px;
+  }
+  .role-picker small {
+    line-height: 1.25;
+  }
+  .computer-guide-note {
+    margin-top: 12px;
+    padding: 10px 12px;
+  }
+  .welcome-start {
+    min-height: 48px;
+    margin-top: 12px;
+  }
+  .welcome-privacy {
+    margin-top: 8px;
   }
 }
