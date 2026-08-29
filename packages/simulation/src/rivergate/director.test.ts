@@ -14,7 +14,7 @@ import {
   FINAL_STORM_EVENT_ID,
 } from "./director";
 
-const NO_EVENTS = { firedEventIds: [] } as const;
+const NO_EVENTS = { turn: 0, firedEventIds: [] } as const;
 
 describe("Rivergate campaign director", () => {
   it("blocks unequal care even when generic citywide objectives pass", () => {
@@ -144,7 +144,7 @@ describe("Rivergate campaign director", () => {
       RIVERGATE_FOUNDATIONS_CAMPAIGN,
       city,
       progress,
-      { firedEventIds: [FINAL_STORM_EVENT_ID] },
+      { turn: 15, firedEventIds: [FINAL_STORM_EVENT_ID] },
     );
 
     expect(result).toMatchObject({
@@ -165,7 +165,7 @@ describe("Rivergate campaign director", () => {
       RIVERGATE_FOUNDATIONS_CAMPAIGN,
       city,
       progressAt("chapter-5-storm", "repair-together"),
-      { firedEventIds: [FINAL_STORM_EVENT_ID] },
+      { turn: 15, firedEventIds: [FINAL_STORM_EVENT_ID] },
     );
 
     expect(result).toMatchObject({
@@ -180,7 +180,7 @@ describe("Rivergate campaign director", () => {
     });
   });
 
-  it("does not complete a hard-hit storm even with exact event evidence", () => {
+  it("completes a hard-hit storm into the constructive rebuilding path", () => {
     const city = stormCity({
       budget: 0,
       buildings: [],
@@ -205,14 +205,15 @@ describe("Rivergate campaign director", () => {
       RIVERGATE_FOUNDATIONS_CAMPAIGN,
       city,
       progressAt("chapter-5-storm", "repair-together"),
-      { firedEventIds: [FINAL_STORM_EVENT_ID] },
+      { turn: 15, firedEventIds: [FINAL_STORM_EVENT_ID] },
     );
 
     expect(result).toMatchObject({
       ok: true,
-      transition: { type: "none" },
+      transition: { type: "campaign-completed" },
+      state: { phase: "completed" },
       gate: {
-        complete: false,
+        complete: true,
         eventEvidenceSatisfied: true,
         acceptableOutcome: false,
         evaluation: { outcomeBand: "hard-hit" },
@@ -226,7 +227,7 @@ describe("Rivergate campaign director", () => {
       "chapter-3-care",
       "care-for-every-neighbourhood",
     );
-    const evidence = { firedEventIds: [] } as const;
+    const evidence = { turn: city.turn, firedEventIds: [] } as const;
     const before = structuredClone({ city, progress, evidence });
 
     const first = advanceRivergateCampaignState(

@@ -138,7 +138,7 @@ export const CHAPTER_FIVE_STORM: Chapter = ChapterSchema.parse({
         {
           id: "restore-safe-water",
           descriptionKey: "rivergate.chapter-5.mission-3.objective.water",
-          required: true,
+          required: false,
           condition: {
             type: "metric",
             metric: "water",
@@ -193,7 +193,7 @@ export const CHAPTER_FIVE_STORM_MESSAGES = {
   "rivergate.chapter-5.mission-3.objective.storm":
     "Run the final river storm and inspect the result.",
   "rivergate.chapter-5.mission-3.objective.water":
-    "Restore safe water to 55 or higher.",
+    "If you can, restore safe water to 55 or higher before finishing.",
   "rivergate.chapter-5.mission-3.objective.recovery":
     "If you can, finish with 100 left for future repairs.",
   "rivergate.chapter-5.fact.wetlands":

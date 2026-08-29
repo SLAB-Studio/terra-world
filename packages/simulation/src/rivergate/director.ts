@@ -52,6 +52,8 @@ export const RIVERGATE_CHAPTER_IDS = [
 export type RivergateChapterId = (typeof RIVERGATE_CHAPTER_IDS)[number];
 
 export type RivergateDirectorEvidence = {
+  /** TurnResult.state.turn for the same result that supplied firedEventIds. */
+  readonly turn: number;
   /** IDs returned by the TurnResult that is being evaluated. */
   readonly firedEventIds: readonly string[];
 };
@@ -103,7 +105,7 @@ export const FINAL_STORM_EVENT_ID = "chapter-5-river-storm" as const;
 /**
  * A final storm is acceptable at a readiness score of 45 or above: the
  * evaluator calls this "recovering" or "protected". A "hard-hit" result is
- * still simulated and reported, but cannot complete the campaign.
+ * still a completed storm and becomes the constructive rebuilding ending.
  */
 export const MINIMUM_ACCEPTABLE_STORM_READINESS = 45;
 
@@ -159,6 +161,8 @@ export function evaluateRivergateChapterGate(
       const snapshot = adaptCityToStormEvaluation(city);
       const evaluation = evaluateFinalStorm(snapshot);
       const eventEvidenceSatisfied =
+        evidence.turn === city.turn &&
+        city.turn === 15 &&
         evidence.firedEventIds.some(
           (eventId) => eventId === FINAL_STORM_EVENT_ID,
         ) &&
@@ -170,7 +174,7 @@ export function evaluateRivergateChapterGate(
         evaluation.outcomeBand !== "hard-hit";
       return {
         chapterId,
-        complete: eventEvidenceSatisfied && acceptableOutcome,
+        complete: eventEvidenceSatisfied,
         requiredEventId: FINAL_STORM_EVENT_ID,
         eventEvidenceSatisfied,
         acceptableOutcome,
@@ -197,7 +201,7 @@ export function advanceRivergateCampaignState(
   evidence: RivergateDirectorEvidence,
 ): AdvanceRivergateCampaignResult {
   assertEvidence(evidence);
-  const effectiveCity = cityWithDirectorMilestones(city, evidence);
+  const effectiveCity = cityWithDirectorMilestones(city, progress, evidence);
   const currentChapter = rivergateChapterId(progress.chapterId);
   const gate =
     currentChapter !== null &&
@@ -484,6 +488,7 @@ export function adaptCityToStormEvaluation(
 
 function cityWithDirectorMilestones(
   city: CityState,
+  progress: CampaignProgressState,
   evidence: RivergateDirectorEvidence,
 ): CityState {
   const retained = city.milestones.filter(
@@ -497,7 +502,24 @@ function cityWithDirectorMilestones(
         : milestoneId === "growth-ready"
           ? "chapter-4-growth"
           : "chapter-5-storm";
-    return evaluateRivergateChapterGate(city, chapterId, evidence).complete;
+    const finalMissionId =
+      chapterId === "chapter-3-care"
+        ? "care-for-every-neighbourhood"
+        : chapterId === "chapter-4-growth"
+          ? "make-room-for-rivergate"
+          : "repair-together";
+    const alreadyEarned = progress.completedMissionKeys.includes(
+      missionProgressKey(chapterId, finalMissionId),
+    );
+    const gate = evaluateRivergateChapterGate(city, chapterId, evidence);
+    if (milestoneId === "storm-ready") {
+      return (
+        gate.chapterId === "chapter-5-storm" &&
+        gate.eventEvidenceSatisfied &&
+        gate.acceptableOutcome
+      );
+    }
+    return alreadyEarned || gate.complete;
   });
   return { ...city, milestones: [...retained, ...derived] };
 }
@@ -717,10 +739,14 @@ function assertEvidence(
   if (
     typeof evidence !== "object" ||
     evidence === null ||
+    !Number.isInteger(evidence.turn) ||
+    evidence.turn < 0 ||
     !Array.isArray(evidence.firedEventIds) ||
     evidence.firedEventIds.some((id) => typeof id !== "string")
   ) {
-    throw new Error("Rivergate director evidence must include firedEventIds");
+    throw new Error(
+      "Rivergate director evidence must include its turn and firedEventIds",
+    );
   }
 }
 
