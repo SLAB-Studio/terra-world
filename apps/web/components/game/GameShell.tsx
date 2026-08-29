@@ -103,6 +103,7 @@ export default function GameShell() {
   const expertCloseRef = useRef<HTMLButtonElement | null>(null);
   const expertDialogRef = useRef<HTMLElement | null>(null);
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const expertMessageSequenceRef = useRef(0);
   const [persistenceReady, setPersistenceReady] = useState(false);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [hasSavedGame, setHasSavedGame] = useState(false);
@@ -745,10 +746,11 @@ export default function GameShell() {
   }
 
   function shareBuilderLearning(message: string) {
+    expertMessageSequenceRef.current += 1;
     setExpertMessages((messages) => [
       ...messages.slice(-5),
       {
-        id: `river-builder-${Date.now()}`,
+        id: `leo-builder-${Date.now()}-${expertMessageSequenceRef.current}`,
         speaker: "river",
         text: message,
       },
