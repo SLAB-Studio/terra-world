@@ -63,7 +63,7 @@ export function simulateTurn(input: SimulateTurnInput): TurnResult {
   const committed =
     planning === undefined
       ? cloneCity(input.city)
-      : cloneCity(materializePlanningState(planning));
+      : cloneCity(materializePlanningState(planning, catalogue));
   const operations = planning?.operations.slice(0, planning.cursor) ?? [];
   const newBuildings = committed.buildings.filter(
     (building) =>

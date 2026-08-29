@@ -111,7 +111,7 @@ export function replayCity(
       assertTurn(action, actionIndex, turn);
 
       if (action.type === "advance-turn") {
-        const plannedCity = materializePlanningState(planning);
+        const plannedCity = materializePlanningState(planning, catalogue);
         const network = networkSnapshotForCity(plannedCity, catalogue);
 
         const result = simulateTurn({

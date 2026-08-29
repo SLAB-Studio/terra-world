@@ -9,6 +9,7 @@ import type {
 } from "@terra/campaign-schema";
 
 import { BUILDING_CATALOGUE } from "./catalogue";
+import { propagateUtilityConnections } from "./networks";
 
 export const PLACEMENT_REASON_CODES = [
   "UNKNOWN_BUILDING",
@@ -254,7 +255,7 @@ export function getPlanningView(
   session: PlanningSession,
   catalogue: readonly BuildingDefinition[] = BUILDING_CATALOGUE,
 ): PlanningView {
-  const city = materializePlanningState(session);
+  const city = materializePlanningState(session, catalogue);
   const originalIds = new Set(
     session.baseState.buildings.map((building) => building.instanceId),
   );
@@ -334,13 +335,17 @@ export function redoProvisional(session: PlanningSession): PlanningSession {
   return { ...session, cursor: session.cursor + 1 };
 }
 
-export function materializePlanningState(session: PlanningSession): CityState {
-  return session.operations
+export function materializePlanningState(
+  session: PlanningSession,
+  catalogue: readonly BuildingDefinition[] = BUILDING_CATALOGUE,
+): CityState {
+  const city = session.operations
     .slice(0, session.cursor)
     .reduce<CityState>(
       (city, operation) => applyPlanningOperation(city, operation),
       session.baseState,
     );
+  return propagateUtilityConnections(city, catalogue);
 }
 
 export function transformFootprint(

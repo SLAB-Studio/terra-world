@@ -331,6 +331,56 @@ describe("immutable provisional planning", () => {
     }
     expect(base.budget).toBe(150);
   });
+
+  it.each([
+    { buildingId: "water-pump", connection: "water" as const },
+    { buildingId: "solar-array", connection: "electricity" as const },
+  ])(
+    "derives and removes $connection access through $buildingId planning operations",
+    ({ buildingId, connection }) => {
+      const definition = BUILDING_CATALOGUE.find(
+        (candidate) => candidate.id === buildingId,
+      );
+      if (definition === undefined)
+        throw new Error(`Missing fixture definition: ${buildingId}`);
+
+      const base = cityForBuilding(definition);
+      const before = structuredClone(base);
+      const placed = placeProvisional(
+        createPlanningSession(base),
+        {
+          instanceId: `${buildingId}-1`,
+          buildingId,
+          anchor: { x: 2, y: 2 },
+          rotation: 0,
+        },
+        { unlockedChapterIds: ALL_CHAPTERS },
+      );
+      expect(placed.accepted).toBe(true);
+      if (!placed.accepted) return;
+
+      const connected = materializePlanningState(placed.session);
+      expect(connected.tiles.some((tile) => tile.connections[connection])).toBe(
+        true,
+      );
+      expect(
+        connected.tiles.every(
+          (tile) =>
+            !tile.connections[connection === "water" ? "electricity" : "water"],
+        ),
+      ).toBe(true);
+      expect(base).toEqual(before);
+
+      const removed = removeProvisional(placed.session, `${buildingId}-1`);
+      expect(removed.accepted).toBe(true);
+      if (!removed.accepted) return;
+      const disconnected = materializePlanningState(removed.session);
+      expect(
+        disconnected.tiles.every((tile) => !tile.connections[connection]),
+      ).toBe(true);
+      expect(base).toEqual(before);
+    },
+  );
 });
 
 function cityForBuilding(definition: BuildingDefinition): CityState {

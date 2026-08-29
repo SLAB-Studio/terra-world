@@ -302,6 +302,46 @@ export function analyzeCityNetworks(
   };
 }
 
+/**
+ * Rebuilds persisted utility access from the current provider coverage.
+ *
+ * Roads are built as individual structures, but water and electricity have no
+ * separate build operation. Their tile flags therefore represent the current
+ * reach of the placed utility providers. Recalculating both flags together
+ * keeps placement checks, turn simulation, undo/redo, and replay on the same
+ * deterministic city snapshot.
+ */
+export function propagateUtilityConnections(
+  city: CityState,
+  catalogue: readonly BuildingDefinition[] = BUILDING_CATALOGUE,
+): CityState {
+  const waterTileIds = new Set(
+    calculateCoverage(city, "water", catalogue).coveredTileIds,
+  );
+  const electricityTileIds = new Set(
+    calculateCoverage(city, "electricity", catalogue).coveredTileIds,
+  );
+
+  const tiles = city.tiles.map((tile) => {
+    const water = waterTileIds.has(tile.id);
+    const electricity = electricityTileIds.has(tile.id);
+    if (
+      tile.connections.water === water &&
+      tile.connections.electricity === electricity
+    ) {
+      return tile;
+    }
+    return {
+      ...tile,
+      connections: { ...tile.connections, water, electricity },
+    };
+  });
+
+  return tiles.every((tile, index) => tile === city.tiles[index])
+    ? city
+    : { ...city, tiles };
+}
+
 export function getCoverageAtTile(
   coverage: CoverageAnalysis,
   tileId: string,
