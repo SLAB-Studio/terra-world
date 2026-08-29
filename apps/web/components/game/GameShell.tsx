@@ -205,9 +205,7 @@ export default function GameShell() {
   }, [guideController]);
 
   useEffect(() => {
-    setAdultPinConfigured(
-      window.localStorage.getItem(ADULT_PIN_STORAGE_KEY) !== null,
-    );
+    setAdultPinConfigured(readDeviceItem(ADULT_PIN_STORAGE_KEY) !== null);
   }, []);
 
   useEffect(() => {
@@ -373,12 +371,10 @@ export default function GameShell() {
           }
         }
         const localChallengeProgress = readChallengeWelcomeProgress(
-          window.localStorage.getItem(CHALLENGE_PROGRESS_STORAGE_KEY),
+          readDeviceItem(CHALLENGE_PROGRESS_STORAGE_KEY),
         );
         setPlayerName(
-          readStoredPlayerName(
-            window.localStorage.getItem(PLAYER_NAME_STORAGE_KEY),
-          ),
+          readStoredPlayerName(readDeviceItem(PLAYER_NAME_STORAGE_KEY)),
         );
         setWelcomeProgress(localChallengeProgress);
         setHasSavedGame(campaignRestored || localChallengeProgress !== null);
@@ -390,12 +386,10 @@ export default function GameShell() {
       .catch(() => {
         if (!disposed) {
           const localChallengeProgress = readChallengeWelcomeProgress(
-            window.localStorage.getItem(CHALLENGE_PROGRESS_STORAGE_KEY),
+            readDeviceItem(CHALLENGE_PROGRESS_STORAGE_KEY),
           );
           setPlayerName(
-            readStoredPlayerName(
-              window.localStorage.getItem(PLAYER_NAME_STORAGE_KEY),
-            ),
+            readStoredPlayerName(readDeviceItem(PLAYER_NAME_STORAGE_KEY)),
           );
           setWelcomeProgress(localChallengeProgress);
           setHasSavedGame(localChallengeProgress !== null);
@@ -452,11 +446,7 @@ export default function GameShell() {
     const now = Date.now();
     const safePlayerName = normalisePlayerName(playerName);
     setPlayerName(safePlayerName);
-    try {
-      window.localStorage.setItem(PLAYER_NAME_STORAGE_KEY, safePlayerName);
-    } catch {
-      // Private browsing and restricted storage must never block play.
-    }
+    writeDeviceItem(PLAYER_NAME_STORAGE_KEY, safePlayerName);
     setExpertMessages((messages) =>
       messages.map((message) =>
         message.id === "river-welcome"
@@ -504,7 +494,7 @@ export default function GameShell() {
         ]);
       }
       const fresh = createDeveloperGame();
-      window.localStorage.removeItem(CHALLENGE_PROGRESS_STORAGE_KEY);
+      removeDeviceItem(CHALLENGE_PROGRESS_STORAGE_KEY);
       dispatch({ type: "restore", state: fresh });
       setWelcomeProgress(null);
       setHasSavedGame(false);
@@ -593,16 +583,16 @@ export default function GameShell() {
         setAdultGateError(true);
         return;
       }
-      window.localStorage.setItem(
-        ADULT_PIN_STORAGE_KEY,
-        await hashAdultPin(pin),
-      );
+      if (!writeDeviceItem(ADULT_PIN_STORAGE_KEY, await hashAdultPin(pin))) {
+        setAdultGateError(true);
+        return;
+      }
       setAdultPinConfigured(true);
       setAdultUnlocked(true);
       setAdultGateError(false);
       return;
     }
-    const expected = window.localStorage.getItem(ADULT_PIN_STORAGE_KEY);
+    const expected = readDeviceItem(ADULT_PIN_STORAGE_KEY);
     if (expected !== null && (await hashAdultPin(pin)) === expected) {
       setAdultUnlocked(true);
       setAdultGateError(false);
@@ -724,7 +714,7 @@ export default function GameShell() {
       persistenceRef.current?.deleteCampaignSession(RIVERGATE_CITY_ID),
       persistenceRef.current?.deleteCity(RIVERGATE_CITY_ID),
     ]);
-    window.localStorage.removeItem(CHALLENGE_PROGRESS_STORAGE_KEY);
+    removeDeviceItem(CHALLENGE_PROGRESS_STORAGE_KEY);
     setWelcomeProgress(null);
     setHasSavedGame(false);
     setOnboardingComplete(false);
@@ -1466,6 +1456,31 @@ function chapterLabel(chapterId: string): string {
     "chapter-5-storm": "Chapter 5 · Storm",
   };
   return labels[chapterId] ?? "This chapter";
+}
+
+function readDeviceItem(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeDeviceItem(key: string, value: string): boolean {
+  try {
+    window.localStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function removeDeviceItem(key: string): void {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Restricted storage already behaves like an empty local save.
+  }
 }
 
 async function hashAdultPin(pin: string): Promise<string> {

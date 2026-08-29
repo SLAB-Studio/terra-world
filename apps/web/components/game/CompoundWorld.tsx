@@ -244,18 +244,22 @@ export default function CompoundWorld({
 
   useEffect(() => {
     if (!challengeProgressReady) return;
-    window.localStorage.setItem(
-      CHALLENGE_PROGRESS_STORAGE_KEY,
-      JSON.stringify({
-        schemaVersion: 1,
-        activeChallengeId,
-        town: compounds,
-        moves: challengeMoves,
-        hintsUsed: challengeHintsUsed,
-        completedIds: completedChallengeIds,
-        bestStars: bestChallengeStars,
-      }),
-    );
+    try {
+      window.localStorage.setItem(
+        CHALLENGE_PROGRESS_STORAGE_KEY,
+        JSON.stringify({
+          schemaVersion: 1,
+          activeChallengeId,
+          town: compounds,
+          moves: challengeMoves,
+          hintsUsed: challengeHintsUsed,
+          completedIds: completedChallengeIds,
+          bestStars: bestChallengeStars,
+        }),
+      );
+    } catch {
+      // Play continues in memory when private browsing blocks local storage.
+    }
   }, [
     activeChallengeId,
     bestChallengeStars,
