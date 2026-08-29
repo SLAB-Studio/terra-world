@@ -2,69 +2,81 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const AUDIO_UNLOCK_EVENT = "terra-world-audio-unlock";
+const AUDIO_READY_EVENT = "terra-world-audio-ready";
+let sharedAudioContext: AudioContext | null = null;
 
 type TownSoundscapeProps = Readonly<{
   mode: "welcome" | "town";
   muted: boolean;
+  onReadyChange: (ready: boolean) => void;
 }>;
 
-export function requestTownAudioStart(): void {
-  window.dispatchEvent(new Event(AUDIO_UNLOCK_EVENT));
+export async function requestTownAudioStart(): Promise<boolean> {
+  try {
+    sharedAudioContext ??= new AudioContext();
+    if (sharedAudioContext.state === "running") return true;
+    await sharedAudioContext.resume();
+    const ready = String(sharedAudioContext.state) === "running";
+    if (ready) window.dispatchEvent(new Event(AUDIO_READY_EVENT));
+    return ready;
+  } catch {
+    return false;
+  }
 }
 
 /**
  * A tiny Web Audio soundscape keeps music and town ambience asset-free and
  * private. Sounds are decorative, low-volume, and stop while the tab is hidden.
  */
-export default function TownSoundscape({ mode, muted }: TownSoundscapeProps) {
-  const contextRef = useRef<AudioContext | null>(null);
+export default function TownSoundscape({
+  mode,
+  muted,
+  onReadyChange,
+}: TownSoundscapeProps) {
   const mutedRef = useRef(muted);
-  const readyRef = useRef(false);
   const [audioReady, setAudioReady] = useState(0);
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
     mutedRef.current = muted;
     if (muted) {
-      readyRef.current = false;
-      void contextRef.current?.suspend();
+      onReadyChange(false);
+      void sharedAudioContext?.suspend();
     }
-  }, [muted]);
+  }, [muted, onReadyChange]);
 
   useEffect(() => {
-    function unlock() {
+    function markReady() {
+      onReadyChange(true);
+      setAudioReady((value) => value + 1);
+    }
+
+    function unlockFromInteraction() {
       if (mutedRef.current) return;
-      const context = contextRef.current ?? new AudioContext();
-      contextRef.current = context;
-      if (readyRef.current && context.state === "running") return;
-      void context.resume().then(() => {
-        if (readyRef.current) return;
-        readyRef.current = true;
-        setAudioReady((value) => value + 1);
-      });
+      void requestTownAudioStart();
     }
 
     function handleVisibility() {
       setVisible(!document.hidden);
     }
 
-    window.addEventListener(AUDIO_UNLOCK_EVENT, unlock);
-    window.addEventListener("pointerdown", unlock, { passive: true });
-    window.addEventListener("keydown", unlock);
+    window.addEventListener(AUDIO_READY_EVENT, markReady);
+    window.addEventListener("pointerdown", unlockFromInteraction, {
+      passive: true,
+    });
+    window.addEventListener("keydown", unlockFromInteraction);
     document.addEventListener("visibilitychange", handleVisibility);
-    if (!muted) unlock();
 
     return () => {
-      window.removeEventListener(AUDIO_UNLOCK_EVENT, unlock);
-      window.removeEventListener("pointerdown", unlock);
-      window.removeEventListener("keydown", unlock);
+      window.removeEventListener(AUDIO_READY_EVENT, markReady);
+      window.removeEventListener("pointerdown", unlockFromInteraction);
+      window.removeEventListener("keydown", unlockFromInteraction);
       document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [muted]);
+  }, [onReadyChange]);
 
   useEffect(() => {
-    const context = contextRef.current;
+    const context = sharedAudioContext;
     if (muted || !visible || context === null || context.state !== "running")
       return;
 
@@ -99,14 +111,6 @@ export default function TownSoundscape({ mode, muted }: TownSoundscapeProps) {
 
     return () => timers.forEach((timer) => window.clearTimeout(timer));
   }, [audioReady, mode, muted, visible]);
-
-  useEffect(
-    () => () => {
-      void contextRef.current?.close();
-      contextRef.current = null;
-    },
-    [],
-  );
 
   return null;
 }

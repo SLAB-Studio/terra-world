@@ -125,6 +125,7 @@ export default function GameShell() {
   const [textScale, setTextScale] = useState(1);
   const [highContrast, setHighContrast] = useState(false);
   const [muted, setMuted] = useState(true);
+  const [audioReady, setAudioReady] = useState(false);
   const [backupKit, setBackupKit] = useState<AdultBackupKit | null>(null);
   const [backupKitImported, setBackupKitImported] = useState(false);
   const [backupState, setBackupState] = useState<BackupState>("idle");
@@ -451,7 +452,11 @@ export default function GameShell() {
     const now = Date.now();
     const safePlayerName = normalisePlayerName(playerName);
     setPlayerName(safePlayerName);
-    window.localStorage.setItem(PLAYER_NAME_STORAGE_KEY, safePlayerName);
+    try {
+      window.localStorage.setItem(PLAYER_NAME_STORAGE_KEY, safePlayerName);
+    } catch {
+      // Private browsing and restricted storage must never block play.
+    }
     setExpertMessages((messages) =>
       messages.map((message) =>
         message.id === "river-welcome"
@@ -525,7 +530,6 @@ export default function GameShell() {
     const nextContrast = next.highContrast ?? highContrast;
     const nextTextScale = next.textScale ?? textScale;
     const nextMuted = next.muted ?? muted;
-    if (!nextMuted) requestTownAudioStart();
     setHighContrast(nextContrast);
     setTextScale(nextTextScale);
     setMuted(nextMuted);
@@ -540,6 +544,42 @@ export default function GameShell() {
         updatedAt: Date.now(),
       })
       .catch(() => setSaveState("temporary"));
+  }
+
+  async function enableTownSounds() {
+    const ready = await requestTownAudioStart();
+    if (!ready) {
+      setAudioReady(false);
+      setEntryError(
+        "Music is waiting for another tap. Your game is ready without sound.",
+      );
+      return;
+    }
+    setEntryError(null);
+    setAudioReady(true);
+    saveAccessibilitySettings({ muted: false });
+  }
+
+  function toggleTownSounds() {
+    if (muted || !audioReady) {
+      void enableTownSounds();
+      return;
+    }
+    setAudioReady(false);
+    saveAccessibilitySettings({ muted: true });
+  }
+
+  function changeAccessibilitySettings(next: {
+    highContrast?: boolean;
+    textScale?: number;
+    muted?: boolean;
+  }) {
+    if (next.muted === false) {
+      void enableTownSounds();
+      return;
+    }
+    if (next.muted === true) setAudioReady(false);
+    saveAccessibilitySettings(next);
   }
 
   async function unlockAdultPanel() {
@@ -740,17 +780,18 @@ export default function GameShell() {
   if (!onboardingComplete) {
     return (
       <>
-        <TownSoundscape mode="welcome" muted={muted} />
+        <TownSoundscape
+          mode="welcome"
+          muted={muted}
+          onReadyChange={setAudioReady}
+        />
         <GameLanding
           errorMessage={entryError}
           hasSavedGame={hasSavedGame}
           loading={entryBusy}
           onContinue={continueRivergate}
           onPlayerNameChange={setPlayerName}
-          onSoundToggle={() => {
-            if (muted) requestTownAudioStart();
-            saveAccessibilitySettings({ muted: !muted });
-          }}
+          onSoundToggle={toggleTownSounds}
           onStart={startNewRivergate}
           playerName={playerName}
           playerRoleLabel={
@@ -758,7 +799,7 @@ export default function GameShell() {
             "City Builder"
           }
           progress={welcomeProgress}
-          soundOn={!muted}
+          soundOn={!muted && audioReady}
         />
       </>
     );
@@ -766,7 +807,7 @@ export default function GameShell() {
 
   return (
     <>
-      <TownSoundscape mode="town" muted={muted} />
+      <TownSoundscape mode="town" muted={muted} onReadyChange={setAudioReady} />
       <main
         className={`game-shell theme-${colourTheme}${highContrast ? " high-contrast" : ""}`}
       >
@@ -786,17 +827,18 @@ export default function GameShell() {
           </div>
           <div className="game-header-controls">
             <button
-              aria-label={muted ? "Turn town sounds on" : "Mute town sounds"}
-              aria-pressed={!muted}
+              aria-label={
+                !muted && audioReady
+                  ? "Mute town sounds"
+                  : "Turn town sounds on"
+              }
+              aria-pressed={!muted && audioReady}
               className="town-sound-entry"
-              onClick={() => {
-                if (muted) requestTownAudioStart();
-                saveAccessibilitySettings({ muted: !muted });
-              }}
+              onClick={toggleTownSounds}
               type="button"
             >
               <GameIcon name="volume" size={19} />
-              {muted ? "Sounds off" : "Sounds on"}
+              {!muted && audioReady ? "Sounds on" : "Sounds off"}
             </button>
             <button
               className="adult-entry"
@@ -1044,7 +1086,7 @@ export default function GameShell() {
                   guideProof={guideProofFor(guideSnapshot)}
                   highContrast={highContrast}
                   muted={muted}
-                  onAccessibilityChange={saveAccessibilitySettings}
+                  onAccessibilityChange={changeAccessibilitySettings}
                   onBackup={() => void backUpRivergate()}
                   onImportRecoveryPack={importRecoveryPack}
                   onReset={() => void resetRivergate()}
