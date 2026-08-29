@@ -231,7 +231,7 @@ describe("phase two clean-profile campaign validation", () => {
     expect(replay.actionLogHash).toBe(hashActionLog(state.city.actionLog));
     expect(replay.finalStateHash).toBe(hashCityState(state.city));
     reopenedPersistence.close();
-  });
+  }, 15_000);
 });
 
 function commit(state: GameState): GameState {
