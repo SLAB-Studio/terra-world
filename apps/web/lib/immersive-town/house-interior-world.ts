@@ -98,10 +98,10 @@ export function createHouseInteriorWorld(
   initialUpgrades: readonly InteriorUpgradeId[],
 ): HouseInteriorWorld {
   const scene = new Scene(engine);
-  scene.clearColor = Color4.FromHexString("#B9DCF0FF");
-  scene.ambientColor = Color3.FromHexString("#FFF4D3").scale(0.22);
-  scene.imageProcessingConfiguration.contrast = 1.08;
-  scene.imageProcessingConfiguration.exposure = 1.02;
+  scene.clearColor = Color4.FromHexString("#8FC3DEFF");
+  scene.ambientColor = Color3.FromHexString("#8B7657").scale(0.12);
+  scene.imageProcessingConfiguration.contrast = 1.16;
+  scene.imageProcessingConfiguration.exposure = 0.82;
 
   const camera = new ArcRotateCamera(
     `interior-camera-${houseId}`,
@@ -125,8 +125,9 @@ export function createHouseInteriorWorld(
     new Vector3(0.1, 1, -0.2),
     scene,
   );
-  ambient.intensity = 0.72;
-  ambient.groundColor = Color3.FromHexString("#6E8568");
+  ambient.intensity = 0.46;
+  ambient.diffuse = Color3.FromHexString("#FFE8B6");
+  ambient.groundColor = Color3.FromHexString("#46584A");
 
   const sun = new DirectionalLight(
     `interior-sun-${houseId}`,
@@ -134,7 +135,9 @@ export function createHouseInteriorWorld(
     scene,
   );
   sun.position.set(12, 20, -12);
-  sun.intensity = 1.16;
+  sun.intensity = 0.76;
+  sun.diffuse = Color3.FromHexString("#FFDCA3");
+  sun.specular = Color3.FromHexString("#FFF3D5").scale(0.2);
   const shadows = new ShadowGenerator(1024, sun);
   shadows.usePercentageCloserFiltering = true;
   shadows.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
@@ -265,7 +268,7 @@ function createInteriorMaterials(
     material.diffuseColor = Color3.FromHexString(color);
     material.specularColor = Color3.White().scale(0.11);
     material.specularPower = 28;
-    if (emissive) material.emissiveColor = material.diffuseColor.scale(0.48);
+    if (emissive) material.emissiveColor = material.diffuseColor.scale(0.24);
     return material;
   };
   const selection = make("selection", "#FFD24A", true);
@@ -274,17 +277,17 @@ function createInteriorMaterials(
     accent: make("accent", accent),
     blue: make("blue", "#62AEF0"),
     clay: make("clay", "#C86E55"),
-    counter: make("counter", "#F5D8AF"),
-    dark: make("dark", "#304352"),
-    floor: make("floor", "#F2D49B"),
+    counter: make("counter", "#D29455"),
+    dark: make("dark", "#263746"),
+    floor: make("floor", "#C28A4A"),
     green: make("green", "#62A85C"),
     greenLight: make("green-light", "#90CF6B"),
     metal: make("metal", "#9EB2B5"),
-    paper: make("paper", "#FFF9E8"),
+    paper: make("paper", "#E5CFA0"),
     red: make("red", "#E75F52"),
     selection,
     soil: make("soil", "#805B3E"),
-    wall: make("wall", "#FFF1CF"),
+    wall: make("wall", "#D8C18E"),
     water: make("water", "#3A9ED3", true),
     wood: make("wood", "#7A4D2F"),
     yellow: make("yellow", "#FFD24A", true),
@@ -351,8 +354,8 @@ function createLivingRoom(
   register(brightBulb, rig);
   const glow = new PointLight("living-room-glow", new Vector3(-5.6, 3.3, -2.2), scene);
   glow.diffuse = Color3.FromHexString("#FFD75B");
-  glow.intensity = 0.82;
-  glow.range = 8;
+  glow.intensity = 0.42;
+  glow.range = 5.5;
   glow.parent = rig.healthy;
   return finishRoom(rig);
 }
