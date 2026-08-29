@@ -6,6 +6,1411 @@
   font-display: swap;
 }
 
+/* Kid-first neighborhood builder ----------------------------------------- */
+.game-shell {
+  min-height: 100dvh;
+  height: 100dvh;
+  padding: 12px;
+  gap: 10px;
+  overflow: hidden;
+  background: #bfefff;
+  color: #2b190f;
+}
+
+.game-shell .game-header {
+  min-height: 76px;
+  padding: 10px 18px;
+  border: 4px solid #2b190f;
+  border-radius: 22px;
+  background: #fffdf4;
+  box-shadow: 0 7px 0 #2b190f;
+}
+
+.game-shell .brand-lockup {
+  gap: 12px;
+}
+
+.game-shell .brand-mark {
+  width: 46px;
+  height: 46px;
+  border: 3px solid #2b190f;
+  border-radius: 14px;
+  color: #2b190f;
+  background: #ffd24a;
+  transform: rotate(-3deg);
+}
+
+.game-shell .brand-lockup strong,
+.kid-workspace h1,
+.kid-workspace h2,
+.toy-piece strong,
+.compound-name strong {
+  font-family: "Baloo 2", ui-rounded, sans-serif;
+}
+
+.game-shell .brand-lockup strong {
+  color: #2b190f;
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
+  font-weight: 800;
+  line-height: 0.95;
+}
+
+.game-shell .brand-lockup span {
+  margin-top: 4px;
+  color: #6f4a35;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.game-shell .adult-entry {
+  min-height: 48px;
+  padding: 8px 16px;
+  border: 3px solid #2b190f;
+  border-radius: 16px;
+  color: #2b190f;
+  background: #fff3c6;
+  box-shadow: 0 4px 0 #2b190f;
+  font-weight: 800;
+}
+
+.game-shell .adult-entry:hover {
+  background: #ffe58d;
+  transform: translateY(-1px);
+}
+
+.kid-workspace {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 210px minmax(540px, 1fr) 286px;
+  gap: 12px;
+}
+
+.toy-box,
+.neighborhood-panel,
+.kid-workspace .planning-panel {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 4px solid #2b190f;
+  border-radius: 24px;
+  background: #fffdf4;
+  box-shadow: 0 7px 0 #2b190f;
+}
+
+.toy-box {
+  display: flex;
+  flex-direction: column;
+}
+
+.toy-box-heading {
+  min-height: 90px;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 4px solid #2b190f;
+  background: #ff7a6f;
+}
+
+.toy-box-heading > span {
+  width: 43px;
+  height: 43px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 3px solid #2b190f;
+  border-radius: 50%;
+  background: #ffd24a;
+  font-size: 1.5rem;
+}
+
+.toy-box-heading h1,
+.toy-box-heading p {
+  margin: 0;
+}
+
+.toy-box-heading h1 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.toy-box-heading p {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.toy-shelf {
+  padding: 12px;
+  display: grid;
+  gap: 11px;
+  overflow: auto;
+}
+
+.toy-piece {
+  min-height: 102px;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+  touch-action: none;
+  cursor: grab;
+  border: 3px solid #2b190f;
+  border-radius: 18px;
+  color: #2b190f;
+  background: #fff7dc;
+  box-shadow: 0 4px 0 #2b190f;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.toy-piece:hover,
+.toy-piece[aria-pressed="true"] {
+  transform: translateY(-3px) rotate(-1deg);
+  box-shadow: 0 7px 0 #2b190f;
+}
+
+.toy-piece[aria-pressed="true"] {
+  background: #ffd24a;
+}
+
+.toy-piece:active {
+  cursor: grabbing;
+  transform: translateY(1px);
+  box-shadow: 0 2px 0 #2b190f;
+}
+
+.toy-piece-icon {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border: 3px solid #2b190f;
+  border-radius: 17px;
+  background: #fffdf4;
+}
+
+.toy-light .toy-piece-icon {
+  color: #9a5200;
+  background: #ffe676;
+}
+
+.toy-water .toy-piece-icon {
+  color: #174f87;
+  background: #8ed7ff;
+}
+
+.toy-garden .toy-piece-icon {
+  color: #245923;
+  background: #aee58a;
+}
+
+.toy-recycle .toy-piece-icon {
+  color: #205444;
+  background: #a5e6d1;
+}
+
+.toy-piece > span:last-child {
+  min-width: 0;
+  display: grid;
+}
+
+.toy-piece strong {
+  font-size: 1.02rem;
+  line-height: 1;
+}
+
+.toy-piece small {
+  margin-top: 4px;
+  color: #674836;
+  font-size: 0.66rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.toy-box-tip {
+  margin: auto 12px 14px;
+  padding: 10px;
+  display: flex;
+  gap: 7px;
+  border: 2px dashed #8e6d58;
+  border-radius: 14px;
+  color: #664634;
+  background: #fff5ce;
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.neighborhood-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.neighborhood-quest {
+  min-height: 88px;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 4px solid #2b190f;
+  background: #fff7dd;
+}
+
+.quest-kicker {
+  display: block;
+  color: #b64a33;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.neighborhood-quest h2 {
+  margin: 2px 0 0;
+  font-size: clamp(1.25rem, 2.2vw, 1.7rem);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.quest-suns {
+  display: flex;
+  gap: 5px;
+}
+
+.quest-suns span {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 3px solid #2b190f;
+  border-radius: 50%;
+  color: #8d725f;
+  background: #eee5ce;
+  font-size: 1.15rem;
+  filter: grayscale(1);
+  transition:
+    transform 220ms ease,
+    background 220ms ease;
+}
+
+.quest-suns .is-on {
+  color: #714100;
+  background: #ffd24a;
+  filter: none;
+  transform: rotate(12deg) scale(1.08);
+}
+
+.neighborhood-world {
+  position: relative;
+  min-height: 530px;
+  overflow: hidden;
+  isolation: isolate;
+  background: #85d8ff;
+}
+
+.neighborhood-world::before {
+  content: "";
+  position: absolute;
+  z-index: -2;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 65%;
+  background: #78c95d;
+}
+
+.world-cloud {
+  position: absolute;
+  z-index: -1;
+  width: 72px;
+  height: 26px;
+  border: 3px solid #2b190f;
+  border-radius: 22px;
+  background: #fffdf4;
+  box-shadow:
+    22px -11px 0 5px #fffdf4,
+    37px 0 0 -2px #fffdf4;
+}
+
+.world-cloud-one {
+  top: 40px;
+  left: 9%;
+}
+
+.world-cloud-two {
+  top: 66px;
+  right: 16%;
+  transform: scale(0.72);
+}
+
+.world-hill {
+  position: absolute;
+  z-index: -1;
+  bottom: 31%;
+  border: 3px solid #2b190f;
+  border-bottom: 0;
+  border-radius: 50% 50% 0 0;
+}
+
+.world-hill-back {
+  left: -8%;
+  width: 58%;
+  height: 170px;
+  background: #77b95d;
+}
+
+.world-hill-front {
+  right: -12%;
+  width: 68%;
+  height: 205px;
+  background: #57aa57;
+}
+
+.world-path {
+  position: absolute;
+  z-index: -1;
+  right: -12%;
+  bottom: -40px;
+  width: 68%;
+  height: 180px;
+  border: 3px solid #2b190f;
+  border-radius: 70% 0 0 0;
+  background: #f8d998;
+  transform: rotate(-6deg);
+}
+
+.compound-grid {
+  position: absolute;
+  inset: 0;
+  padding: 105px 18px 20px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.compound {
+  position: relative;
+  min-width: 0;
+  height: min(360px, 100%);
+  padding: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  overflow: hidden;
+  border: 4px solid #2b190f;
+  border-radius: 26px;
+  color: #2b190f;
+  background: #b8e986;
+  box-shadow: 0 6px 0 rgba(43, 25, 15, 0.72);
+  cursor: pointer;
+  transition:
+    transform 170ms ease,
+    box-shadow 170ms ease,
+    background 240ms ease;
+}
+
+.compound-bluebell {
+  background: #a3e0a2;
+}
+
+.compound-mango {
+  background: #c7e97c;
+}
+
+.compound:hover,
+.compound:focus-visible {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 0 rgba(43, 25, 15, 0.74);
+}
+
+.compound.is-drop-target {
+  background: #ffed91;
+  transform: translateY(-8px) scale(1.02);
+  box-shadow:
+    0 12px 0 #2b190f,
+    0 0 0 7px #fff3a7;
+}
+
+.compound-scene {
+  position: relative;
+  min-height: 242px;
+  display: block;
+  overflow: hidden;
+  border-bottom: 3px solid #2b190f;
+}
+
+.yard-glow {
+  position: absolute;
+  top: 48px;
+  left: 50%;
+  width: 185px;
+  height: 170px;
+  border-radius: 50%;
+  background: #fff0a5;
+  opacity: 0;
+  transform: translateX(-50%) scale(0.65);
+  transition:
+    opacity 300ms ease,
+    transform 300ms ease;
+}
+
+.is-lit .yard-glow {
+  opacity: 0.74;
+  transform: translateX(-50%) scale(1);
+}
+
+.cartoon-house,
+.cartoon-house i,
+.compound-tree,
+.compound-tree i,
+.garden-bed,
+.garden-bed i,
+.garden-bloom,
+.garden-bloom i,
+.yard-lights,
+.yard-lights i,
+.water-barrel,
+.water-spray,
+.recycle-bin,
+.compound-fence {
+  position: absolute;
+  display: block;
+}
+
+.cartoon-house {
+  z-index: 4;
+  top: 79px;
+  left: 50%;
+  width: 126px;
+  height: 127px;
+  transform: translateX(-50%);
+}
+
+.house-wall {
+  z-index: 3;
+  right: 8px;
+  bottom: 0;
+  left: 8px;
+  height: 77px;
+  border: 4px solid #2b190f;
+  border-radius: 9px 9px 14px 14px;
+  background: #ff8a57;
+}
+
+.compound-bluebell .house-wall {
+  background: #6cbdf5;
+}
+
+.compound-mango .house-wall {
+  background: #ffbd4b;
+}
+
+.house-roof {
+  z-index: 2;
+  top: 11px;
+  left: 18px;
+  width: 90px;
+  height: 90px;
+  border: 4px solid #2b190f;
+  border-radius: 13px 5px 13px 5px;
+  background: #ef5a55;
+  transform: rotate(45deg);
+}
+
+.compound-bluebell .house-roof {
+  background: #8d6bd1;
+}
+
+.compound-mango .house-roof {
+  background: #ef6d3e;
+}
+
+.house-chimney {
+  z-index: 1;
+  top: 10px;
+  right: 23px;
+  width: 18px;
+  height: 38px;
+  border: 4px solid #2b190f;
+  border-radius: 5px 5px 0 0;
+  background: #fff0c6;
+}
+
+.house-window {
+  z-index: 5;
+  bottom: 37px;
+  width: 24px;
+  height: 25px;
+  border: 3px solid #2b190f;
+  border-radius: 7px;
+  background: #d8f2ff;
+  transition:
+    background 240ms ease,
+    box-shadow 240ms ease;
+}
+
+.window-left {
+  left: 18px;
+}
+
+.window-right {
+  right: 18px;
+}
+
+.is-lit .house-window {
+  background: #ffe45c;
+  box-shadow: 0 0 15px 5px rgba(255, 215, 61, 0.86);
+}
+
+.house-door {
+  z-index: 5;
+  bottom: 0;
+  left: 51px;
+  width: 27px;
+  height: 45px;
+  border: 3px solid #2b190f;
+  border-bottom: 0;
+  border-radius: 12px 12px 0 0;
+  background: #6e4937;
+}
+
+.house-door::after {
+  content: "";
+  position: absolute;
+  top: 21px;
+  right: 4px;
+  width: 5px;
+  height: 5px;
+  border: 1px solid #2b190f;
+  border-radius: 50%;
+  background: #ffd24a;
+}
+
+.house-step {
+  z-index: 6;
+  bottom: -5px;
+  left: 43px;
+  width: 43px;
+  height: 9px;
+  border: 3px solid #2b190f;
+  border-radius: 8px 8px 3px 3px;
+  background: #fff0c6;
+}
+
+.solar-roof {
+  z-index: 6;
+  top: 31px;
+  left: 28px;
+  width: 48px;
+  height: 28px;
+  border: 3px solid #2b190f;
+  border-radius: 6px;
+  background: #2d73b5;
+  box-shadow: inset 0 -8px 0 #68b8ed;
+  opacity: 0;
+  transform: rotate(-9deg) scale(0.5);
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease;
+}
+
+.is-lit .solar-roof {
+  opacity: 1;
+  transform: rotate(-9deg) scale(1);
+}
+
+.yard-lights {
+  z-index: 7;
+  top: 37px;
+  right: 12px;
+  left: 12px;
+  height: 3px;
+  border-top: 3px solid #2b190f;
+  opacity: 0;
+}
+
+.yard-lights i {
+  top: -4px;
+  width: 13px;
+  height: 16px;
+  border: 2px solid #2b190f;
+  border-radius: 50% 50% 45% 45%;
+  background: #ffe45c;
+  box-shadow: 0 0 10px 3px rgba(255, 225, 80, 0.86);
+}
+
+.yard-lights i:nth-child(1) {
+  left: 4%;
+}
+
+.yard-lights i:nth-child(2) {
+  left: 26%;
+}
+
+.yard-lights i:nth-child(3) {
+  left: 48%;
+}
+
+.yard-lights i:nth-child(4) {
+  left: 70%;
+}
+
+.yard-lights i:nth-child(5) {
+  left: 91%;
+}
+
+.is-lit .yard-lights {
+  opacity: 1;
+}
+
+.compound-tree {
+  z-index: 3;
+  top: 80px;
+  left: 8px;
+  width: 44px;
+  height: 114px;
+}
+
+.compound-tree::before,
+.compound-tree::after,
+.compound-tree i {
+  content: "";
+  position: absolute;
+  border: 3px solid #2b190f;
+  border-radius: 50%;
+  background: #4cae57;
+}
+
+.compound-tree::before {
+  top: 0;
+  left: 0;
+  width: 39px;
+  height: 47px;
+}
+
+.compound-tree::after {
+  top: 27px;
+  left: 9px;
+  width: 33px;
+  height: 35px;
+}
+
+.compound-tree i {
+  top: 45px;
+  left: 19px;
+  width: 10px;
+  height: 68px;
+  border-radius: 6px;
+  background: #7f5036;
+}
+
+.garden-bed {
+  z-index: 5;
+  right: 10px;
+  bottom: 7px;
+  width: 83px;
+  height: 42px;
+  border: 3px solid #2b190f;
+  border-radius: 45% 45% 14px 14px;
+  background: #9c643f;
+}
+
+.garden-bed i {
+  bottom: 22px;
+  width: 13px;
+  height: 24px;
+  border: 3px solid #2b190f;
+  border-radius: 50% 50% 45% 45%;
+  background: #61b84a;
+  opacity: 0.58;
+  transform: scale(0.45);
+  transform-origin: bottom;
+  transition:
+    opacity 280ms ease,
+    transform 280ms ease,
+    background 280ms ease;
+}
+
+.garden-bed i:nth-child(1) {
+  left: 6px;
+}
+
+.garden-bed i:nth-child(2) {
+  left: 25px;
+}
+
+.garden-bed i:nth-child(3) {
+  left: 44px;
+}
+
+.garden-bed i:nth-child(4) {
+  left: 62px;
+}
+
+.garden-bluebell i:nth-child(even) {
+  background: #8a62d2;
+}
+
+.garden-mango i {
+  border-radius: 50%;
+  background: #ffb52e;
+}
+
+.is-watered .garden-bed i {
+  opacity: 0.82;
+  transform: scale(0.72);
+}
+
+.is-gardened .garden-bed {
+  background: #74452e;
+  box-shadow: 0 0 0 7px rgba(255, 224, 87, 0.48);
+}
+
+.is-gardened .garden-bed i {
+  height: 32px;
+  opacity: 1;
+  transform: scale(1.15);
+}
+
+.is-gardened .garden-bed i:nth-child(even) {
+  background: #ff6e68;
+}
+
+.garden-bloom {
+  z-index: 8;
+  right: 20px;
+  bottom: 44px;
+  width: 64px;
+  height: 45px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(18px) scale(0.45);
+  transform-origin: bottom;
+  transition:
+    opacity 280ms ease,
+    transform 340ms cubic-bezier(0.18, 0.86, 0.34, 1.28);
+}
+
+.garden-bloom i {
+  bottom: 0;
+  width: 8px;
+  height: 34px;
+  border: 2px solid #2b190f;
+  border-radius: 8px;
+  background: #4cae57;
+}
+
+.garden-bloom i::before {
+  content: "";
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #2b190f;
+  border-radius: 50%;
+  background: #ff6e68;
+  box-shadow:
+    -8px 4px 0 -2px #ffd24a,
+    8px 4px 0 -2px #8d6bd1;
+  transform: translateX(-50%);
+}
+
+.garden-bloom i:nth-child(1) {
+  left: 4px;
+}
+
+.garden-bloom i:nth-child(2) {
+  left: 27px;
+  height: 42px;
+}
+
+.garden-bloom i:nth-child(3) {
+  right: 4px;
+}
+
+.is-gardened .garden-bloom {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.water-barrel {
+  z-index: 6;
+  bottom: 8px;
+  left: 10px;
+  width: 31px;
+  height: 45px;
+  border: 3px solid #2b190f;
+  border-radius: 9px 9px 13px 13px;
+  background: #56b9ee;
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease;
+}
+
+.water-spray {
+  z-index: 6;
+  bottom: 34px;
+  left: 29px;
+  width: 60px;
+  height: 38px;
+  border-top: 5px dotted #dff6ff;
+  border-radius: 50%;
+  opacity: 0;
+  transform: rotate(-14deg);
+}
+
+.is-watered .water-barrel,
+.is-watered .water-spray {
+  opacity: 1;
+  transform: translateY(0) rotate(-14deg);
+}
+
+.is-watered .water-barrel {
+  transform: translateY(0);
+}
+
+.recycle-bin {
+  z-index: 6;
+  right: 10px;
+  bottom: 50px;
+  width: 35px;
+  height: 43px;
+  display: grid;
+  place-items: center;
+  border: 3px solid #2b190f;
+  border-radius: 8px 8px 12px 12px;
+  background: #51bd99;
+  font-size: 1.1rem;
+  opacity: 0;
+  transform: translateY(10px) rotate(6deg);
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease;
+}
+
+.is-recycling .recycle-bin {
+  opacity: 1;
+  transform: translateY(0) rotate(0deg);
+}
+
+.compound-fence {
+  z-index: 2;
+  bottom: 2px;
+  width: 54px;
+  height: 27px;
+  border-top: 4px solid #fff3cf;
+  border-bottom: 4px solid #fff3cf;
+  box-shadow:
+    0 -3px 0 #2b190f,
+    0 3px 0 #2b190f;
+}
+
+.compound-fence::before,
+.compound-fence::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  width: 10px;
+  height: 36px;
+  border: 3px solid #2b190f;
+  border-radius: 4px 4px 2px 2px;
+  background: #fff3cf;
+}
+
+.compound-fence::before {
+  left: 4px;
+}
+
+.compound-fence::after {
+  right: 4px;
+}
+
+.fence-left {
+  left: 0;
+}
+
+.fence-right {
+  right: 0;
+}
+
+.compound-name {
+  padding: 10px 9px 5px;
+  display: grid;
+  justify-items: center;
+  background: #fffdf4;
+}
+
+.compound-name strong {
+  font-size: 1.08rem;
+  line-height: 1;
+}
+
+.compound-name small {
+  margin-top: 2px;
+  color: #76513b;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.compound-drop-prompt {
+  min-height: 36px;
+  padding: 7px 9px;
+  background: #ffd24a;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.neighborhood-actions {
+  min-height: 78px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-top: 4px solid #2b190f;
+  background: #fffdf4;
+}
+
+.neighborhood-actions p {
+  margin: 0;
+  color: #674836;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.neighborhood-actions button {
+  min-height: 50px;
+  padding: 9px 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 3px solid #2b190f;
+  border-radius: 16px;
+  color: #2b190f;
+  background: #ff7a6f;
+  box-shadow: 0 4px 0 #2b190f;
+  font-family: "Baloo 2", ui-rounded, sans-serif;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.neighborhood-actions button:hover {
+  background: #ff938a;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 #2b190f;
+}
+
+.town-awake .compound.is-lit {
+  animation: happy-home 700ms ease-in-out 2;
+}
+
+.town-awake .yard-lights i {
+  animation: twinkle-light 500ms ease-in-out alternate 4;
+}
+
+.toy-drag-ghost {
+  position: fixed;
+  z-index: 1000;
+  width: 112px;
+  min-height: 96px;
+  padding: 10px;
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  pointer-events: none;
+  border: 4px solid #2b190f;
+  border-radius: 22px;
+  color: #2b190f;
+  background: #ffd24a;
+  box-shadow: 0 9px 0 rgba(43, 25, 15, 0.8);
+  transform: translate(-50%, -58%) rotate(-4deg);
+  font-family: "Baloo 2", ui-rounded, sans-serif;
+}
+
+.toy-drag-ghost.toy-water {
+  background: #8ed7ff;
+}
+
+.toy-drag-ghost.toy-garden {
+  background: #aee58a;
+}
+
+.toy-drag-ghost.toy-recycle {
+  background: #a5e6d1;
+}
+
+.kid-workspace .planning-panel {
+  display: flex;
+  flex-direction: column;
+  background: #fffdf4;
+}
+
+.kid-workspace .expert-panel {
+  min-height: 0;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+}
+
+.kid-workspace .expert-hero {
+  min-height: 158px;
+  padding: 16px 12px;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 11px;
+  border-bottom: 4px solid #2b190f;
+  color: #2b190f;
+  background: #68a8ee;
+}
+
+.kid-workspace .expert-face {
+  width: 84px;
+  height: 98px;
+}
+
+.kid-workspace .expert-eye {
+  top: 35px;
+}
+
+.kid-workspace .expert-eye-left {
+  left: 18px;
+}
+
+.kid-workspace .expert-eye-right {
+  right: 18px;
+}
+
+.kid-workspace .expert-smile {
+  right: 26px;
+  bottom: 23px;
+}
+
+.kid-workspace .expert-chat {
+  min-height: 100px;
+  max-height: none;
+  padding: 14px 12px;
+  flex: 1 1 auto;
+  overflow: auto;
+  background: #fffdf4;
+}
+
+.kid-workspace .chat-bubble {
+  padding: 11px;
+  border: 3px solid #2b190f;
+  border-radius: 16px;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.kid-workspace .expert-prompts {
+  padding: 8px 12px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+}
+
+.kid-workspace .expert-prompts button,
+.kid-workspace .expert-form button,
+.kid-workspace .expert-form input {
+  min-height: 48px;
+}
+
+.kid-workspace .expert-prompts button {
+  border: 3px solid #2b190f;
+  border-radius: 14px;
+  color: #2b190f;
+  background: #ffd24a;
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+.kid-workspace .expert-form {
+  padding: 6px 12px 0;
+}
+
+.kid-workspace .expert-safety {
+  padding: 7px 12px 11px;
+  font-size: 0.61rem;
+  line-height: 1.25;
+}
+
+.river-learning-card {
+  margin: 0;
+  padding: 12px;
+  display: flex;
+  gap: 9px;
+  border-top: 4px solid #2b190f;
+  background: #fff0a9;
+}
+
+.river-learning-card > span {
+  font-size: 1.5rem;
+}
+
+.river-learning-card p {
+  margin: 0;
+  color: #5f402f;
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+
+.river-learning-card strong {
+  display: block;
+  color: #2b190f;
+}
+
+@keyframes happy-home {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-9px) rotate(1deg);
+  }
+}
+
+@keyframes twinkle-light {
+  from {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+@media (max-width: 1180px) {
+  .kid-workspace {
+    grid-template-columns: 205px minmax(0, 1fr);
+  }
+
+  .kid-workspace .planning-panel {
+    position: fixed;
+    z-index: 70;
+    top: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: min(390px, calc(100vw - 24px));
+    min-height: 0;
+    display: flex;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateX(calc(100% + 24px));
+    transition:
+      transform 220ms ease,
+      opacity 180ms ease,
+      visibility 220ms;
+  }
+
+  .kid-workspace .planning-panel.expert-drawer-open {
+    visibility: visible;
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .mobile-expert-jump {
+    min-height: 52px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 4px solid #2b190f;
+    border-radius: 18px;
+    color: #2b190f;
+    background: #68a8ee;
+    box-shadow: 0 5px 0 #2b190f;
+    font-family: "Baloo 2", ui-rounded, sans-serif;
+    font-weight: 800;
+  }
+
+  .kid-workspace .expert-drawer-close {
+    min-height: 48px;
+    display: flex;
+  }
+}
+
+@media (max-width: 760px) {
+  .game-shell {
+    height: auto;
+    min-height: 100dvh;
+    padding: 8px;
+    gap: 9px;
+    overflow: visible;
+  }
+
+  .game-shell .game-header {
+    min-height: 70px;
+    padding: 8px 10px;
+  }
+
+  .game-shell .brand-mark {
+    width: 39px;
+    height: 39px;
+  }
+
+  .game-shell .brand-lockup strong {
+    font-size: 1.2rem;
+  }
+
+  .game-shell .brand-lockup span {
+    display: none;
+  }
+
+  .game-shell .adult-entry {
+    min-height: 44px;
+    padding: 7px 10px;
+    font-size: 0.72rem;
+  }
+
+  .kid-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    overflow: visible;
+  }
+
+  .toy-box {
+    min-height: 0;
+  }
+
+  .toy-box-heading {
+    min-height: 68px;
+    padding: 10px 12px;
+  }
+
+  .toy-box-heading > span {
+    width: 38px;
+    height: 38px;
+  }
+
+  .toy-shelf {
+    padding: 10px;
+    display: flex;
+    gap: 9px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+  }
+
+  .toy-piece {
+    width: 132px;
+    min-width: 132px;
+    min-height: 118px;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+    scroll-snap-align: start;
+  }
+
+  .toy-piece small {
+    display: none;
+  }
+
+  .toy-box-tip {
+    display: none;
+  }
+
+  .neighborhood-panel {
+    min-height: 610px;
+  }
+
+  .neighborhood-quest {
+    min-height: 84px;
+    padding: 10px 12px;
+  }
+
+  .neighborhood-quest h2 {
+    max-width: 210px;
+    font-size: 1.25rem;
+  }
+
+  .quest-suns span {
+    width: 31px;
+    height: 31px;
+    border-width: 2px;
+    font-size: 0.95rem;
+  }
+
+  .neighborhood-world {
+    min-height: 440px;
+  }
+
+  .compound-grid {
+    inset: 0;
+    padding: 82px 15px 18px;
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+  }
+
+  .compound {
+    width: min(278px, calc(100vw - 74px));
+    min-width: min(278px, calc(100vw - 74px));
+    height: 338px;
+    scroll-snap-align: center;
+  }
+
+  .compound:first-child {
+    margin-left: calc((100vw - min(278px, calc(100vw - 74px))) / 2 - 20px);
+  }
+
+  .compound:last-child {
+    margin-right: 18px;
+  }
+
+  .neighborhood-actions {
+    min-height: 92px;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .neighborhood-actions p {
+    text-align: center;
+  }
+
+  .neighborhood-actions button {
+    width: 100%;
+  }
+
+  .kid-workspace .planning-panel {
+    top: 8px;
+    right: 8px;
+    bottom: 8px;
+    width: calc(100vw - 16px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .town-awake .compound.is-lit,
+  .town-awake .yard-lights i {
+    animation: none;
+  }
+
+  .compound,
+  .toy-piece,
+  .yard-glow,
+  .house-window,
+  .solar-roof,
+  .water-barrel,
+  .recycle-bin,
+  .kid-workspace .planning-panel {
+    transition: none;
+  }
+}
+
 :root {
   color-scheme: light;
   --player-text-scale: 1;
@@ -2990,5 +4395,124 @@ body {
   .expert-smile {
     right: 28px;
     bottom: 24px;
+  }
+}
+
+/* Keep the neighborhood shell authoritative over the legacy planning shell. */
+.game-shell {
+  height: 100dvh;
+  padding: 12px;
+  gap: 10px;
+  overflow: hidden;
+  background: #bfefff;
+}
+
+.game-shell .game-header {
+  display: flex;
+  grid-template-columns: none;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.game-shell .game-header .adult-entry {
+  width: auto;
+  max-width: 180px;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.neighborhood-world::before {
+  z-index: 0;
+}
+
+.world-cloud,
+.world-hill,
+.world-path {
+  z-index: 1;
+}
+
+.compound-grid {
+  z-index: 2;
+}
+
+@media (max-width: 760px) {
+  .game-shell {
+    height: auto;
+    min-height: 100dvh;
+    padding: 8px;
+    gap: 9px;
+    overflow: visible;
+  }
+
+  .game-shell .brand-lockup .brand-mark {
+    display: grid;
+  }
+
+  .game-shell .brand-lockup {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .game-shell .brand-lockup strong {
+    font-size: 1.05rem;
+  }
+
+  .game-shell .game-header .adult-entry {
+    min-height: 44px;
+    padding-inline: 9px;
+    font-size: 0.7rem;
+  }
+}
+
+@media (min-width: 761px) and (max-height: 780px) {
+  .neighborhood-quest {
+    min-height: 70px;
+    padding-block: 8px;
+  }
+
+  .neighborhood-world {
+    min-height: 0;
+  }
+
+  .compound-grid {
+    padding: 64px 14px 12px;
+  }
+
+  .compound {
+    height: min(330px, 100%);
+  }
+
+  .compound-scene {
+    min-height: 220px;
+  }
+
+  .neighborhood-actions {
+    min-height: 62px;
+    padding-block: 6px;
+  }
+
+  .toy-box-heading {
+    min-height: 76px;
+    padding: 10px;
+  }
+
+  .toy-piece {
+    min-height: 84px;
+  }
+
+  .toy-shelf {
+    gap: 8px;
+    padding: 9px;
+  }
+
+  .toy-box-tip {
+    margin-bottom: 9px;
+  }
+
+  .kid-workspace .expert-hero {
+    min-height: 132px;
+    padding-block: 10px;
   }
 }
