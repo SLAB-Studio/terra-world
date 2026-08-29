@@ -4,7 +4,6 @@ import type Phaser from "phaser";
 import { memo, useEffect, useRef } from "react";
 import type { CityState, Coordinate, Rotation } from "@terra/campaign-schema";
 
-import { buildingName } from "../../lib/game/catalogue";
 import type { OverlayView } from "../../lib/game/controller";
 
 const TILE_SIZE = 54;
@@ -273,7 +272,12 @@ function GameMap(props: GameMapProps) {
               if (tile.occupantId !== null) {
                 const building = buildingById.get(tile.occupantId);
                 if (building !== undefined)
-                  this.drawBuilding(left, top, building.definitionId);
+                  this.drawBuilding(
+                    left,
+                    top,
+                    building.definitionId,
+                    building.rotation,
+                  );
               }
             }
             const cursorLeft = this.view.cursor.x * TILE_SIZE;
@@ -346,41 +350,213 @@ function GameMap(props: GameMapProps) {
             left: number,
             top: number,
             definitionId: string,
+            rotation: Rotation,
           ) {
             if (this.graphics === undefined) return;
+            const graphics = this.graphics;
             const category = BUILDING_CATEGORY[definitionId] ?? "housing";
-            this.graphics.fillStyle(BUILDING_COLORS[category] ?? 0xf0cc8c, 1);
-            this.graphics.fillRoundedRect(
-              left + 10,
-              top + 14,
-              TILE_SIZE - 20,
-              TILE_SIZE - 22,
-              4,
-            );
-            this.graphics.lineStyle(2, 0x1f3e34, 0.9);
-            this.graphics.strokeRoundedRect(
-              left + 10,
-              top + 14,
-              TILE_SIZE - 20,
-              TILE_SIZE - 22,
-              4,
-            );
-            const initials = buildingName(definitionId)
-              .split(" ")
-              .map((part) => part[0])
-              .join("")
-              .slice(0, 2)
-              .toUpperCase();
-            this.labels.push(
-              this.add
-                .text(left + TILE_SIZE / 2, top + TILE_SIZE / 2 + 1, initials, {
-                  fontFamily: "Arial, sans-serif",
-                  fontSize: "12px",
-                  fontStyle: "bold",
-                  color: "#173b31",
-                })
-                .setOrigin(0.5),
-            );
+            const color = BUILDING_COLORS[category] ?? 0xf0cc8c;
+            const ink = 0x173b31;
+            const cream = 0xfff8df;
+            const x = left + 7;
+            const y = top + 7;
+            const size = TILE_SIZE - 14;
+
+            if (definitionId === "road") {
+              graphics.fillStyle(0x59645f, 1);
+              const vertical = rotation === 90 || rotation === 270;
+              if (vertical) graphics.fillRect(left + 17, top, 20, TILE_SIZE);
+              else graphics.fillRect(left, top + 17, TILE_SIZE, 20);
+              graphics.lineStyle(2, 0xffe287, 0.95);
+              for (let offset = 4; offset < TILE_SIZE; offset += 12) {
+                if (vertical)
+                  graphics.lineBetween(
+                    left + 27,
+                    top + offset,
+                    left + 27,
+                    top + offset + 6,
+                  );
+                else
+                  graphics.lineBetween(
+                    left + offset,
+                    top + 27,
+                    left + offset + 6,
+                    top + 27,
+                  );
+              }
+              return;
+            }
+
+            graphics.fillStyle(0x102f27, 0.2);
+            graphics.fillRoundedRect(x + 2, y + 4, size, size - 2, 7);
+
+            if (definitionId === "wetland") {
+              graphics.fillStyle(0x59a79f, 1);
+              graphics.fillEllipse(left + 27, top + 31, 38, 22);
+              graphics.lineStyle(3, 0x285f48, 1);
+              for (const reedX of [16, 23, 31, 38]) {
+                graphics.lineBetween(
+                  left + reedX,
+                  top + 35,
+                  left + reedX - 2,
+                  top + 17,
+                );
+                graphics.lineBetween(
+                  left + reedX - 2,
+                  top + 17,
+                  left + reedX + 2,
+                  top + 21,
+                );
+              }
+              return;
+            }
+
+            if (definitionId === "community-park") {
+              graphics.fillStyle(0x91c777, 1);
+              graphics.fillRoundedRect(x, y + 4, size, size - 4, 8);
+              graphics.fillStyle(0x6a4a31, 1);
+              graphics.fillRect(left + 25, top + 26, 5, 17);
+              graphics.fillStyle(0x26704f, 1);
+              graphics.fillCircle(left + 27, top + 20, 12);
+              graphics.fillCircle(left + 19, top + 24, 8);
+              graphics.fillCircle(left + 35, top + 24, 8);
+              return;
+            }
+
+            graphics.fillStyle(color, 1);
+            graphics.fillRoundedRect(x, y, size, size, 7);
+
+            switch (definitionId) {
+              case "home":
+                graphics.fillStyle(0xe46d55, 1);
+                graphics.fillTriangle(
+                  left + 11,
+                  top + 26,
+                  left + 27,
+                  top + 12,
+                  left + 43,
+                  top + 26,
+                );
+                graphics.fillStyle(cream, 1);
+                graphics.fillRect(left + 15, top + 25, 24, 19);
+                graphics.fillStyle(0x3b86a1, 1);
+                graphics.fillRect(left + 19, top + 30, 6, 7);
+                graphics.fillStyle(ink, 1);
+                graphics.fillRect(left + 30, top + 30, 6, 14);
+                break;
+              case "water-pump":
+                graphics.fillStyle(0x2f85a3, 1);
+                graphics.fillCircle(left + 25, top + 26, 11);
+                graphics.lineStyle(5, ink, 1);
+                graphics.lineBetween(left + 25, top + 36, left + 25, top + 44);
+                graphics.lineBetween(left + 25, top + 18, left + 40, top + 18);
+                graphics.lineBetween(left + 40, top + 18, left + 40, top + 27);
+                break;
+              case "water-treatment-plant":
+                graphics.fillStyle(0x2f85a3, 1);
+                graphics.fillCircle(left + 20, top + 27, 10);
+                graphics.fillCircle(left + 35, top + 27, 10);
+                graphics.lineStyle(2, cream, 1);
+                graphics.strokeCircle(left + 20, top + 27, 5);
+                graphics.strokeCircle(left + 35, top + 27, 5);
+                graphics.lineStyle(4, ink, 1);
+                graphics.lineBetween(left + 14, top + 42, left + 41, top + 42);
+                break;
+              case "solar-array":
+                graphics.fillStyle(0x2f7595, 1);
+                graphics.fillRect(left + 11, top + 15, 32, 23);
+                graphics.lineStyle(1, cream, 0.9);
+                graphics.lineBetween(left + 22, top + 15, left + 22, top + 38);
+                graphics.lineBetween(left + 33, top + 15, left + 33, top + 38);
+                graphics.lineBetween(left + 11, top + 26, left + 43, top + 26);
+                graphics.lineStyle(3, ink, 1);
+                graphics.lineBetween(left + 27, top + 38, left + 27, top + 44);
+                break;
+              case "battery":
+                graphics.fillStyle(ink, 1);
+                graphics.fillRoundedRect(left + 14, top + 14, 27, 31, 4);
+                graphics.fillRect(left + 23, top + 10, 9, 5);
+                graphics.fillStyle(0xf5ca4c, 1);
+                graphics.fillRect(left + 19, top + 33, 17, 6);
+                graphics.fillRect(left + 19, top + 24, 17, 6);
+                break;
+              case "school":
+                graphics.fillStyle(cream, 1);
+                graphics.fillRect(left + 12, top + 22, 30, 22);
+                graphics.fillStyle(0xe66f58, 1);
+                graphics.fillTriangle(
+                  left + 9,
+                  top + 23,
+                  left + 27,
+                  top + 11,
+                  left + 45,
+                  top + 23,
+                );
+                graphics.fillStyle(ink, 1);
+                graphics.fillRect(left + 24, top + 31, 7, 13);
+                graphics.lineStyle(2, ink, 1);
+                graphics.lineBetween(left + 40, top + 10, left + 40, top + 25);
+                graphics.fillStyle(0x2f85a3, 1);
+                graphics.fillTriangle(
+                  left + 40,
+                  top + 10,
+                  left + 49,
+                  top + 14,
+                  left + 40,
+                  top + 17,
+                );
+                break;
+              case "clinic":
+                graphics.fillStyle(cream, 1);
+                graphics.fillRoundedRect(left + 12, top + 12, 30, 33, 4);
+                graphics.fillStyle(0xd85850, 1);
+                graphics.fillRect(left + 23, top + 18, 8, 21);
+                graphics.fillRect(left + 17, top + 24, 20, 8);
+                break;
+              case "bus-stop":
+                graphics.lineStyle(4, ink, 1);
+                graphics.lineBetween(left + 16, top + 12, left + 16, top + 44);
+                graphics.fillStyle(0xf5ca4c, 1);
+                graphics.fillRoundedRect(left + 10, top + 10, 22, 18, 4);
+                graphics.fillStyle(ink, 1);
+                graphics.fillRect(left + 14, top + 15, 14, 7);
+                graphics.fillCircle(left + 17, top + 25, 2);
+                graphics.fillCircle(left + 26, top + 25, 2);
+                graphics.lineStyle(3, ink, 1);
+                graphics.lineBetween(left + 16, top + 42, left + 39, top + 42);
+                break;
+              case "recycling-centre":
+                graphics.fillStyle(cream, 1);
+                graphics.fillRoundedRect(left + 11, top + 11, 32, 34, 5);
+                graphics.lineStyle(4, 0x2e7c56, 1);
+                graphics.strokeTriangle(
+                  left + 27,
+                  top + 16,
+                  left + 39,
+                  top + 37,
+                  left + 15,
+                  top + 37,
+                );
+                graphics.fillStyle(0x2e7c56, 1);
+                graphics.fillTriangle(
+                  left + 27,
+                  top + 12,
+                  left + 31,
+                  top + 20,
+                  left + 23,
+                  top + 20,
+                );
+                break;
+              default:
+                graphics.lineStyle(3, ink, 1);
+                graphics.strokeRoundedRect(
+                  x + 7,
+                  y + 7,
+                  size - 14,
+                  size - 14,
+                  4,
+                );
+            }
           }
         }
 
