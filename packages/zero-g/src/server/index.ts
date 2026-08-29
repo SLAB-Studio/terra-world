@@ -22,3 +22,20 @@ export {
   parseRetryAfterMs,
   retryDelayMs,
 } from "./retry";
+export { createOfficialZeroGStorageDriver } from "./storage-sdk-driver";
+export {
+  createZeroGStorageAdapter,
+  ZeroGStorageError,
+  type CampaignPackageVerification,
+  type ZeroGStorageAdapter,
+  type ZeroGStorageDriver,
+  type ZeroGStorageDriverContext,
+  type ZeroGStorageDriverDownloadResult,
+  type ZeroGStorageDriverUploadResult,
+  type ZeroGStorageErrorCode,
+  type ZeroGStoragePayloadKind,
+  type ZeroGStorageRetrieveInput,
+  type ZeroGStorageRetrieveResult,
+  type ZeroGStorageUploadInput,
+  type ZeroGStorageUploadReceipt,
+} from "./storage";
