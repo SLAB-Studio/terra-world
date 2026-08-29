@@ -18,7 +18,7 @@ export const CAMERA_LIMITS = {
   minimumBeta: 0.5,
   maximumBeta: 1.32,
   minimumRadius: 13,
-  maximumRadius: 112,
+  maximumRadius: 124,
   minimumTargetX: -78,
   maximumTargetX: 78,
   minimumTargetZ: -70,
@@ -28,10 +28,10 @@ export const CAMERA_LIMITS = {
 
 export const CAMERA_PRESETS: Readonly<Record<CameraPresetName, CameraPose>> = {
   welcome: {
-    alpha: -Math.PI / 2.7,
-    beta: 0.84,
-    radius: 92,
-    target: { x: 0, y: 0, z: 0 },
+    alpha: -Math.PI / 2.55,
+    beta: 0.72,
+    radius: 116,
+    target: { x: 0, y: 0, z: 9 },
   },
   explore: {
     alpha: -Math.PI / 3.1,

@@ -11,6 +11,7 @@ import { createTownAnimationController } from "./animation";
 import { createTownCompounds } from "./compounds";
 import { createTownEnvironment } from "./environment";
 import { createTownMaterials, TOWN_PALETTE } from "./materials";
+import { createTownDetails } from "./town-details";
 import type {
   CreateTownWorldOptions,
   ImmersiveTownWorld,
@@ -96,6 +97,7 @@ export function createImmersiveTownWorld(
   const materials = createTownMaterials(scene);
   const environment = createTownEnvironment(scene, materials, shadows);
   const compoundWorld = createTownCompounds(scene, materials, shadows);
+  const details = createTownDetails(scene, materials, shadows);
   const animation = createTownAnimationController(
     scene,
     {
@@ -104,6 +106,8 @@ export function createImmersiveTownWorld(
       cloudRoots: environment.cloudRoots,
       lampBulbs: environment.lampBulbs,
       riverMaterial: materials.river,
+      ambientActors: details.ambientActors,
+      playgroundSpinners: details.playgroundSpinners,
     },
     options.reducedMotion ?? false,
   );
