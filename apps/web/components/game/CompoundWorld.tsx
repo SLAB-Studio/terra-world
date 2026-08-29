@@ -286,11 +286,19 @@ export default function CompoundWorld({
         </header>
 
         <div className="neighborhood-world">
-          <span className="world-cloud world-cloud-one" aria-hidden="true" />
-          <span className="world-cloud world-cloud-two" aria-hidden="true" />
-          <span className="world-hill world-hill-back" aria-hidden="true" />
-          <span className="world-hill world-hill-front" aria-hidden="true" />
-          <span className="world-path" aria-hidden="true" />
+          <span className="world-river" aria-hidden="true">
+            <i className="river-shimmer river-shimmer-one" />
+            <i className="river-shimmer river-shimmer-two" />
+          </span>
+          <span className="map-tree map-tree-one" aria-hidden="true">
+            <i />
+          </span>
+          <span className="map-tree map-tree-two" aria-hidden="true">
+            <i />
+          </span>
+          <span className="map-tree map-tree-three" aria-hidden="true">
+            <i />
+          </span>
           <div className="compound-grid">
             {COMPOUNDS.map((compound) => {
               const upgrades = compounds[compound.id];
@@ -328,6 +336,7 @@ export default function CompoundWorld({
                       <i className="house-roof" />
                       <i className="solar-roof" />
                       <i className="house-wall" />
+                      <i className="house-side" />
                       <i className="house-window window-left" />
                       <i className="house-window window-right" />
                       <i className="house-door" />
@@ -362,6 +371,20 @@ export default function CompoundWorld({
                 </button>
               );
             })}
+          </div>
+
+          <div className="map-guide-bubble" aria-live="polite">
+            <span className="map-guide-face" aria-hidden="true">
+              <i />
+              <i />
+              <b />
+            </span>
+            <p>
+              <strong>{questText}.</strong>
+              {litHomes === 0
+                ? " Give one home clean sunlight and watch it glow!"
+                : " Nice work! Which home should we help next?"}
+            </p>
           </div>
         </div>
 
