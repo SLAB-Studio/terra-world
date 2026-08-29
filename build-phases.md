@@ -10,7 +10,7 @@ Phases 1–4 may use a plain developer shell for buttons, forms, logs, and map c
 |---|---|---|
 | 1 | Deterministic city foundation | Complete |
 | 2 | Complete offline game and campaign | In progress |
-| 3 | 0G intelligence, storage, and safety | Not started |
+| 3 | 0G intelligence, storage, and safety | In progress |
 | 4 | Agentic ID, chain, deployment, and full integration | Not started |
 | 5 | Finished child-facing UI and demo experience | Not started |
 
@@ -217,10 +217,11 @@ Connect the complete offline game to 0G Compute and 0G Storage without making ei
   - Build: Upload chapter checkpoints to 0G Storage, store roots in the adult-controlled session, restore on a new profile, and integrate the background sync queue.
   - Acceptance: Local gameplay continues during upload failure and later synchronises idempotently.
   - Verify: Offline-save, failed-upload, reconnect, duplicate-retry, and new-device restore tests.
+  - Current: Durable IndexedDB queueing and the proof-bound server 0G bridge are complete; the browser-to-server checkpoint route and adult-session UI wiring remain.
 
 ### City intelligence
 
-- [ ] **P3.6 Connect the 0G Compute Router server-side**
+- [x] **P3.6 Connect the 0G Compute Router server-side**
   - Build: Create a server-only Router client with private trust mode, model configuration, strict timeout, rate limiting, and provider-unavailable handling.
   - Acceptance: A structured test request produces a valid response; API credentials never reach the browser.
   - Verify: Integration test plus browser network/bundle inspection.
@@ -235,14 +236,14 @@ Connect the complete offline game to 0G Compute and 0G Storage without making ei
   - Acceptance: Malformed, overlong, ungrounded, or unsafe outputs are discarded in favour of the local fallback.
   - Verify: Adversarial fixture suite and forced-invalid-provider-response tests.
 
-- [ ] **P3.9 Implement Rivergate voice and hint tasks**
+- [x] **P3.9 Implement Rivergate voice and hint tasks**
   - Build: Add explain, react, reflective-question, graduated-hint, and structured-memory-candidate tasks.
   - Acceptance: Rivergate speaks in the first person, uses only verified city facts, and never claims to change the simulation.
   - Verify: Golden prompt/response evaluations across every chapter.
 
 ### Privacy and resilience
 
-- [ ] **P3.10 Implement data-minimisation enforcement**
+- [x] **P3.10 Implement data-minimisation enforcement**
   - Build: Add allowlisted request projection, no-child-PII checks, content logging policy, and safe operational telemetry.
   - Acceptance: Names, precise ages, school, location, raw child chat, and behavioural profiles cannot enter Compute requests or city memory.
   - Verify: Static schema review plus automated sensitive-field and log tests.

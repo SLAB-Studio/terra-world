@@ -437,6 +437,22 @@ content. Persistent keys contain only age band, task, verified cause codes, and
 fact keys; exact-request coalescing uses a separate ephemeral key so two city
 snapshots cannot share an in-flight response.
 
+Provider requests are created only from the minimized `CityGuideRequest`.
+Rivergate's system task contract requires strict JSON, first-person city voice,
+verified grounding, and task-specific shapes for explanations, reactions,
+three-step hints, reflective questions, and structured memory candidates. The
+request has no free-form child text, and user-supplied values are explicitly
+treated as inert data rather than instructions.
+
+`POST /api/guide` is the only browser-facing Compute boundary. It validates a
+bounded JSON request before provider use, constructs the prompt server-side,
+requires private and TEE-verified provider metadata, caps extracted assistant
+content, and passes the result through the guide validator. Configuration,
+network, quota, timeout, privacy, rate-limit, malformed-output, and unsafe-output
+failures return only validated authored fallback content. Responses are
+`private, no-store`, and the anonymous fixed-window limiter keeps no IP, account,
+wallet, or child identifier.
+
 ## 9. 0G Storage
 
 ### 9.1 Public campaign packs
@@ -489,6 +505,23 @@ and `failed` states. Only retryable failures are retried, and stale workers
 cannot overwrite a newer successful attempt. Adult-controlled restore
 references must match the remote root, content hash, byte length, key ID, and
 authenticated campaign/city metadata before decryption or local acceptance.
+
+The browser persists this encrypted queue in a versioned IndexedDB store.
+Save-if-absent, upload claims, and claim settlement are atomic across tabs;
+expired leases can be reclaimed without allowing stale workers to overwrite a
+newer result. Records are strict-schema validated on every read and write.
+Malformed or secret-bearing entries are removed with sanitized notices, and an
+isolated in-memory fallback keeps server rendering or storage-denied browsers
+playable.
+
+The server-side checkpoint bridge accepts only encrypted-envelope bytes from
+the queue and delegates signing to the adult-sponsored 0G Storage adapter. It
+binds the deterministic idempotency key to the ciphertext hash, validates the
+upload receipt, requests proof-verified retrieval with the expected root and
+content hash, and independently rechecks downloaded hash and length. Unknown or
+integrity failures fail closed; only typed retryable Storage failures re-enter
+the bounded queue. The remaining MVP integration is the authenticated
+browser-to-server checkpoint route and adult-session restore controls.
 
 ## 10. 0G Chain contracts
 
@@ -629,6 +662,12 @@ settings          Accessibility and device preferences
 
 The MVP uses bounded actions rather than unrestricted chat:
 
+Guide telemetry is content-free by construction. Its strict event schema can
+record only bounded task, age-band, source, outcome, failure-class, and duration
+bucket enums. Request content, response content, child identity, raw errors,
+wallet data, and exact timings have no representable fields; validation or
+logging failure never interrupts gameplay.
+
 - Explain what happened
 - Give me a small hint
 - What needs help?
@@ -685,7 +724,7 @@ terra-world/
       features/city-guide/         City dialogue and hint interface
       features/adult-controls/     Consent, reports, and proof mode
       lib/offline/                 IndexedDB and synchronisation
-      lib/checkpoints/             Versioned browser AES-GCM envelopes
+      lib/checkpoints/             AES-GCM envelopes, durable queue, and restore verification
   packages/
     simulation/
       src/state.ts                 CityState schemas
@@ -708,6 +747,8 @@ terra-world/
       src/city-guide.ts            Input minimisation and request schema
       src/prohibited-data.ts       Child-data boundary scanner
       src/guide-output.ts          Output validation
+      src/guide-prompt.ts          Rivergate task construction
+      src/telemetry.ts             Content-free operational logging policy
       src/memory.ts                Structured memory policy
   contracts/
     src/TerraCampaignRegistry.sol
