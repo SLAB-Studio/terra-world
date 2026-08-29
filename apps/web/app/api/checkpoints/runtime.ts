@@ -85,14 +85,19 @@ export function createCheckpointRouteRuntime(
   });
 }
 
-let defaultRuntime: CheckpointRouteRuntime | undefined;
+const CHECKPOINT_RUNTIME_KEY = Symbol.for("terra-world.checkpoint-runtime.v1");
+
+type CheckpointRuntimeGlobal = typeof globalThis & {
+  [CHECKPOINT_RUNTIME_KEY]?: CheckpointRouteRuntime;
+};
 
 export function getCheckpointRouteRuntime(): CheckpointRouteRuntime {
-  defaultRuntime ??= createCheckpointRouteRuntime({
+  const runtimeGlobal = globalThis as CheckpointRuntimeGlobal;
+  runtimeGlobal[CHECKPOINT_RUNTIME_KEY] ??= createCheckpointRouteRuntime({
     mode: readMode(process.env),
     allowedOrigins: readAllowedOrigins(process.env),
   });
-  return defaultRuntime;
+  return runtimeGlobal[CHECKPOINT_RUNTIME_KEY];
 }
 
 export function createMemoryEncryptedCheckpointRemote(

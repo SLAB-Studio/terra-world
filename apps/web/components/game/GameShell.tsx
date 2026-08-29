@@ -129,6 +129,7 @@ export default function GameShell() {
   const [dragGhost, setDragGhost] = useState<DragGhost | null>(null);
   const dragGhostRef = useRef<DragGhost | null>(null);
   const persistenceRef = useRef<OfflinePersistence | null>(null);
+  const adultSessionReadyRef = useRef(false);
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [persistenceReady, setPersistenceReady] = useState(false);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
@@ -401,18 +402,21 @@ export default function GameShell() {
     store: DurableCheckpointBackupStore;
     remote: ReturnType<typeof createCheckpointHttpRemoteStorage>;
   }> {
-    const response = await fetch("/api/checkpoints/session", {
-      method: "POST",
-      cache: "no-store",
-      credentials: "same-origin",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        schemaVersion: 1,
-        operation: "begin-adult-session",
-        adultConfirmed: true,
-      }),
-    });
-    if (!response.ok) throw new Error("adult-session-unavailable");
+    if (!adultSessionReadyRef.current) {
+      const response = await fetch("/api/checkpoints/session", {
+        method: "POST",
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          schemaVersion: 1,
+          operation: "begin-adult-session",
+          adultConfirmed: true,
+        }),
+      });
+      if (!response.ok) throw new Error("adult-session-unavailable");
+      adultSessionReadyRef.current = true;
+    }
     return {
       store: await createCheckpointBackupStore(),
       remote: createCheckpointHttpRemoteStorage(),
