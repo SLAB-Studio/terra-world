@@ -30,6 +30,29 @@ export default function LivingMapDecor() {
       <span className={`${styles.path} ${styles.pathSouth}`} />
       <span className={`${styles.path} ${styles.pathCross}`} />
 
+      <span className={`${styles.car} ${styles.carNorth}`}>
+        <i className={styles.carRoof} />
+        <i className={styles.carWindow} />
+        <i className={`${styles.carWheel} ${styles.carWheelFront}`} />
+        <i className={`${styles.carWheel} ${styles.carWheelBack}`} />
+      </span>
+      <span className={`${styles.car} ${styles.carSouth}`}>
+        <i className={styles.carRoof} />
+        <i className={styles.carWindow} />
+        <i className={`${styles.carWheel} ${styles.carWheelFront}`} />
+        <i className={`${styles.carWheel} ${styles.carWheelBack}`} />
+      </span>
+
+      <span className={`${styles.birds} ${styles.birdsNorth}`}>
+        <i />
+        <i />
+        <i />
+      </span>
+      <span className={`${styles.birds} ${styles.birdsSouth}`}>
+        <i />
+        <i />
+      </span>
+
       {TREES.map(([x, y, scale]) => (
         <span
           className={styles.tree}

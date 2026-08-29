@@ -42,6 +42,138 @@
   transform: rotate(64deg);
 }
 
+.car {
+  position: absolute;
+  z-index: 5;
+  width: 68px;
+  height: 34px;
+  display: block;
+  border: 3px solid #2b190f;
+  border-radius: 10px 14px 8px 8px;
+  background: #ffcf45;
+  box-shadow: 0 5px 7px rgba(43, 25, 15, 0.19);
+}
+
+.carNorth {
+  top: 354px;
+  left: -90px;
+  animation: drive-east 18s linear infinite;
+}
+
+.carSouth {
+  top: 690px;
+  left: 1840px;
+  background: #62aef0;
+  animation: drive-west 23s linear 4s infinite;
+}
+
+.carRoof,
+.carWindow,
+.carWheel {
+  position: absolute;
+  display: block;
+  box-sizing: border-box;
+}
+
+.carRoof {
+  bottom: 27px;
+  left: 16px;
+  width: 38px;
+  height: 19px;
+  border: 3px solid #2b190f;
+  border-bottom: 0;
+  border-radius: 12px 12px 0 0;
+  background: inherit;
+}
+
+.carWindow {
+  bottom: 28px;
+  left: 29px;
+  width: 16px;
+  height: 12px;
+  border: 2px solid #2b190f;
+  border-bottom: 0;
+  border-radius: 5px 5px 0 0;
+  background: #c7efff;
+}
+
+.carWheel {
+  bottom: -8px;
+  width: 16px;
+  height: 16px;
+  border: 3px solid #2b190f;
+  border-radius: 50%;
+  background: #5d4b63;
+  animation: wheel-turn 0.75s linear infinite;
+}
+
+.carWheelFront {
+  right: 7px;
+}
+
+.carWheelBack {
+  left: 7px;
+}
+
+.birds {
+  position: absolute;
+  z-index: 4;
+  width: 80px;
+  height: 34px;
+  display: block;
+  animation: flock-drift 12s ease-in-out infinite alternate;
+}
+
+.birdsNorth {
+  top: 82px;
+  left: 420px;
+}
+
+.birdsSouth {
+  top: 565px;
+  left: 1310px;
+  animation-delay: -5s;
+  transform: scale(0.82);
+}
+
+.birds i {
+  position: absolute;
+  width: 16px;
+  height: 8px;
+  display: block;
+  border-top: 3px solid #2b190f;
+  border-radius: 50%;
+  animation: wing-flap 0.9s ease-in-out infinite alternate;
+}
+
+.birds i::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 12px;
+  width: 16px;
+  height: 8px;
+  border-top: 3px solid #2b190f;
+  border-radius: 50%;
+}
+
+.birds i:nth-child(1) {
+  top: 2px;
+  left: 2px;
+}
+
+.birds i:nth-child(2) {
+  top: 17px;
+  left: 30px;
+  animation-delay: -0.3s;
+}
+
+.birds i:nth-child(3) {
+  top: 0;
+  right: 4px;
+  animation-delay: -0.6s;
+}
+
 .homeLot {
   position: absolute;
   z-index: 3;
@@ -480,6 +612,48 @@
   }
 }
 
+@keyframes drive-east {
+  from {
+    transform: translateX(0) rotate(-8deg);
+  }
+  to {
+    transform: translateX(1990px) rotate(-8deg);
+  }
+}
+
+@keyframes drive-west {
+  from {
+    transform: translateX(0) rotate(5deg);
+  }
+  to {
+    transform: translateX(-2020px) rotate(5deg);
+  }
+}
+
+@keyframes wheel-turn {
+  to {
+    rotate: 1turn;
+  }
+}
+
+@keyframes flock-drift {
+  from {
+    translate: -12px 4px;
+  }
+  to {
+    translate: 26px -10px;
+  }
+}
+
+@keyframes wing-flap {
+  from {
+    transform: rotate(-8deg) scaleY(0.72);
+  }
+  to {
+    transform: rotate(5deg) scaleY(1.08);
+  }
+}
+
 @media (max-width: 760px) {
   .layer {
     transform: scale(0.86);
@@ -494,6 +668,15 @@
   .personWave .armRight,
   .chatMarks,
   .ball {
+    animation: none;
+  }
+
+  .car {
+    display: none;
+  }
+
+  .birds,
+  .birds i {
     animation: none;
   }
 }
