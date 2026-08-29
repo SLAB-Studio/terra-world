@@ -1,0 +1,510 @@
+.drawer {
+  position: absolute;
+  z-index: 70;
+  inset: 12px;
+  overflow: hidden;
+  border: 4px solid #2b190f;
+  border-radius: 24px;
+  color: #2b190f;
+  background: #fffdf4;
+  box-shadow: 0 18px 38px rgba(28, 18, 12, 0.34);
+}
+
+.header {
+  min-height: 82px;
+  padding: 13px 16px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 4px solid #2b190f;
+  background: #f47f70;
+}
+
+.titleMark {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 3px solid #2b190f;
+  border-radius: 14px;
+  background: #ffd24a;
+}
+
+.header h2,
+.header p,
+.challengeList h3,
+.challengeList p,
+.challengeDetail h3,
+.challengeDetail p {
+  margin: 0;
+}
+
+.header h2 {
+  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+  line-height: 1;
+}
+
+.header p {
+  margin-top: 3px;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.header > button {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border: 3px solid #2b190f;
+  border-radius: 13px;
+  color: #2b190f;
+  background: #fffdf4;
+}
+
+.stageRail {
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(105px, 1fr));
+  gap: 8px;
+  overflow-x: auto;
+  border-bottom: 3px solid #2b190f;
+  background: #f4efd9;
+  scrollbar-color: #f0643b #fffdf4;
+}
+
+.stageButton {
+  min-height: 63px;
+  padding: 7px 8px;
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 0 7px;
+  border: 3px solid #2b190f;
+  border-radius: 13px;
+  color: #2b190f;
+  background: #fffdf4;
+  text-align: left;
+}
+
+.stageButton > span {
+  grid-row: 1 / 3;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #2b190f;
+  border-radius: 50%;
+  background: var(--stage-colour);
+  font-weight: 900;
+}
+
+.stageButton strong {
+  align-self: end;
+  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-size: 0.74rem;
+  line-height: 1;
+}
+
+.stageButton small {
+  align-self: start;
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.stageButton[aria-current="step"] {
+  background: var(--stage-colour);
+  box-shadow: 0 4px 9px rgba(43, 25, 15, 0.2);
+}
+
+.stageButton:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.6);
+  opacity: 0.52;
+}
+
+.stagesun {
+  --stage-colour: #ffd24a;
+}
+
+.stagewater {
+  --stage-colour: #8fd3ff;
+}
+
+.stageleaf {
+  --stage-colour: #9bd878;
+}
+
+.stagestorm {
+  --stage-colour: #bea5e8;
+}
+
+.stageguardian {
+  --stage-colour: #ff9b75;
+}
+
+.body {
+  height: calc(100% - 166px);
+  display: grid;
+  grid-template-columns: minmax(210px, 0.86fr) minmax(330px, 1.44fr);
+  overflow: hidden;
+}
+
+.challengeList,
+.challengeDetail {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-color: #ffd24a #fffdf4;
+}
+
+.challengeList {
+  padding: 15px;
+  border-right: 3px solid #2b190f;
+  background: #f5f0db;
+}
+
+.challengeList > div:first-child {
+  margin-bottom: 12px;
+}
+
+.challengeList h3,
+.challengeDetail h3 {
+  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  line-height: 1.05;
+}
+
+.challengeList h3 {
+  font-size: 1.12rem;
+}
+
+.challengeList p {
+  margin-top: 4px;
+  color: #5d4537;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.challengeButton {
+  width: 100%;
+  min-height: 68px;
+  margin-bottom: 9px;
+  padding: 8px 9px;
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  border: 3px solid #2b190f;
+  border-radius: 14px;
+  color: #2b190f;
+  background: #fffdf4;
+  text-align: left;
+}
+
+.challengeButton[aria-pressed="true"] {
+  background: #fff2b7;
+  box-shadow: 0 5px 10px rgba(43, 25, 15, 0.18);
+}
+
+.challengeButton:disabled {
+  opacity: 0.48;
+}
+
+.challengeNumber {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #2b190f;
+  border-radius: 10px;
+  background: #ffd24a;
+  font-weight: 900;
+}
+
+.challengeButton strong,
+.challengeButton small {
+  display: block;
+}
+
+.challengeButton strong {
+  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-size: 0.86rem;
+  line-height: 1.05;
+}
+
+.challengeButton small {
+  margin-top: 2px;
+  color: #63493a;
+  font-size: 0.65rem;
+  font-weight: 750;
+}
+
+.completeMark {
+  color: #2f823f;
+}
+
+.arrowMark {
+  color: #d65835;
+}
+
+.challengeDetail {
+  padding: 18px 21px 24px;
+  background: #fffdf4;
+}
+
+.detailTopline {
+  margin-bottom: 9px;
+  display: flex;
+  justify-content: space-between;
+  gap: 9px;
+  color: #5f4434;
+  font-size: 0.69rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.challengeDetail h3 {
+  font-size: clamp(1.35rem, 2.6vw, 2rem);
+}
+
+.story {
+  margin-top: 8px !important;
+  color: #553e31;
+  font-size: 0.87rem;
+  font-weight: 720;
+  line-height: 1.35;
+}
+
+.instruction {
+  margin-top: 12px !important;
+  padding: 10px 12px;
+  border: 3px solid #2b190f;
+  border-radius: 13px;
+  background: #ffe678;
+  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-size: 0.96rem;
+  font-weight: 850;
+  line-height: 1.15;
+}
+
+.goalList {
+  margin: 13px 0;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+  list-style: none;
+}
+
+.goalList li {
+  min-height: 42px;
+  padding: 7px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 2px solid #d5c9ae;
+  border-radius: 11px;
+  background: #fffaf0;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.goalList li span {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  color: #a05d22;
+  background: #fff0a8;
+}
+
+.goalList .goalComplete {
+  border-color: #72b76a;
+  background: #e2f3d7;
+}
+
+.goalList .goalComplete span {
+  color: #2f733c;
+  background: #bde4a8;
+}
+
+.learningNote {
+  padding: 10px 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border-radius: 12px;
+  color: #214d35;
+  background: #dff1d5;
+}
+
+.learningNote p {
+  font-size: 0.73rem;
+  font-weight: 700;
+  line-height: 1.28;
+}
+
+.learningNote strong {
+  display: block;
+  margin-bottom: 2px;
+  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-size: 0.8rem;
+}
+
+.activeActions {
+  margin-top: 13px;
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  gap: 9px;
+}
+
+.moveCount {
+  min-height: 50px;
+  padding: 5px;
+  display: grid;
+  place-items: center;
+  border: 3px solid #2b190f;
+  border-radius: 12px;
+  background: #fff8dc;
+}
+
+.moveCount span {
+  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-size: 1.18rem;
+  font-weight: 900;
+  line-height: 0.85;
+}
+
+.moveCount small {
+  font-size: 0.58rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.hintButton,
+.startButton {
+  min-height: 50px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 3px solid #2b190f;
+  border-radius: 12px;
+  color: #2b190f;
+  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-weight: 850;
+}
+
+.hintButton {
+  background: #9fcdf4;
+}
+
+.startButton {
+  width: 100%;
+  margin-top: 13px;
+  background: #72cf51;
+}
+
+.hintButton:disabled {
+  opacity: 0.58;
+}
+
+.hintPanel {
+  margin-top: 11px;
+  padding: 11px 12px;
+  border: 3px solid #2b190f;
+  border-radius: 13px;
+  background: #e8dcf7;
+}
+
+.hintPanel > strong {
+  display: block;
+  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-size: 0.82rem;
+}
+
+.hintPanel ol {
+  margin: 7px 0 5px;
+  padding-left: 21px;
+}
+
+.hintPanel li {
+  margin-block: 3px;
+  font-size: 0.72rem;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.hintPanel small {
+  color: #5b4668;
+  font-size: 0.61rem;
+  font-weight: 850;
+}
+
+.drawer button:focus-visible {
+  outline: 4px solid #167c8a;
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .drawer {
+    position: fixed;
+    inset: 8px;
+    border-radius: 20px;
+  }
+
+  .header {
+    min-height: 74px;
+    padding: 10px 11px;
+  }
+
+  .titleMark {
+    width: 42px;
+    height: 42px;
+  }
+
+  .header h2 {
+    font-size: 1.25rem;
+  }
+
+  .header p {
+    font-size: 0.66rem;
+  }
+
+  .stageRail {
+    grid-template-columns: repeat(5, 115px);
+    padding: 8px;
+  }
+
+  .body {
+    height: calc(100% - 153px);
+    display: block;
+    overflow-y: auto;
+  }
+
+  .challengeList,
+  .challengeDetail {
+    overflow: visible;
+  }
+
+  .challengeList {
+    padding: 12px;
+    border-right: 0;
+    border-bottom: 3px solid #2b190f;
+  }
+
+  .challengeDetail {
+    padding: 15px 14px 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer,
+  .drawer * {
+    scroll-behavior: auto;
+  }
+}
