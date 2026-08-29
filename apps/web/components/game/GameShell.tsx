@@ -1,42 +1,21 @@
 "use client";
 
-import dynamic from "next/dynamic";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
-import type { Coordinate } from "@terra/campaign-schema";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { SafeCityPersonality } from "../../../../packages/safety/src/city-guide";
 import {
-  RIVERGATE_EN_MESSAGES,
   RIVERGATE_FOUNDATIONS_CAMPAIGN,
   hashActionLog,
   hashCityState,
 } from "@terra/simulation";
 
-import { buildingName } from "../../lib/game/catalogue";
 import {
-  BUILDING_CATALOGUE,
-  OVERLAY_IDS,
   createDeveloperGame,
   createGameSessionSave,
   getChildFeedback,
   getCurrentMission,
   gameReducer,
-  getUnlockedChapterIds,
-  getOverlayView,
-  getPlanningCity,
-  getCursorSummary,
-  operationCount,
   restoreGameSession,
   type GameState,
-  type OverlayId,
 } from "../../lib/game/controller";
 import {
   backUpCampaignSession,
@@ -57,25 +36,8 @@ import {
   createOfflinePersistence,
   type OfflinePersistence,
 } from "../../lib/offline";
+import CompoundWorld from "./CompoundWorld";
 import { GameIcon } from "./GameIcon";
-import type { GameMapApi } from "./GameMap";
-
-const GameMap = dynamic(() => import("./GameMap"), {
-  ssr: false,
-  loading: () => (
-    <div className="map-state" role="status">
-      <span className="map-loader" aria-hidden="true" />
-      <strong>Preparing Rivergate…</strong>
-      <span>Your river valley is getting ready.</span>
-    </div>
-  ),
-});
-
-type DragGhost = {
-  readonly buildingId: string;
-  readonly x: number;
-  readonly y: number;
-};
 
 const RIVERGATE_CITY_ID = "rivergate-city";
 const LOCAL_PROFILE_ID = "local-builder";
@@ -116,29 +78,17 @@ const PLAYER_ROLES: readonly {
   },
 ];
 
-const OVERLAY_SHORT_NAMES: Readonly<Record<OverlayId, string>> = {
-  validity: "Build",
-  flood: "Flood",
-  water: "Water",
-  electricity: "Power",
-  transport: "Travel",
-  service: "Services",
-  habitat: "Habitat",
-  cost: "Cost",
-};
-
 export default function GameShell() {
   const [state, dispatch] = useReducer(gameReducer, undefined, () =>
     createDeveloperGame(),
   );
-  const [mapApi, setMapApi] = useState<GameMapApi | null>(null);
-  const [mapError, setMapError] = useState<string | null>(null);
-  const [dragGhost, setDragGhost] = useState<DragGhost | null>(null);
-  const dragGhostRef = useRef<DragGhost | null>(null);
   const persistenceRef = useRef<OfflinePersistence | null>(null);
   const adultSessionReadyRef = useRef(false);
   const adultEntryRef = useRef<HTMLButtonElement | null>(null);
   const adultDialogRef = useRef<HTMLElement | null>(null);
+  const expertEntryRef = useRef<HTMLButtonElement | null>(null);
+  const expertCloseRef = useRef<HTMLButtonElement | null>(null);
+  const expertDialogRef = useRef<HTMLElement | null>(null);
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [persistenceReady, setPersistenceReady] = useState(false);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
@@ -147,7 +97,6 @@ export default function GameShell() {
     "sunrise" | "river" | "forest"
   >("river");
   const [saveState, setSaveState] = useState<SaveState>("loading");
-  const [online, setOnline] = useState(true);
   const [adultPanelOpen, setAdultPanelOpen] = useState(false);
   const [adultUnlocked, setAdultUnlocked] = useState(false);
   const [adultAnswer, setAdultAnswer] = useState("");
@@ -171,7 +120,7 @@ export default function GameShell() {
     {
       id: "river-welcome",
       speaker: "river",
-      text: "Hi! I’m River, your city expert. Ask me what to build or why your city changed.",
+      text: "Hi! I’m River. Drag something onto a home, then ask me what changed!",
     },
   ]);
   const lastExpertFeedbackRef = useRef<string | null>(null);
@@ -181,9 +130,6 @@ export default function GameShell() {
     guideController.getSnapshot(),
   );
   const previousCommittedStateRef = useRef<GameState>(state);
-  const planningCity = useMemo(() => getPlanningCity(state), [state]);
-  const overlay = useMemo(() => getOverlayView(state), [state]);
-  const cursorSummary = useMemo(() => getCursorSummary(state), [state]);
   const currentMission = useMemo(() => getCurrentMission(state), [state]);
   const childFeedback = useMemo(() => getChildFeedback(state), [state]);
   const displayedFeedback = useMemo(() => {
@@ -202,14 +148,6 @@ export default function GameShell() {
         "Use the planning lenses to compare the system you just changed.",
     };
   }, [childFeedback, guideSnapshot]);
-  const unlockedChapterIds = useMemo(
-    () => getUnlockedChapterIds(state),
-    [state],
-  );
-  const selected = BUILDING_CATALOGUE.find(
-    (building) => building.id === state.selectedBuildingId,
-  );
-  const changes = operationCount(state);
   const actionLogHash = useMemo(
     () => hashActionLog(state.city.actionLog),
     [state.city.actionLog],
@@ -295,11 +233,48 @@ export default function GameShell() {
 
   useEffect(() => {
     if (!expertDrawerOpen) return;
-    function closeExpertOnEscape(event: globalThis.KeyboardEvent) {
-      if (event.key === "Escape") setExpertDrawerOpen(false);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusFrame = window.requestAnimationFrame(() => {
+      expertCloseRef.current?.focus();
+    });
+    const focusTimer = window.setTimeout(() => {
+      expertCloseRef.current?.focus();
+    }, 240);
+
+    function handleExpertKey(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setExpertDrawerOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const dialog = expertDialogRef.current;
+      if (dialog === null) return;
+      const controls = [
+        ...dialog.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ].filter((control) => control.getClientRects().length > 0);
+      const first = controls[0];
+      const last = controls.at(-1);
+      if (first === undefined || last === undefined) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     }
-    document.addEventListener("keydown", closeExpertOnEscape);
-    return () => document.removeEventListener("keydown", closeExpertOnEscape);
+    document.addEventListener("keydown", handleExpertKey);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      window.clearTimeout(focusTimer);
+      document.removeEventListener("keydown", handleExpertKey);
+      document.body.style.overflow = previousOverflow;
+      expertEntryRef.current?.focus();
+    };
   }, [expertDrawerOpen]);
 
   useEffect(() => {
@@ -423,17 +398,6 @@ export default function GameShell() {
       )
       .catch(() => setSaveState("temporary"));
   }, [onboardingComplete, persistenceReady, state]);
-
-  useEffect(() => {
-    const update = () => setOnline(navigator.onLine);
-    update();
-    window.addEventListener("online", update);
-    window.addEventListener("offline", update);
-    return () => {
-      window.removeEventListener("online", update);
-      window.removeEventListener("offline", update);
-    };
-  }, []);
 
   useEffect(() => {
     document.documentElement.style.setProperty(
@@ -640,85 +604,6 @@ export default function GameShell() {
     setAdultAnswer("");
   }
 
-  const handleTileActivate = useCallback(
-    (coordinate: Coordinate) => {
-      dispatch({ type: "set-cursor", coordinate });
-      if (state.selectedBuildingId !== null)
-        dispatch({ type: "place", coordinate });
-    },
-    [state.selectedBuildingId],
-  );
-
-  useEffect(() => {
-    function move(event: PointerEvent) {
-      const active = dragGhostRef.current;
-      if (active === null) return;
-      const next = { ...active, x: event.clientX, y: event.clientY };
-      dragGhostRef.current = next;
-      setDragGhost(next);
-    }
-    function release(event: PointerEvent) {
-      const active = dragGhostRef.current;
-      if (active === null) return;
-      dragGhostRef.current = null;
-      setDragGhost(null);
-      const coordinate = mapApi?.screenToTile(event.clientX, event.clientY);
-      if (coordinate !== null && coordinate !== undefined)
-        dispatch({ type: "place", coordinate });
-    }
-    function cancel() {
-      if (dragGhostRef.current === null) return;
-      dragGhostRef.current = null;
-      setDragGhost(null);
-    }
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", release);
-    window.addEventListener("pointercancel", cancel);
-    return () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", release);
-      window.removeEventListener("pointercancel", cancel);
-    };
-  }, [mapApi]);
-
-  function beginCatalogueDrag(
-    event: ReactPointerEvent<HTMLButtonElement>,
-    buildingId: string,
-  ) {
-    if (event.pointerType === "mouse" && event.button !== 0) return;
-    dispatch({ type: "select", buildingId });
-    const next = { buildingId, x: event.clientX, y: event.clientY };
-    dragGhostRef.current = next;
-    setDragGhost(next);
-  }
-
-  function handleMapKey(event: KeyboardEvent<HTMLDivElement>) {
-    const movement: Readonly<Record<string, readonly [number, number]>> = {
-      ArrowLeft: [-1, 0],
-      ArrowRight: [1, 0],
-      ArrowUp: [0, -1],
-      ArrowDown: [0, 1],
-    };
-    const delta = movement[event.key];
-    if (delta !== undefined) {
-      event.preventDefault();
-      dispatch({ type: "move-cursor", dx: delta[0], dy: delta[1] });
-      return;
-    }
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      dispatch({ type: "place", coordinate: state.cursor });
-    } else if (event.key.toLowerCase() === "r") {
-      event.preventDefault();
-      dispatch({ type: "rotate" });
-    } else if (event.key === "Delete" || event.key === "Backspace") {
-      event.preventDefault();
-      dispatch({ type: "remove", coordinate: state.cursor });
-    } else if (event.key === "Escape") {
-      dispatch({ type: "clear-selection" });
-    }
-  }
-
   function askRiver(suggestedQuestion?: string) {
     const question = (suggestedQuestion ?? expertQuestion).trim();
     if (question.length === 0) return;
@@ -738,6 +623,17 @@ export default function GameShell() {
       },
     ]);
     setExpertQuestion("");
+  }
+
+  function shareBuilderLearning(message: string) {
+    setExpertMessages((messages) => [
+      ...messages.slice(-5),
+      {
+        id: `river-builder-${Date.now()}`,
+        speaker: "river",
+        text: message,
+      },
+    ]);
   }
 
   if (!persistenceReady) {
@@ -852,9 +748,9 @@ export default function GameShell() {
       className={`game-shell theme-${colourTheme}${highContrast ? " high-contrast" : ""}`}
     >
       <header
-        aria-hidden={adultPanelOpen || undefined}
+        aria-hidden={adultPanelOpen || expertDrawerOpen || undefined}
         className="game-header"
-        inert={adultPanelOpen || undefined}
+        inert={adultPanelOpen || expertDrawerOpen || undefined}
       >
         <div className="brand-lockup">
           <span className="brand-mark" aria-hidden="true">
@@ -862,58 +758,28 @@ export default function GameShell() {
           </span>
           <div>
             <strong>Terra World</strong>
-            <span>Build a happy, healthy city</span>
+            <span>Make every little home happy</span>
           </div>
         </div>
-        <div className="header-actions">
-          <div
-            className={`save-chip save-${saveState}${online ? "" : " is-offline"}`}
-            role="status"
-          >
-            <span aria-hidden="true" />
-            {online
-              ? saveState === "saving"
-                ? "Saving…"
-                : saveState === "temporary"
-                  ? "Playing on this device"
-                  : "Saved on this device"
-              : "Offline · progress stays here"}
-          </div>
-          <button
-            className="adult-entry"
-            onClick={() => setAdultPanelOpen(true)}
-            ref={adultEntryRef}
-            type="button"
-          >
-            <GameIcon name="shield" size={19} />
-            Grown-ups
-          </button>
-        </div>
-        <dl className="city-facts" aria-label="Rivergate status">
-          <div className="fact-energy">
-            <dt>
-              <GameIcon name="energy" size={16} /> Energy
-            </dt>
-            <dd>{Math.round(state.city.indicators.energy)}%</dd>
-          </div>
-          <div className="fact-water">
-            <dt>
-              <GameIcon name="water" size={16} /> Clean water
-            </dt>
-            <dd>{Math.round(state.city.indicators.water)}%</dd>
-          </div>
-          <div className="fact-budget">
-            <dt>Budget</dt>
-            <dd>${state.city.budget.toLocaleString()}</dd>
-          </div>
-        </dl>
+        <button
+          className="adult-entry"
+          onClick={() => setAdultPanelOpen(true)}
+          ref={adultEntryRef}
+          type="button"
+        >
+          <GameIcon name="shield" size={19} />
+          Grown-ups
+        </button>
       </header>
 
       <button
         aria-controls="river-expert-panel"
         aria-expanded={expertDrawerOpen}
+        aria-hidden={expertDrawerOpen || undefined}
         className="mobile-expert-jump"
+        inert={expertDrawerOpen || undefined}
         onClick={() => setExpertDrawerOpen(true)}
+        ref={expertEntryRef}
         type="button"
       >
         <GameIcon name="spark" size={19} />
@@ -922,165 +788,40 @@ export default function GameShell() {
 
       <section
         aria-hidden={adultPanelOpen || undefined}
-        className="game-workspace"
+        className="kid-workspace"
         inert={adultPanelOpen || undefined}
-        aria-label="Rivergate planning workspace"
+        aria-label="Terra World neighborhood"
       >
-        <aside className="catalogue-panel" aria-labelledby="catalogue-heading">
-          <div className="panel-heading">
-            <h1 id="catalogue-heading">Building blocks</h1>
-            <p>Pick a block. Then tap the city!</p>
-          </div>
-          <div className="catalogue-scroll">
-            <div className="catalogue-grid">
-              {BUILDING_CATALOGUE.filter((item) =>
-                isBuildingUnlocked(item, unlockedChapterIds),
-              ).map((item) => (
-                <CatalogueItem
-                  isUnlocked
-                  item={item}
-                  key={item.id}
-                  onSelect={() =>
-                    dispatch({ type: "select", buildingId: item.id })
-                  }
-                  onStartDrag={(event) => beginCatalogueDrag(event, item.id)}
-                  selected={state.selectedBuildingId === item.id}
-                />
-              ))}
-            </div>
-            <p className="unlock-note">
-              <GameIcon name="spark" size={17} />
-              New blocks appear as you finish missions.
-            </p>
-          </div>
-        </aside>
-
-        <section className="map-panel" aria-labelledby="map-heading">
-          <div className="map-toolbar">
-            <div>
-              <h2 id="map-heading">Rivergate</h2>
-              <p>
-                {selected === undefined
-                  ? "Choose a building block to start"
-                  : `${buildingName(selected.id)} is ready — choose its new home!`}
-              </p>
-            </div>
-            <span className="turn-badge">Day {state.city.turn + 1}</span>
-          </div>
-          <div
-            aria-describedby="map-help map-cursor-summary map-status"
-            aria-label="Rivergate build map. Use arrow keys to move the white tile cursor. Press Enter to place, R to rotate, and Delete to remove."
-            className="map-stage"
-            onKeyDown={handleMapKey}
-            role="group"
-            tabIndex={0}
-          >
-            {mapError === null ? (
-              <GameMap
-                city={planningCity}
-                cursor={state.cursor}
-                onError={setMapError}
-                onReady={setMapApi}
-                onTileActivate={handleTileActivate}
-                overlay={overlay}
-                rotation={state.rotation}
-                selectedBuildingId={state.selectedBuildingId}
-              />
-            ) : (
-              <div className="map-state map-state-error" role="alert">
-                <strong>The Rivergate map could not open.</strong>
-                <span>{mapError}</span>
-                <button onClick={() => window.location.reload()} type="button">
-                  Reload map
-                </button>
-              </div>
-            )}
-            <div className="map-compass" aria-hidden="true">
-              <span>N</span>
-              <i />
-            </div>
-            <p className="sr-only" id="map-help">
-              Arrow keys move the tile cursor. Enter places the selected item. R
-              rotates it. Delete removes the item under the cursor.
-            </p>
-            <p
-              aria-atomic="true"
-              aria-live="polite"
-              className="sr-only"
-              id="map-cursor-summary"
-            >
-              {cursorSummary}
-            </p>
-          </div>
-          <div className="map-command-bar" aria-label="City controls">
-            <button
-              className="run-city-button"
-              disabled={state.campaign.phase === "completed"}
-              onClick={() => dispatch({ type: "commit" })}
-              type="button"
-            >
-              <GameIcon name="play" />
-              <span>
-                {changes === 0
-                  ? "Run the city"
-                  : `Try ${changes} change${changes === 1 ? "" : "s"}`}
-              </span>
-            </button>
-            <button
-              disabled={
-                selected === undefined || selected.allowedRotations.length < 2
-              }
-              onClick={() => dispatch({ type: "rotate" })}
-              type="button"
-            >
-              <GameIcon name="rotate" />
-              <span>Turn block</span>
-            </button>
-            <button
-              disabled={changes === 0}
-              onClick={() => dispatch({ type: "undo" })}
-              type="button"
-            >
-              <GameIcon name="undo" />
-              <span>Undo</span>
-            </button>
-            <button
-              onClick={() =>
-                dispatch({ type: "remove", coordinate: state.cursor })
-              }
-              type="button"
-            >
-              <GameIcon name="remove" />
-              <span>Remove</span>
-            </button>
-          </div>
-          <div className="map-statusbar">
-            <p aria-live="polite" id="map-status">
-              <span className="status-dot" aria-hidden="true" />
-              {state.status}
-            </p>
-            <span>${state.city.budget.toLocaleString()} left to spend</span>
-          </div>
-        </section>
+        <CompoundWorld
+          backgroundInert={expertDrawerOpen}
+          onRiverMessage={shareBuilderLearning}
+        />
 
         <aside
+          aria-modal={expertDrawerOpen || undefined}
           className={`planning-panel${expertDrawerOpen ? " expert-drawer-open" : ""}`}
-          aria-label="Planning tools"
+          aria-label="River helper"
+          ref={expertDialogRef}
+          role={expertDrawerOpen ? "dialog" : undefined}
         >
           <section
             className="expert-panel"
             id="river-expert-panel"
             aria-labelledby="expert-heading"
           >
-            <button
-              aria-label="Close River expert"
-              className="expert-drawer-close"
-              onClick={() => setExpertDrawerOpen(false)}
-              type="button"
-            >
-              <GameIcon name="close" size={18} />
-              Close
-            </button>
+            {expertDrawerOpen && (
+              <button
+                aria-label="Close River expert"
+                autoFocus
+                className="expert-drawer-close"
+                onClick={() => setExpertDrawerOpen(false)}
+                ref={expertCloseRef}
+                type="button"
+              >
+                <GameIcon name="close" size={18} />
+                Close
+              </button>
+            )}
             <header className="expert-hero">
               <div className="expert-face" aria-hidden="true">
                 <span className="expert-eye expert-eye-left" />
@@ -1089,7 +830,7 @@ export default function GameShell() {
               </div>
               <div>
                 <h2 id="expert-heading">Ask River</h2>
-                <p>Your friendly city expert</p>
+                <p>Your friendly town helper</p>
                 <span className="expert-online">Ready to help</span>
               </div>
             </header>
@@ -1110,16 +851,16 @@ export default function GameShell() {
             </div>
             <div className="expert-prompts" aria-label="Quick questions">
               <button
-                onClick={() => askRiver("What should I build next?")}
+                onClick={() => askRiver("What should I add next?")}
                 type="button"
               >
-                What next?
+                What should I add?
               </button>
               <button
-                onClick={() => askRiver("Why did my city change?")}
+                onClick={() => askRiver("What did that teach me?")}
                 type="button"
               >
-                Why did it change?
+                What did I learn?
               </button>
             </div>
             <form
@@ -1149,82 +890,16 @@ export default function GameShell() {
               </button>
             </form>
             <p className="expert-safety">
-              River only talks about your city. Your words stay on this device.
+              River only talks about the town. Your words stay on this device.
             </p>
           </section>
-
-          {state.ending !== null ? (
-            <EndingCard ending={state.ending} />
-          ) : (
-            <MissionCard
-              feedback={displayedFeedback}
-              guideLoading={guideSnapshot.status === "loading"}
-              mission={currentMission}
-              muted={muted}
-              progress={state.campaign.completedMissionKeys.length}
-            />
-          )}
-
-          <details className="city-clues">
-            <summary>
-              <GameIcon name="layers" />
-              Check city clues
-            </summary>
-            <section
-              className="overlay-section"
-              aria-labelledby="overlays-heading"
-            >
-              <div className="section-heading">
-                <div>
-                  <h2 id="overlays-heading">Map views</h2>
-                  <p>See how each city system is doing.</p>
-                </div>
-              </div>
-              <div className="overlay-buttons">
-                {OVERLAY_IDS.map((overlayId) => (
-                  <button
-                    aria-pressed={state.overlay === overlayId}
-                    key={overlayId}
-                    onClick={() =>
-                      dispatch({ type: "set-overlay", overlay: overlayId })
-                    }
-                    type="button"
-                  >
-                    <span
-                      className={`pattern-swatch pattern-${patternFor(overlayId)}`}
-                      aria-hidden="true"
-                    />
-                    {OVERLAY_SHORT_NAMES[overlayId]}
-                  </button>
-                ))}
-              </div>
-              <div className="overlay-legend">
-                <strong>{overlay.name}</strong>
-                <p>{overlay.description}</p>
-              </div>
-            </section>
-
-            <section
-              className="systems-section"
-              aria-labelledby="systems-heading"
-            >
-              <h2 id="systems-heading">City health</h2>
-              <div className="system-list">
-                {Object.entries(state.city.indicators).map(([name, value]) => (
-                  <div className="system-row" key={name}>
-                    <span>{capitalize(name)}</span>
-                    <div
-                      className="meter"
-                      aria-label={`${capitalize(name)} ${Math.round(value)} percent`}
-                    >
-                      <i style={{ width: `${Math.max(3, value)}%` }} />
-                    </div>
-                    <strong>{Math.round(value)}</strong>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </details>
+          <div className="river-learning-card">
+            <span aria-hidden="true">💡</span>
+            <p>
+              <strong>Try it and watch.</strong>
+              Every thing you add changes a home right away.
+            </p>
+          </div>
         </aside>
       </section>
 
@@ -1235,16 +910,6 @@ export default function GameShell() {
           onClick={() => setExpertDrawerOpen(false)}
           type="button"
         />
-      )}
-
-      {dragGhost !== null && (
-        <div
-          className="drag-ghost"
-          style={{ left: dragGhost.x, top: dragGhost.y }}
-        >
-          <GameIcon name={iconFor(dragGhost.buildingId)} />
-          <span>{buildingName(dragGhost.buildingId)}</span>
-        </div>
       )}
 
       {adultPanelOpen && (
@@ -1390,6 +1055,9 @@ function expertReplyFor(
   if (words.includes("why") && feedback !== null) {
     return `${feedback.explanation} ${feedback.question}`;
   }
+  if (words.includes("learn") || words.includes("teach")) {
+    return "Every home is connected to nature. Sunlight makes clean power, water helps gardens grow, plants shelter living things, and recycling keeps materials in use.";
+  }
   if (
     words.includes("next") ||
     words.includes("help") ||
@@ -1402,220 +1070,6 @@ function expertReplyFor(
   return nextObjective === undefined
     ? "Try running the city, then ask me why one of the scores changed."
     : `That’s a smart question. For this mission, start here: ${nextObjective.description}`;
-}
-
-type CatalogueItemProps = {
-  readonly item: (typeof BUILDING_CATALOGUE)[number];
-  readonly isUnlocked: boolean;
-  readonly selected: boolean;
-  readonly onSelect: () => void;
-  readonly onStartDrag: (event: ReactPointerEvent<HTMLButtonElement>) => void;
-};
-
-function CatalogueItem({
-  item,
-  isUnlocked,
-  onSelect,
-  onStartDrag,
-  selected,
-}: CatalogueItemProps) {
-  const prerequisiteChapter = requiredChapterFor(item);
-  const lockMessage =
-    prerequisiteChapter === null
-      ? ""
-      : `Finish ${chapterLabel(prerequisiteChapter)} to unlock this.`;
-
-  return (
-    <button
-      aria-label={
-        isUnlocked
-          ? undefined
-          : `${buildingName(item.id)} is locked. ${lockMessage}`
-      }
-      aria-pressed={selected}
-      className="catalogue-item"
-      disabled={!isUnlocked}
-      onClick={onSelect}
-      onPointerDown={onStartDrag}
-      type="button"
-    >
-      <span className={`catalogue-icon category-${item.category}`}>
-        <GameIcon name={iconFor(item.id)} />
-      </span>
-      <span className="catalogue-copy">
-        <strong>{buildingName(item.id)}</strong>
-        <span>
-          ${item.constructionCost} · ${item.maintenanceCost}/turn
-        </span>
-        {!isUnlocked && <em className="catalogue-lock">{lockMessage}</em>}
-      </span>
-    </button>
-  );
-}
-
-type MissionCardProps = {
-  readonly mission: ReturnType<typeof getCurrentMission>;
-  readonly feedback: ReturnType<typeof getChildFeedback>;
-  readonly guideLoading: boolean;
-  readonly muted: boolean;
-  readonly progress: number;
-};
-
-function MissionCard({
-  feedback,
-  guideLoading,
-  mission,
-  muted,
-  progress,
-}: MissionCardProps) {
-  if (mission === null) return null;
-  const activeMission = mission;
-
-  function readRivergateAloud() {
-    if (
-      muted ||
-      typeof window === "undefined" ||
-      !("speechSynthesis" in window)
-    )
-      return;
-    window.speechSynthesis.cancel();
-    const speech = new SpeechSynthesisUtterance(
-      [
-        activeMission.title,
-        activeMission.briefing,
-        feedback?.explanation,
-        feedback?.question,
-        feedback?.hint,
-      ]
-        .filter((part): part is string => part !== undefined)
-        .join(" "),
-    );
-    speech.rate = 0.92;
-    speech.pitch = 1.04;
-    window.speechSynthesis.speak(speech);
-  }
-
-  return (
-    <section className="mission-section" aria-labelledby="mission-heading">
-      <div className="mission-heading-row">
-        <div>
-          <p className="mission-position">
-            {chapterLabel(activeMission.chapterId)} · Mission {progress + 1} of
-            15
-          </p>
-          <h2 id="mission-heading">{activeMission.title}</h2>
-        </div>
-        <span
-          className={
-            activeMission.requiredComplete ? "mission-ready" : "mission-next"
-          }
-        >
-          {activeMission.requiredComplete ? "Ready" : "In progress"}
-        </span>
-      </div>
-      <p className="mission-briefing">{activeMission.briefing}</p>
-      <p
-        className="mission-progress"
-        aria-label={`${progress} of 15 missions complete`}
-      >
-        <strong>{progress}/15</strong> missions complete
-      </p>
-      <ul className="objective-list" aria-label="Mission objectives">
-        {activeMission.objectives.map((objective) => (
-          <li
-            className={
-              objective.completed ? "objective-complete" : "objective-pending"
-            }
-            key={objective.id}
-          >
-            <span className="objective-state" aria-hidden="true" />
-            <span>
-              <span className="sr-only">
-                {objective.completed ? "Complete: " : "Still to do: "}
-              </span>
-              {objective.description}
-              <small>{objective.required ? "Needed" : "Bonus"}</small>
-            </span>
-          </li>
-        ))}
-      </ul>
-      {guideLoading && (
-        <p className="guide-loading" role="status">
-          Rivergate is checking what this city change means…
-        </p>
-      )}
-      {feedback !== null && (
-        <div className="mission-feedback" aria-label="Rivergate guide">
-          <button
-            className="read-aloud"
-            disabled={muted}
-            onClick={readRivergateAloud}
-            title={
-              muted
-                ? "An adult can turn on sound in the adult controls."
-                : "Hear Rivergate read this mission"
-            }
-            type="button"
-          >
-            <GameIcon name="volume" size={17} />
-            {muted ? "Read-aloud is off" : "Hear Rivergate"}
-          </button>
-          <p>
-            <strong>What Rivergate noticed</strong>
-            {feedback.explanation}
-          </p>
-          <p>
-            <strong>Think about it</strong>
-            {feedback.question}
-          </p>
-          <p>
-            <strong>Try next</strong>
-            {feedback.hint}
-          </p>
-        </div>
-      )}
-    </section>
-  );
-}
-
-type EndingCardProps = {
-  readonly ending: NonNullable<
-    ReturnType<typeof createDeveloperGame>["ending"]
-  >;
-};
-
-function EndingCard({ ending }: EndingCardProps) {
-  return (
-    <section className="ending-section" aria-labelledby="ending-heading">
-      <p className="mission-position">Rivergate story complete</p>
-      <h2 id="ending-heading">{messageFor(ending.titleKey)}</h2>
-      <p className="ending-summary">{messageFor(ending.childSummaryKey)}</p>
-      <div className="ending-systems" aria-label="Rivergate systems">
-        <p>
-          <strong>Strongest</strong>
-          <span>{capitalize(ending.strongestSystem.system)}</span>
-        </p>
-        <p>
-          <strong>Next to strengthen</strong>
-          <span>{capitalize(ending.weakestSystem.system)}</span>
-        </p>
-      </div>
-      {ending.traits.length > 0 && (
-        <div className="ending-traits">
-          <strong>What you earned</strong>
-          <ul>
-            {ending.traits.map((trait) => (
-              <li key={trait.traitId}>{messageFor(trait.titleKey)}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-      <p className="ending-reflection">
-        <strong>Think back</strong>
-        {messageFor(ending.adultLearningSummary.reflectionKey)}
-      </p>
-    </section>
-  );
 }
 
 type AdultControlsProps = {
@@ -1913,50 +1367,8 @@ function AdultControls({
   );
 }
 
-function iconFor(id: string): Parameters<typeof GameIcon>[0]["name"] {
-  if (id === "home") return "home";
-  if (id === "road") return "road";
-  if (id.includes("water")) return "water";
-  if (id === "solar-array" || id === "battery") return "energy";
-  if (id === "school") return "school";
-  if (id === "clinic") return "clinic";
-  if (id === "bus-stop") return "bus";
-  if (id === "recycling-centre") return "recycle";
-  return "nature";
-}
-
-function patternFor(id: OverlayId): string {
-  return id === "validity" || id === "electricity"
-    ? "cross"
-    : id === "flood" || id === "transport" || id === "cost"
-      ? "lines"
-      : "dots";
-}
-
 function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function requiredChapterFor(
-  item: (typeof BUILDING_CATALOGUE)[number],
-): string | null {
-  const prerequisite = item.prerequisites.find(
-    (candidate) => candidate.type === "chapter-unlocked",
-  );
-  return prerequisite !== undefined && prerequisite.type === "chapter-unlocked"
-    ? prerequisite.chapterId
-    : null;
-}
-
-function isBuildingUnlocked(
-  item: (typeof BUILDING_CATALOGUE)[number],
-  unlockedChapterIds: readonly string[],
-): boolean {
-  const prerequisiteChapter = requiredChapterFor(item);
-  return (
-    prerequisiteChapter === null ||
-    unlockedChapterIds.includes(prerequisiteChapter)
-  );
 }
 
 function chapterLabel(chapterId: string): string {
@@ -1968,10 +1380,6 @@ function chapterLabel(chapterId: string): string {
     "chapter-5-storm": "Chapter 5 · Storm",
   };
   return labels[chapterId] ?? "This chapter";
-}
-
-function messageFor(key: string): string {
-  return RIVERGATE_EN_MESSAGES[key] ?? key;
 }
 
 async function hashAdultPin(pin: string): Promise<string> {
