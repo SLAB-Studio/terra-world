@@ -1,12 +1,14 @@
 import {
   assertValidActionLog,
   assertValidCampaignCache,
+  assertValidCampaignSession,
   assertValidCitySave,
   assertValidProfile,
   assertValidSettings,
   assertValidSyncEntry,
   isValidActionLog,
   isValidCampaignCache,
+  isValidCampaignSession,
   isValidCitySave,
   isValidProfile,
   isValidSettings,
@@ -18,6 +20,7 @@ import {
   OFFLINE_STORE_NAMES,
   type ActionLogSave,
   type CampaignCacheEntry,
+  type CampaignSessionSave,
   type CitySave,
   type CorruptRecordNotice,
   type DeviceSettings,
@@ -32,6 +35,7 @@ type StoreRecord =
   | LocalProfile
   | CitySave
   | CampaignCacheEntry
+  | CampaignSessionSave
   | ActionLogSave
   | SyncQueueEntry
   | DeviceSettings;
@@ -43,6 +47,7 @@ const KEY_PATHS: Readonly<Record<OfflineStoreName, string>> = {
   profiles: "profileId",
   cities: "cityId",
   "campaign-cache": "cacheKey",
+  "campaign-sessions": "cityId",
   "action-logs": "cityId",
   "sync-queue": "id",
   settings: "profileId",
@@ -107,6 +112,19 @@ export class MemoryOfflinePersistence implements OfflinePersistence {
       isValidStoredCampaignCache,
     );
     return entry ? toCampaignCacheEntry(entry) : null;
+  }
+
+  async saveCampaignSession(entry: CampaignSessionSave): Promise<void> {
+    assertValidCampaignSession(entry);
+    this.put("campaign-sessions", entry.cityId, entry);
+  }
+  async getCampaignSession(
+    cityId: string,
+  ): Promise<CampaignSessionSave | null> {
+    return this.read("campaign-sessions", cityId, isValidCampaignSession);
+  }
+  async deleteCampaignSession(cityId: string): Promise<void> {
+    this.store("campaign-sessions").delete(cityId);
   }
 
   async saveActionLog(entry: ActionLogSave): Promise<void> {
@@ -268,6 +286,19 @@ class IndexedDbOfflinePersistence implements OfflinePersistence {
     return entry ? toCampaignCacheEntry(entry) : null;
   }
 
+  async saveCampaignSession(entry: CampaignSessionSave): Promise<void> {
+    assertValidCampaignSession(entry);
+    await this.put("campaign-sessions", entry);
+  }
+  async getCampaignSession(
+    cityId: string,
+  ): Promise<CampaignSessionSave | null> {
+    return this.read("campaign-sessions", cityId, isValidCampaignSession);
+  }
+  async deleteCampaignSession(cityId: string): Promise<void> {
+    await this.remove("campaign-sessions", cityId);
+  }
+
   async saveActionLog(entry: ActionLogSave): Promise<void> {
     assertValidActionLog(entry);
     await this.put("action-logs", entry);
@@ -384,7 +415,15 @@ export function migrationPlan(fromVersion: number): readonly MigrationStep[] {
     throw new RangeError("Unsupported offline database version");
   const steps: MigrationStep[] = [];
   if (fromVersion < 1)
-    steps.push({ from: 0, to: 1, creates: OFFLINE_STORE_NAMES, indexes: [] });
+    steps.push({
+      from: 0,
+      to: 1,
+      creates: OFFLINE_STORE_NAMES.filter(
+        (store): store is Exclude<OfflineStoreName, "campaign-sessions"> =>
+          store !== "campaign-sessions",
+      ),
+      indexes: [],
+    });
   if (fromVersion < 2)
     steps.push({
       from: 1,
@@ -395,6 +434,13 @@ export function migrationPlan(fromVersion: number): readonly MigrationStep[] {
         "sync-queue:status",
         "sync-queue:nextAttemptAt",
       ],
+    });
+  if (fromVersion < 3)
+    steps.push({
+      from: 2,
+      to: 3,
+      creates: ["campaign-sessions"],
+      indexes: [],
     });
   return steps;
 }

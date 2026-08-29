@@ -1,6 +1,7 @@
 import type {
   ActionLogSave,
   CampaignCacheEntry,
+  CampaignSessionSave,
   CitySave,
   DeviceSettings,
   LocalProfile,
@@ -76,6 +77,21 @@ export function assertValidCampaignCache(value: CampaignCacheEntry): void {
   ) {
     throw new TypeError("Campaign cache storageRoot is invalid");
   }
+  assertJsonSafeWithoutPersonalData(value);
+}
+
+export function assertValidCampaignSession(value: CampaignSessionSave): void {
+  assertIdentifier(value.cityId, "campaign session cityId");
+  assertFiniteTimestamp(value.savedAt, "campaign session savedAt");
+  if (value.schemaVersion !== 1)
+    throw new TypeError("Campaign session schema version is unsupported");
+  assertIdentifier(value.campaignId, "campaign session campaignId");
+  assertPositiveInteger(
+    value.campaignVersion,
+    "campaign session campaignVersion",
+  );
+  if (!isObject(value.payload))
+    throw new TypeError("Campaign session payload must be an object");
   assertJsonSafeWithoutPersonalData(value);
 }
 
@@ -158,6 +174,13 @@ export function isValidCampaignCache(
   value: unknown,
 ): value is CampaignCacheEntry {
   return catches(() => assertValidCampaignCache(value as CampaignCacheEntry));
+}
+export function isValidCampaignSession(
+  value: unknown,
+): value is CampaignSessionSave {
+  return catches(() =>
+    assertValidCampaignSession(value as CampaignSessionSave),
+  );
 }
 export function isValidActionLog(value: unknown): value is ActionLogSave {
   return catches(() => assertValidActionLog(value as ActionLogSave));

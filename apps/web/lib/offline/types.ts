@@ -4,12 +4,13 @@
  * chat, and behavioural data do not belong in this persistence layer.
  */
 export const OFFLINE_DATABASE_NAME = "terra-world";
-export const OFFLINE_DATABASE_VERSION = 2;
+export const OFFLINE_DATABASE_VERSION = 3;
 
 export const OFFLINE_STORE_NAMES = [
   "profiles",
   "cities",
   "campaign-cache",
+  "campaign-sessions",
   "action-logs",
   "sync-queue",
   "settings",
@@ -49,6 +50,20 @@ export type CampaignCacheEntry = Readonly<{
   /** A verified, JSON-compatible campaign pack. */
   pack: unknown;
   storageRoot?: string;
+}>;
+
+/**
+ * A versioned, JSON-only envelope for the playable campaign session. Its
+ * payload is interpreted and fully verified by the game controller before it
+ * is ever used to resume play.
+ */
+export type CampaignSessionSave = Readonly<{
+  cityId: string;
+  savedAt: number;
+  schemaVersion: 1;
+  campaignId: string;
+  campaignVersion: number;
+  payload: unknown;
 }>;
 
 export type StoredAction = Readonly<{
@@ -114,6 +129,9 @@ export interface OfflinePersistence {
     campaignId: string,
     version: number,
   ): Promise<CampaignCacheEntry | null>;
+  saveCampaignSession(entry: CampaignSessionSave): Promise<void>;
+  getCampaignSession(cityId: string): Promise<CampaignSessionSave | null>;
+  deleteCampaignSession(cityId: string): Promise<void>;
   saveActionLog(entry: ActionLogSave): Promise<void>;
   getActionLog(cityId: string): Promise<ActionLogSave | null>;
   enqueueSync(entry: SyncQueueEntry): Promise<void>;

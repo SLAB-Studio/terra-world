@@ -1,8 +1,16 @@
 import { IDBFactory } from "fake-indexeddb";
 import { afterEach, describe, expect, it } from "vitest";
 
+import {
+  createDeveloperGame,
+  createGameSessionSave,
+  gameReducer,
+  getOverlayView,
+  restoreGameSession,
+  type GameState,
+} from "../game/controller";
 import { createOfflinePersistence } from "./persistence";
-import type { CitySave, OfflineStoreName } from "./types";
+import type { CampaignSessionSave, CitySave, OfflineStoreName } from "./types";
 
 const city: CitySave = {
   cityId: "rivergate",
@@ -15,6 +23,15 @@ const city: CitySave = {
     turn: 2,
     actionLog: [],
   },
+};
+
+const session: CampaignSessionSave = {
+  cityId: "rivergate",
+  savedAt: 100,
+  schemaVersion: 1,
+  campaignId: "rivergate-campaign",
+  campaignVersion: 1,
+  payload: { city: city.state },
 };
 
 const databaseNames: string[] = [];
@@ -34,6 +51,7 @@ describe("IndexedDB offline persistence", () => {
     });
     expect(firstSession.kind).toBe("indexeddb");
     await firstSession.saveCity(city);
+    await firstSession.saveCampaignSession(session);
     firstSession.close();
 
     const reopenedSession = await createOfflinePersistence({
@@ -41,6 +59,33 @@ describe("IndexedDB offline persistence", () => {
       databaseName,
     });
     await expect(reopenedSession.getCity(city.cityId)).resolves.toEqual(city);
+    await expect(
+      reopenedSession.getCampaignSession(session.cityId),
+    ).resolves.toEqual(session);
+    reopenedSession.close();
+  });
+
+  it("closes and resumes a replay-verified campaign session with an undoable plan", async () => {
+    const indexedDB = new IDBFactory();
+    const databaseName = registerDatabase("terra-world-campaign-session");
+    let game = createDeveloperGame("indexeddb-campaign-session");
+    game = commitOneRoad(game);
+    game = placeRoad(game);
+
+    const firstSession = await createOfflinePersistence({
+      indexedDB,
+      databaseName,
+    });
+    await firstSession.saveCampaignSession(createGameSessionSave(game, 100));
+    firstSession.close();
+
+    const reopenedSession = await createOfflinePersistence({
+      indexedDB,
+      databaseName,
+    });
+    const restored = await reopenedSession.getCampaignSession(game.city.cityId);
+    expect(restored).not.toBeNull();
+    expect(restoreGameSession(restored!)).toEqual(game);
     reopenedSession.close();
   });
 
@@ -94,7 +139,8 @@ describe("IndexedDB offline persistence", () => {
     persistence.close();
 
     const migrated = await openDatabase(indexedDB, databaseName);
-    expect(migrated.version).toBe(2);
+    expect(migrated.version).toBe(3);
+    expect(migrated.objectStoreNames).toContain("campaign-sessions");
     expect(
       migrated.transaction("cities").objectStore("cities").indexNames,
     ).toContain("committedAt");
@@ -120,7 +166,9 @@ function createVersionOneDatabase(
   const request = indexedDB.open(name, 1);
   request.onupgradeneeded = () => {
     const database = request.result;
-    const keyPaths: Readonly<Record<OfflineStoreName, string>> = {
+    const keyPaths: Readonly<
+      Record<Exclude<OfflineStoreName, "campaign-sessions">, string>
+    > = {
       profiles: "profileId",
       cities: "cityId",
       "campaign-cache": "cacheKey",
@@ -188,4 +236,17 @@ function transactionComplete(transaction: IDBTransaction): Promise<void> {
     transaction.onerror = () => reject(transaction.error);
     transaction.onabort = () => reject(transaction.error);
   });
+}
+
+function placeRoad(state: GameState): GameState {
+  const selected = gameReducer(state, { type: "select", buildingId: "road" });
+  const tile = selected.city.tiles.find(
+    (candidate) => getOverlayView(selected).cells[candidate.id]?.label === "OK",
+  );
+  if (tile === undefined) throw new Error("Expected a valid road tile");
+  return gameReducer(selected, { type: "place", coordinate: tile.coordinate });
+}
+
+function commitOneRoad(state: GameState): GameState {
+  return gameReducer(placeRoad(state), { type: "commit" });
 }

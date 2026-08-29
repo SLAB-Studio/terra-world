@@ -5,7 +5,7 @@ import {
   MemoryOfflinePersistence,
   migrationPlan,
 } from "./persistence";
-import type { CitySave, SyncQueueEntry } from "./types";
+import type { CampaignSessionSave, CitySave, SyncQueueEntry } from "./types";
 
 const city: CitySave = {
   cityId: "rivergate",
@@ -30,6 +30,15 @@ const sync: SyncQueueEntry = {
   attempts: 0,
   nextAttemptAt: 100,
   createdAt: 10,
+};
+
+const session: CampaignSessionSave = {
+  cityId: "rivergate",
+  savedAt: 100,
+  schemaVersion: 1,
+  campaignId: "rivergate-campaign",
+  campaignVersion: 1,
+  payload: { city: city.state },
 };
 
 describe("offline persistence", () => {
@@ -62,6 +71,7 @@ describe("offline persistence", () => {
       verifiedAt: 5,
       pack: { id: "rivergate-campaign" },
     });
+    await persistence.saveCampaignSession(session);
     await persistence.saveActionLog({
       cityId: "rivergate",
       savedAt: 100,
@@ -97,6 +107,9 @@ describe("offline persistence", () => {
     await expect(persistence.getActionLog("rivergate")).resolves.toMatchObject({
       savedAt: 100,
     });
+    await expect(persistence.getCampaignSession("rivergate")).resolves.toEqual(
+      session,
+    );
     await expect(persistence.getSettings("guest-1")).resolves.toMatchObject({
       highContrast: true,
     });
@@ -158,9 +171,16 @@ describe("offline persistence", () => {
           "sync-queue:nextAttemptAt",
         ],
       },
+      {
+        from: 2,
+        to: 3,
+        creates: ["campaign-sessions"],
+        indexes: [],
+      },
     ]);
-    expect(migrationPlan(1)).toHaveLength(1);
-    expect(migrationPlan(2)).toEqual([]);
-    expect(() => migrationPlan(3)).toThrow("Unsupported");
+    expect(migrationPlan(1)).toHaveLength(2);
+    expect(migrationPlan(2)).toHaveLength(1);
+    expect(migrationPlan(3)).toEqual([]);
+    expect(() => migrationPlan(4)).toThrow("Unsupported");
   });
 });
