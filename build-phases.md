@@ -230,7 +230,7 @@ Connect the complete offline game to 0G Compute and 0G Storage without making ei
   - Acceptance: Requests contain no arbitrary database records or child profile fields.
   - Verify: Snapshot tests and a prohibited-field scanner.
 
-- [ ] **P3.8 Implement guide response validation**
+- [x] **P3.8 Implement guide response validation**
   - Build: Validate JSON structure, reading length, allowed vocabulary, factual grounding, question count, memory format, and prohibited topics before display.
   - Acceptance: Malformed, overlong, ungrounded, or unsafe outputs are discarded in favour of the local fallback.
   - Verify: Adversarial fixture suite and forced-invalid-provider-response tests.

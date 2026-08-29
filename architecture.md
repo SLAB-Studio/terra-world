@@ -413,7 +413,12 @@ type CityGuideResponse = {
 };
 ```
 
-All responses are schema-validated, length-limited, and checked before display.
+All responses are parsed from strict JSON, schema-validated, age-length-limited,
+checked against the requested task shape, and restricted to facts, buildings,
+metrics, messages, causes, and numbers present in the verified request. Unsafe,
+malformed, overlong, or ungrounded provider output is discarded without being
+returned to the child; a separately validated campaign-authored fallback is used
+instead.
 
 ### 8.4 Privacy mode and fallback
 
@@ -447,6 +452,14 @@ campaigns/rivergate-v1/
 The published 0G Storage root and ruleset hash are registered on 0G Chain. Downloads use proof verification and are cached locally for offline play.
 
 The local Rivergate v1 build assembles this content from the same typed campaign, map, catalogue, evaluator, learning-fact, and localisation sources used by the simulation. Its canonical package trust anchor is `1929be31c58172ed`. This local deterministic hash detects accidental or forged package changes before publication; the cryptographic 0G Storage root remains the network proof after upload.
+
+The server-side Storage adapter uses the adult sponsor signer and the official
+0G TypeScript SDK. It computes the Merkle tree before upload, accepts only one
+root/transaction response, and requires proof-enabled retrieval. The downloaded
+root, SHA-256 content hash, and Rivergate package trust anchor must all agree
+before bytes are accepted. Campaign JSON must use canonical encoding; encrypted
+checkpoint envelopes remain opaque ciphertext. The child-facing browser never
+receives the sponsor key or signs a Storage transaction.
 
 ### 9.2 Encrypted city checkpoints
 
