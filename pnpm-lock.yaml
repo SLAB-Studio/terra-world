@@ -35,6 +35,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@babylonjs/core':
+        specifier: ^9.23.0
+        version: 9.23.0
       '@terra/campaign-schema':
         specifier: workspace:*
         version: link:../../packages/campaign-schema
@@ -145,6 +148,10 @@ packages:
 
   /@adraffy/ens-normalize@1.10.1:
     resolution: {integrity: sha512-96Z2IP3mYmF1Xg2cDm8f1gWGf/HUVedQ3FMifV4kG/PQ4yEP51xDtRAEfhVNt5f/uzpNkZHwWQuUcu6D6K+Ekw==}
+    dev: false
+
+  /@babylonjs/core@9.23.0:
+    resolution: {integrity: sha512-FpDaTPx485J1H0AEJpoJ785Z1CwCkEPNnZFu7WzHTy0ByGCy75bkZZILh4QFU4LLnzK1iuHwUfecCguATIeKSA==}
     dev: false
 
   /@emnapi/core@1.10.0:
