@@ -17,6 +17,72 @@
   touch-action: none;
 }
 
+.roomPickLayer {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  pointer-events: none;
+}
+
+.roomPickLayer button {
+  position: absolute;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.roomPickLayer span {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 5px 8px;
+  color: #2b190f;
+  background: rgb(255 249 232 / 88%);
+  border: 2px solid #2b190f;
+  border-radius: 999px;
+  box-shadow: 0 4px 8px rgb(43 25 15 / 15%);
+  font-size: 0.65rem;
+  font-weight: 900;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+
+.roomPickLayer button:hover span {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.pick_living-room {
+  top: 45%;
+  left: 18%;
+  width: 34%;
+  height: 35%;
+}
+
+.pick_kitchen {
+  top: 45%;
+  left: 52%;
+  width: 36%;
+  height: 35%;
+}
+
+.pick_garden-room {
+  top: 20%;
+  left: 18%;
+  width: 34%;
+  height: 25%;
+}
+
+.pick_utility-room {
+  top: 20%;
+  left: 52%;
+  width: 36%;
+  height: 25%;
+}
+
 .status {
   position: absolute;
   z-index: 4;
@@ -168,6 +234,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .roomPickLayer span,
   .roomButton,
   .overviewButton {
     transition: none;

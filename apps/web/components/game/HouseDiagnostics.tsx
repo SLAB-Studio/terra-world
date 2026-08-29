@@ -219,7 +219,7 @@ export default function HouseDiagnostics({
       : (INTERIOR_ROOMS.find((room) => room.id === selectedRoomId) ?? null);
   const visibleDiagnostics =
     selectedRoom === null
-      ? health.diagnostics
+      ? []
       : health.diagnostics.filter(
           (diagnostic) => diagnostic.fixUpgrade === selectedRoom.upgradeId,
         );
@@ -350,8 +350,9 @@ export default function HouseDiagnostics({
                     ? selectedRoom.healthy
                     : selectedRoom.problem}
               </p>
-              <ul className={styles.diagnosticList}>
-                {visibleDiagnostics.map((diagnostic) => {
+              {selectedRoom !== null ? (
+                <ul className={styles.diagnosticList}>
+                  {visibleDiagnostics.map((diagnostic) => {
                   const upgrade = UPGRADE_DETAILS[diagnostic.fixUpgrade];
                   const healthy = diagnostic.status === "healthy";
                   return (
@@ -382,8 +383,9 @@ export default function HouseDiagnostics({
                       </span>
                     </li>
                   );
-                })}
-              </ul>
+                  })}
+                </ul>
+              ) : null}
             </section>
 
             <section
@@ -453,33 +455,9 @@ export default function HouseDiagnostics({
                   <GameIcon name="arrow" size={23} />
                 </button>
               ) : missingUpgrades.length > 0 ? (
-                <div className={styles.upgradeChoices}>
-                  {missingUpgrades.map((upgradeId) => {
-                    const upgrade = UPGRADE_DETAILS[upgradeId];
-                    const isRecommended =
-                      health.recommendedUpgrade === upgradeId;
-                    return (
-                      <button
-                        aria-label={`${upgrade.action} at ${profile.homeName}. ${upgrade.benefit}`}
-                        className={`${styles.upgradeButton} ${
-                          isRecommended ? styles.recommendedUpgrade : ""
-                        }`}
-                        key={upgradeId}
-                        onClick={() => onChooseUpgrade(houseId, upgradeId)}
-                        type="button"
-                      >
-                        <span className={styles.upgradeIcon} aria-hidden="true">
-                          <GameIcon name={upgrade.icon} size={31} />
-                        </span>
-                        <span className={styles.upgradeCopy}>
-                          <strong>{upgrade.action}</strong>
-                          <span>{upgrade.benefit}</span>
-                        </span>
-                        <GameIcon name="arrow" size={23} />
-                      </button>
-                    );
-                  })}
-                </div>
+                <p className={styles.roomInstruction}>
+                  Choose a room in the 3D house to discover what it needs.
+                </p>
               ) : (
                 <button
                   className={styles.doneButton}

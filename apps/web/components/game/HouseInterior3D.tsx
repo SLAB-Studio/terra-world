@@ -32,11 +32,13 @@ function HouseInterior3D({
 }: HouseInterior3DProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const runtimeRef = useRef<InteriorRuntime | null>(null);
-  const onRoomSelectRef = useRef(onRoomSelect);
+  const upgradesRef = useRef(upgrades);
+  const selectedRoomIdRef = useRef(selectedRoomId);
   const [status, setStatus] = useState<"loading" | "ready" | "failed">(
     "loading",
   );
-  onRoomSelectRef.current = onRoomSelect;
+  upgradesRef.current = upgrades;
+  selectedRoomIdRef.current = selectedRoomId;
 
   useEffect(() => {
     let cancelled = false;
@@ -75,18 +77,11 @@ function HouseInterior3D({
         const world = interior.createHouseInteriorWorld(
           engine,
           houseId,
-          upgrades,
+          upgradesRef.current,
         );
-        world.focusRoom(selectedRoomId, reducedMotionQuery.matches);
-
-        const pointerObserver = world.scene.onPointerObservable.add(
-          (pointer) => {
-            if (pointer.type !== Babylon.PointerEventTypes.POINTERPICK) return;
-            const roomId = world.getRoomFromMesh(
-              pointer.pickInfo?.pickedMesh ?? null,
-            );
-            if (roomId !== null) onRoomSelectRef.current(roomId);
-          },
+        world.focusRoom(
+          selectedRoomIdRef.current,
+          reducedMotionQuery.matches,
         );
         const renderFrame = () => world.scene.render();
         engine.runRenderLoop(renderFrame);
@@ -97,8 +92,6 @@ function HouseInterior3D({
           reducedMotionQuery,
           dispose() {
             resizeObserver.disconnect();
-            if (pointerObserver !== null)
-              world.scene.onPointerObservable.remove(pointerObserver);
             engine.stopRenderLoop(renderFrame);
             world.dispose();
             engine.dispose();
@@ -146,6 +139,22 @@ function HouseInterior3D({
       className={styles.stage}
     >
       <canvas aria-hidden="true" ref={canvasRef} />
+      {status === "ready" && selectedRoomId === null ? (
+        <div className={styles.roomPickLayer}>
+          {INTERIOR_ROOMS.map((room) => (
+            <button
+              aria-label={`Walk into the ${room.label} in 3D`}
+              className={styles[`pick_${room.id}`]}
+              key={room.id}
+              onClick={() => onRoomSelect(room.id)}
+              tabIndex={-1}
+              type="button"
+            >
+              <span>{room.shortLabel}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
       {status === "loading" ? (
         <div className={styles.status} role="status">
           <strong>Opening the front door…</strong>
@@ -167,7 +176,6 @@ function HouseInterior3D({
             <button
               aria-pressed={selected}
               className={`${styles.roomButton}${selected ? ` ${styles.selected}` : ""}${healthy ? ` ${styles.healthy}` : ""}`}
-              disabled={status !== "ready"}
               key={room.id}
               onClick={() => onRoomSelect(room.id)}
               type="button"
