@@ -9,9 +9,16 @@ import {
 } from "react";
 
 import { GameIcon } from "./GameIcon";
+import HouseDiagnostics, {
+  getHouseHealth,
+  HOUSE_PROFILES,
+  type HouseId,
+  type HouseUpgradeId,
+} from "./HouseDiagnostics";
+import LivingMapDecor from "./LivingMapDecor";
 
-type UpgradeId = "light" | "water" | "garden" | "recycle";
-type CompoundId = "sunny" | "bluebell" | "mango";
+type UpgradeId = HouseUpgradeId;
+type CompoundId = HouseId;
 
 type DragPiece = Readonly<{
   id: UpgradeId;
@@ -83,8 +90,19 @@ const RIVER_MESSAGES: Readonly<Record<UpgradeId, string>> = {
     "The yard is tidy! Sorting old things means less rubbish and more materials can be used again.",
 };
 
-function emptyCompoundState(): Record<CompoundId, readonly UpgradeId[]> {
-  return { sunny: [], bluebell: [], mango: [] };
+const OWNER_HELP: Readonly<Record<UpgradeId, string>> = {
+  light: "Our lights are out!",
+  water: "Our garden is thirsty!",
+  garden: "Can we grow a garden?",
+  recycle: "Can we tidy our yard?",
+};
+
+function initialCompoundState(): Record<CompoundId, readonly UpgradeId[]> {
+  return {
+    sunny: HOUSE_PROFILES.sunny.defaultUpgrades,
+    bluebell: HOUSE_PROFILES.bluebell.defaultUpgrades,
+    mango: HOUSE_PROFILES.mango.defaultUpgrades,
+  };
 }
 
 export default function CompoundWorld({
@@ -92,7 +110,10 @@ export default function CompoundWorld({
   onRiverMessage,
 }: CompoundWorldProps) {
   const [selectedUpgrade, setSelectedUpgrade] = useState<UpgradeId>("light");
-  const [compounds, setCompounds] = useState(emptyCompoundState);
+  const [compounds, setCompounds] = useState(initialCompoundState);
+  const [selectedCompound, setSelectedCompound] = useState<CompoundId | null>(
+    null,
+  );
   const [dragPiece, setDragPiece] = useState<DragPiece | null>(null);
   const [hoveredCompound, setHoveredCompound] = useState<CompoundId | null>(
     null,
@@ -110,6 +131,14 @@ export default function CompoundWorld({
   const completedActions = useMemo(
     () =>
       Object.values(compounds).reduce((sum, items) => sum + items.length, 0),
+    [compounds],
+  );
+  const healthyHomes = useMemo(
+    () =>
+      COMPOUNDS.filter(
+        (compound) =>
+          getHouseHealth(compound.id, compounds[compound.id]).allHealthy,
+      ).length,
     [compounds],
   );
 
@@ -208,12 +237,11 @@ export default function CompoundWorld({
     }
   }
 
+  const homesNeedingHelp = COMPOUNDS.length - healthyHomes;
   const questText =
-    litHomes === COMPOUNDS.length
-      ? "Every home is shining!"
-      : litHomes === 0
-        ? "Drag Sun light onto a home"
-        : `Help ${COMPOUNDS.length - litHomes} more home${COMPOUNDS.length - litHomes === 1 ? "" : "s"} shine`;
+    homesNeedingHelp === 0
+      ? "Every home feels great!"
+      : `${homesNeedingHelp} home${homesNeedingHelp === 1 ? "" : "s"} asking for help`;
 
   return (
     <>
@@ -269,12 +297,14 @@ export default function CompoundWorld({
           </div>
           <div
             className="quest-suns"
-            aria-label={`${litHomes} of 3 homes shining`}
+            aria-label={`${healthyHomes} of 3 homes fully healthy`}
           >
             {COMPOUNDS.map((compound) => (
               <span
                 className={
-                  compounds[compound.id].includes("light") ? "is-on" : ""
+                  getHouseHealth(compound.id, compounds[compound.id]).allHealthy
+                    ? "is-on"
+                    : ""
                 }
                 key={compound.id}
                 aria-hidden="true"
@@ -286,105 +316,102 @@ export default function CompoundWorld({
         </header>
 
         <div className="neighborhood-world">
-          <span className="world-river" aria-hidden="true">
-            <i className="river-shimmer river-shimmer-one" />
-            <i className="river-shimmer river-shimmer-two" />
-          </span>
-          <span className="map-tree map-tree-one" aria-hidden="true">
-            <i />
-          </span>
-          <span className="map-tree map-tree-two" aria-hidden="true">
-            <i />
-          </span>
-          <span className="map-tree map-tree-three" aria-hidden="true">
-            <i />
-          </span>
-          <div className="compound-grid">
-            {COMPOUNDS.map((compound) => {
-              const upgrades = compounds[compound.id];
-              const isLit = upgrades.includes("light");
-              const isWatered = upgrades.includes("water");
-              const isGardened = upgrades.includes("garden");
-              const isRecycling = upgrades.includes("recycle");
-              return (
-                <button
-                  aria-label={`${compound.name}. ${upgrades.length === 0 ? "No additions yet." : `${upgrades.map(upgradeLabel).join(", ")} added.`} Add ${upgradeLabel(selectedUpgrade)}.`}
-                  className={`compound compound-${compound.id}${
-                    hoveredCompound === compound.id ? " is-drop-target" : ""
-                  }${isLit ? " is-lit" : ""}${isWatered ? " is-watered" : ""}${
-                    isGardened ? " is-gardened" : ""
-                  }${isRecycling ? " is-recycling" : ""}`}
-                  data-compound-id={compound.id}
-                  key={compound.id}
-                  onClick={() => addUpgrade(compound.id, selectedUpgrade)}
-                  type="button"
-                >
-                  <span className="compound-scene" aria-hidden="true">
-                    <span className="yard-glow" />
-                    <span className="yard-lights">
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                    </span>
-                    <span className="compound-tree">
-                      <i />
-                    </span>
-                    <span className="cartoon-house">
-                      <i className="house-chimney" />
-                      <i className="house-roof" />
-                      <i className="solar-roof" />
-                      <i className="house-wall" />
-                      <i className="house-side" />
-                      <i className="house-window window-left" />
-                      <i className="house-window window-right" />
-                      <i className="house-door" />
-                      <i className="house-step" />
-                    </span>
-                    <span className={`garden-bed garden-${compound.id}`}>
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                    </span>
-                    <span className="garden-bloom">
-                      <i />
-                      <i />
-                      <i />
-                    </span>
-                    <span className="water-barrel" />
-                    <span className="water-spray" />
-                    <span className="recycle-bin">♻</span>
-                    <span className="compound-fence fence-left" />
-                    <span className="compound-fence fence-right" />
-                  </span>
-                  <span className="compound-name">
-                    <strong>{compound.family}</strong>
-                    <small>{compound.garden} garden</small>
-                  </span>
-                  <span className="compound-drop-prompt">
-                    {hoveredCompound === compound.id
-                      ? `Drop ${upgradeLabel(selectedUpgrade)}!`
-                      : `Add ${upgradeLabel(selectedUpgrade)}`}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="map-guide-bubble" aria-live="polite">
-            <span className="map-guide-face" aria-hidden="true">
-              <i />
-              <i />
-              <b />
-            </span>
-            <p>
-              <strong>{questText}.</strong>
-              {litHomes === 0
-                ? " Give one home clean sunlight and watch it glow!"
-                : " Nice work! Which home should we help next?"}
-            </p>
+          <div
+            aria-label="Scrollable Terra World neighborhood map"
+            className="world-scroll-region"
+            role="region"
+            tabIndex={0}
+          >
+            <div className="world-canvas">
+              <span className="world-river" aria-hidden="true">
+                <i className="river-shimmer river-shimmer-one" />
+                <i className="river-shimmer river-shimmer-two" />
+              </span>
+              <LivingMapDecor />
+              <div className="compound-grid">
+                {COMPOUNDS.map((compound) => {
+                  const upgrades = compounds[compound.id];
+                  const health = getHouseHealth(compound.id, upgrades);
+                  const isLit = upgrades.includes("light");
+                  const isWatered = upgrades.includes("water");
+                  const isGardened = upgrades.includes("garden");
+                  const isRecycling = upgrades.includes("recycle");
+                  const ownerHelp =
+                    health.recommendedUpgrade === null
+                      ? null
+                      : OWNER_HELP[health.recommendedUpgrade];
+                  return (
+                    <button
+                      aria-label={`${compound.name}. ${health.healthyCount} of ${health.totalCount} parts feel good. Open home check-up.`}
+                      className={`compound compound-${compound.id}${
+                        hoveredCompound === compound.id ? " is-drop-target" : ""
+                      }${isLit ? " is-lit" : ""}${
+                        isWatered ? " is-watered" : ""
+                      }${isGardened ? " is-gardened" : ""}${
+                        isRecycling ? " is-recycling" : ""
+                      }${health.allHealthy ? " is-healthy" : " needs-help"}`}
+                      data-compound-id={compound.id}
+                      key={compound.id}
+                      onClick={() => setSelectedCompound(compound.id)}
+                      type="button"
+                    >
+                      <span className="compound-scene" aria-hidden="true">
+                        <span className="yard-glow" />
+                        <span className="yard-lights">
+                          <i />
+                          <i />
+                          <i />
+                          <i />
+                          <i />
+                        </span>
+                        <span className="compound-tree">
+                          <i />
+                        </span>
+                        <span className="cartoon-house">
+                          <i className="house-chimney" />
+                          <i className="house-roof" />
+                          <i className="solar-roof" />
+                          <i className="house-wall" />
+                          <i className="house-side" />
+                          <i className="house-window window-left" />
+                          <i className="house-window window-right" />
+                          <i className="house-door" />
+                          <i className="house-step" />
+                        </span>
+                        <span className={`garden-bed garden-${compound.id}`}>
+                          <i />
+                          <i />
+                          <i />
+                          <i />
+                        </span>
+                        <span className="garden-bloom">
+                          <i />
+                          <i />
+                          <i />
+                        </span>
+                        <span className="water-barrel" />
+                        <span className="water-spray" />
+                        <span className="recycle-bin">♻</span>
+                        {ownerHelp !== null && (
+                          <span className="home-owner-alert">
+                            <span className="home-owner-bubble">
+                              {ownerHelp}
+                            </span>
+                            <span className="home-owner-person">
+                              <i className="owner-head" />
+                              <i className="owner-body" />
+                              <i className="owner-arm" />
+                              <i className="owner-leg owner-leg-left" />
+                              <i className="owner-leg owner-leg-right" />
+                            </span>
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -416,6 +443,14 @@ export default function CompoundWorld({
           <strong>{upgradeLabel(dragPiece.id)}</strong>
         </div>
       )}
+
+      <HouseDiagnostics
+        houseId={selectedCompound ?? "sunny"}
+        onChooseUpgrade={(houseId, upgradeId) => addUpgrade(houseId, upgradeId)}
+        onClose={() => setSelectedCompound(null)}
+        open={selectedCompound !== null}
+        upgrades={compounds[selectedCompound ?? "sunny"]}
+      />
     </>
   );
 }

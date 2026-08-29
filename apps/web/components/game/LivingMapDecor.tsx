@@ -21,7 +21,6 @@ const HOMES: readonly Home[] = [
     y: 148,
     wall: "#ff7d4d",
     roof: "#fff7d9",
-    owner: { message: "Our lights are out!", shirt: "#ffd24a" },
   },
   { x: 424, y: 98, wall: "#62aef0", roof: "#fff7d9" },
   {
@@ -29,7 +28,6 @@ const HOMES: readonly Home[] = [
     y: 218,
     wall: "#ffb842",
     roof: "#fff7d9",
-    owner: { message: "The garden is thirsty!", shirt: "#e96745" },
   },
   { x: 1080, y: 112, wall: "#8ad060", roof: "#fff7d9" },
   { x: 1450, y: 245, wall: "#be8de2", roof: "#fff7d9" },
@@ -40,7 +38,6 @@ const HOMES: readonly Home[] = [
     y: 626,
     wall: "#ff9366",
     roof: "#fff7d9",
-    owner: { message: "We need clean water!", shirt: "#55a7ee" },
   },
 ] as const;
 

@@ -205,6 +205,9 @@ export default function HouseDiagnostics({
     health.recommendedUpgrade === null
       ? null
       : UPGRADE_DETAILS[health.recommendedUpgrade];
+  const ownerMessage = health.allHealthy
+    ? "Everything feels happy and healthy now. Thank you for caring for our home!"
+    : `Could you help us with ${recommended?.label.toLowerCase() ?? "one small fix"} next?`;
   const titleId = `house-diagnostics-title-${houseId}`;
   const descriptionId = `house-diagnostics-description-${houseId}`;
 
@@ -268,7 +271,7 @@ export default function HouseDiagnostics({
               </span>
               <p className={styles.ownerBubble}>
                 <strong>{profile.ownerName} says:</strong>
-                {profile.hello}
+                {ownerMessage}
               </p>
             </div>
 
