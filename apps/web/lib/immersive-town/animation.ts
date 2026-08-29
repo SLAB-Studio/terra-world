@@ -4,10 +4,14 @@ import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import type { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
 
+import {
+  applyTownCharacterMotion,
+  type TownCharacterRig,
+} from "./characters-3d";
 import type { TownAnimationController, TownAnimationListener } from "./types";
 
 type EnvironmentalAnimationTargets = Readonly<{
-  ambientActors: readonly TransformNode[];
+  ambientActors: readonly TownCharacterRig[];
   treeCanopies: readonly TransformNode[];
   gardenNodes: readonly TransformNode[];
   cloudRoots: readonly TransformNode[];
@@ -28,7 +32,6 @@ export function createTownAnimationController(
   const listeners = new Set<TownAnimationListener>();
   const riverBase = targets.riverMaterial.emissiveColor.clone();
   const cloudStarts = targets.cloudRoots.map((cloud) => cloud.position.x);
-  const actorStarts = targets.ambientActors.map((actor) => actor.position.y);
 
   const restoreRestPose = () => {
     targets.treeCanopies.forEach((canopy) => {
@@ -39,9 +42,8 @@ export function createTownAnimationController(
       node.rotation.z = 0;
     });
     targets.lampBulbs.forEach((bulb) => bulb.scaling.setAll(1));
-    targets.ambientActors.forEach((actor, index) => {
-      actor.position.y = actorStarts[index] ?? actor.position.y;
-      actor.rotation.z = 0;
+    targets.ambientActors.forEach((actor) => {
+      applyTownCharacterMotion(actor, 0, true);
     });
     targets.playgroundSpinners.forEach((spinner) => {
       spinner.rotation.y = 0;
@@ -71,11 +73,8 @@ export function createTownAnimationController(
         const pulse = 1 + Math.sin(elapsedSeconds * 1.2 + index) * 0.035;
         bulb.scaling.setAll(pulse);
       });
-      targets.ambientActors.forEach((actor, index) => {
-        const startY = actorStarts[index] ?? actor.position.y;
-        actor.position.y =
-          startY + Math.max(0, Math.sin(elapsedSeconds * 2.2 + index)) * 0.08;
-        actor.rotation.z = Math.sin(elapsedSeconds * 1.1 + index * 0.8) * 0.025;
+      targets.ambientActors.forEach((actor) => {
+        applyTownCharacterMotion(actor, elapsedSeconds, false);
       });
       targets.playgroundSpinners.forEach((spinner, index) => {
         spinner.rotation.y = elapsedSeconds * (0.22 + index * 0.04);

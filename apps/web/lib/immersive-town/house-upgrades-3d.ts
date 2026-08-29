@@ -8,6 +8,12 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
 
+import {
+  applyTownCharacterMotion,
+  createTownCharacter,
+  type TownCharacterProfile,
+  type TownCharacterRig,
+} from "./characters-3d";
 import type { TownHouseMetadata } from "./types";
 
 export type PlayableHouseId = "sunny" | "bluebell" | "mango";
@@ -45,9 +51,7 @@ type HouseRig = Readonly<{
   upgrades: Readonly<Record<PlayableUpgradeId, TransformNode>>;
   selection: TransformNode;
   light: PointLight;
-  resident: TransformNode;
-  residentArm: Mesh;
-  residentBaseY: number;
+  resident: TownCharacterRig;
   windows: readonly Mesh[];
   darkWindowMaterial: StandardMaterial;
   litWindowMaterial: StandardMaterial;
@@ -71,12 +75,11 @@ export function createHouseUpgradeVisuals(
     }
     rigs.forEach((rig, houseId) => {
       const phase = houseId === "sunny" ? 0 : houseId === "bluebell" ? 2 : 4;
-      rig.resident.position.y = reducedMotion
-        ? rig.residentBaseY
-        : rig.residentBaseY + Math.sin(elapsedSeconds * 2.2 + phase) * 0.12;
-      rig.residentArm.rotation.z = reducedMotion
-        ? -0.35
-        : -0.35 + Math.sin(elapsedSeconds * 3.4 + phase) * 0.42;
+      applyTownCharacterMotion(
+        rig.resident,
+        elapsedSeconds + phase,
+        reducedMotion,
+      );
     });
   });
 
@@ -96,7 +99,7 @@ export function createHouseUpgradeVisuals(
             ? rig.litWindowMaterial
             : rig.darkWindowMaterial;
         });
-        rig.resident.setEnabled(
+        rig.resident.root.setEnabled(
           CORE_UPGRADES.some((upgrade) => !installed.has(upgrade)),
         );
         rig.selection.setEnabled(selectedHouseId === houseId);
@@ -111,7 +114,7 @@ export function createHouseUpgradeVisuals(
       rigs.forEach((rig) => {
         Object.values(rig.upgrades).forEach((node) => node.dispose(false));
         rig.selection.dispose(false);
-        rig.resident.dispose(false);
+        rig.resident.root.dispose(false);
         rig.light.dispose();
         rig.darkWindowMaterial.dispose();
         rig.litWindowMaterial.dispose();
@@ -252,7 +255,7 @@ function createHouseRig(scene: Scene, house: TownHouseMetadata): HouseRig {
   pointLight.intensity = 0.72;
   pointLight.range = 13;
 
-  const { root: resident, arm: residentArm } = createResident(scene, house);
+  const resident = createResident(scene, house);
 
   return {
     upgrades: {
@@ -272,8 +275,6 @@ function createHouseRig(scene: Scene, house: TownHouseMetadata): HouseRig {
     selection,
     light: pointLight,
     resident,
-    residentArm,
-    residentBaseY: resident.position.y,
     windows,
     darkWindowMaterial,
     litWindowMaterial,
@@ -510,51 +511,55 @@ function createRepairKit(scene: Scene, house: TownHouseMetadata) {
 }
 
 function createResident(scene: Scene, house: TownHouseMetadata) {
-  const resident = new TransformNode(`${house.id}-resident`, scene);
-  resident.parent = house.root;
-  resident.position.set(5.1, 0.9, -4.9);
-
-  const skin = makeMaterial(scene, `${house.id}-resident-skin`, "#9D6547");
-  const shirt = makeMaterial(
-    scene,
-    `${house.id}-resident-shirt`,
-    house.id === "sunny"
-      ? "#F47F70"
-      : house.id === "bluebell"
-        ? "#8A78D6"
-        : "#62AEF0",
-  );
-
-  const body = MeshBuilder.CreateCylinder(
-    `${house.id}-resident-body`,
-    { height: 1.7, diameterTop: 0.75, diameterBottom: 1.05, tessellation: 12 },
-    scene,
-  );
-  body.position.y = 1.25;
-  body.material = shirt;
-  body.parent = resident;
-  body.isPickable = false;
-
-  const head = MeshBuilder.CreateSphere(
-    `${house.id}-resident-head`,
-    { diameter: 1.05, segments: 12 },
-    scene,
-  );
-  head.position.y = 2.55;
-  head.material = skin;
-  head.parent = resident;
-  head.isPickable = false;
-
-  const arm = MeshBuilder.CreateCylinder(
-    `${house.id}-resident-wave-arm`,
-    { height: 1.25, diameter: 0.28, tessellation: 10 },
-    scene,
-  );
-  arm.position.set(-0.62, 1.65, 0);
-  arm.rotation.z = -0.35;
-  arm.material = skin;
-  arm.parent = resident;
-  arm.isPickable = false;
+  const profiles: Readonly<Record<string, TownCharacterProfile>> = {
+    sunny: {
+      id: "sunny-resident-ayo",
+      age: "child",
+      activity: "wave",
+      hair: "coils",
+      skin: "#6F3F2A",
+      hairColor: "#1A0F0B",
+      shirt: "#F47F70",
+      bottoms: "#3E6D75",
+      shoes: "#FFF0D8",
+      x: 5.1,
+      z: -4.9,
+      rotation: -0.42,
+      phase: 0.3,
+    },
+    bluebell: {
+      id: "bluebell-resident-mina",
+      age: "adult",
+      activity: "wave",
+      hair: "waves",
+      skin: "#C98D67",
+      hairColor: "#392117",
+      shirt: "#8A78D6",
+      bottoms: "#365B70",
+      shoes: "#F2E2C9",
+      x: 5.1,
+      z: -4.9,
+      rotation: -0.42,
+      phase: 2.3,
+    },
+    mango: {
+      id: "mango-resident-tomi",
+      age: "child",
+      activity: "wave",
+      hair: "bun",
+      skin: "#8D5237",
+      hairColor: "#25140F",
+      shirt: "#62AEF0",
+      bottoms: "#5A4D76",
+      shoes: "#FFF2D9",
+      x: 5.1,
+      z: -4.9,
+      rotation: -0.42,
+      phase: 4.3,
+    },
+  };
+  const profile = profiles[house.id] ?? profiles.sunny!;
+  const resident = createTownCharacter(scene, house.root, null, profile);
 
   const bubbleTexture = new DynamicTexture(
     `${house.id}-help-bubble-texture`,
@@ -597,10 +602,10 @@ function createResident(scene: Scene, house: TownHouseMetadata) {
   bubble.position.set(0.4, 4.25, 0);
   bubble.billboardMode = Mesh.BILLBOARDMODE_ALL;
   bubble.material = bubbleMaterial;
-  bubble.parent = resident;
+  bubble.parent = resident.root;
   bubble.isPickable = false;
 
-  return { root: resident, arm };
+  return resident;
 }
 
 function makeMaterial(

@@ -1,0 +1,44 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  RIVERGATE_CHARACTER_PROFILES,
+  sampleTownCharacterMotion,
+} from "./characters-3d";
+
+describe("Rivergate 3D characters", () => {
+  it("keeps the authored population stable and includes the recurring cast", () => {
+    expect(RIVERGATE_CHARACTER_PROFILES).toHaveLength(20);
+    expect(
+      RIVERGATE_CHARACTER_PROFILES.map((profile) => profile.storyRole).filter(
+        Boolean,
+      ),
+    ).toEqual(
+      expect.arrayContaining(["leo", "maya", "malik", "nia", "mr-sam"]),
+    );
+    expect(new Set(RIVERGATE_CHARACTER_PROFILES.map(({ id }) => id)).size).toBe(
+      RIVERGATE_CHARACTER_PROFILES.length,
+    );
+  });
+
+  it("samples a deterministic walking loop without drifting from its radius", () => {
+    const first = sampleTownCharacterMotion("walk", 12.5, 0.7, false, 2.2);
+    const repeated = sampleTownCharacterMotion("walk", 12.5, 0.7, false, 2.2);
+
+    expect(repeated).toEqual(first);
+    expect(Math.hypot(first.offsetX, first.offsetZ)).toBeCloseTo(2.2, 8);
+    expect(first.leftArm).toBeCloseTo(-first.rightArm, 8);
+    expect(first.leftLeg).toBeCloseTo(-first.rightLeg, 8);
+  });
+
+  it("uses still, readable poses when reduced motion is requested", () => {
+    const stillWalk = sampleTownCharacterMotion("walk", 99, 4, true, 3);
+    const stillWave = sampleTownCharacterMotion("wave", 99, 4, true, 0);
+
+    expect(stillWalk.offsetX).toBe(0);
+    expect(stillWalk.offsetY).toBe(0);
+    expect(stillWalk.offsetZ).toBe(0);
+    expect(stillWalk.yaw).toBe(0);
+    expect(stillWave.rightArm).toBeLessThan(-2);
+    expect(stillWave.rightElbow).toBeLessThan(-0.5);
+  });
+});

@@ -4,12 +4,16 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
 
+import {
+  createRivergatePopulation,
+  type TownCharacterRig,
+} from "./characters-3d";
 import type { TownMaterials } from "./materials";
 import { renderedRoadHeight, sampleRoadFrame } from "./road";
 
 export type TownDetails = Readonly<{
   root: TransformNode;
-  ambientActors: readonly TransformNode[];
+  ambientActors: readonly TownCharacterRig[];
   playgroundSpinners: readonly TransformNode[];
 }>;
 
@@ -25,7 +29,7 @@ export function createTownDetails(
   shadows: ShadowGenerator,
 ): TownDetails {
   const root = new TransformNode("rivergate-town-details", scene);
-  const ambientActors: TransformNode[] = [];
+  const ambientActors: TownCharacterRig[] = [];
   const playgroundSpinners: TransformNode[] = [];
 
   const homeStyles: readonly HomeStyle[] = [
@@ -73,28 +77,11 @@ export function createTownDetails(
   createSchool(scene, root, materials, shadows);
   createClinic(scene, root, materials, shadows);
   createMarket(scene, root, materials, shadows);
-  playgroundSpinners.push(
-    createPlayground(scene, root, materials, shadows),
-  );
+  playgroundSpinners.push(createPlayground(scene, root, materials, shadows));
   createRoadsideLife(scene, root, materials, shadows);
   createRiverWalk(scene, root, materials, shadows);
 
-  for (const [index, x, z, shirt] of [
-    [0, 30, 20, materials.flower],
-    [1, 34, 22, materials.riverRoof],
-    [2, 39, 18, materials.clay],
-    [3, 48, 14, materials.leaf],
-    [4, 53, 17, materials.flower],
-    [5, -3, 34, materials.riverRoof],
-    [6, -6, 39, materials.clay],
-    [7, -48, -34, materials.leafLight],
-    [8, 25, -39, materials.flower],
-    [9, 0, 48, materials.riverRoof],
-  ] as const) {
-    ambientActors.push(
-      createTownsperson(scene, root, shadows, materials, index, x, z, shirt),
-    );
-  }
+  ambientActors.push(...createRivergatePopulation(scene, root, shadows));
   createDog(scene, root, shadows, materials, "market-dog", 50, 12, 0.8);
   createDog(scene, root, shadows, materials, "river-dog", -4, 44, -0.65);
 
@@ -592,49 +579,6 @@ function createRiverWalk(
     lid.material = materials.road;
     finishProp(lid, parent, shadows);
   }
-}
-
-function createTownsperson(
-  scene: Scene,
-  parent: TransformNode,
-  shadows: ShadowGenerator,
-  materials: TownMaterials,
-  index: number,
-  x: number,
-  z: number,
-  shirt: TownMaterials["flower"],
-) {
-  const person = new TransformNode(`townsperson-${index}`, scene);
-  person.position.set(x, 0.75, z);
-  person.rotation.y = index * 0.73;
-  person.parent = parent;
-  const body = MeshBuilder.CreateCylinder(
-    `townsperson-body-${index}`,
-    { height: 1.9, diameterTop: 0.75, diameterBottom: 1.05, tessellation: 10 },
-    scene,
-  );
-  body.position.y = 1.45;
-  body.material = shirt;
-  finishProp(body, person, shadows);
-  const head = MeshBuilder.CreateSphere(
-    `townsperson-head-${index}`,
-    { diameter: 0.92, segments: 10 },
-    scene,
-  );
-  head.position.y = 2.88;
-  head.material = index % 2 === 0 ? materials.bridge : materials.clay;
-  finishProp(head, person, shadows);
-  for (const side of [-1, 1]) {
-    const leg = MeshBuilder.CreateCylinder(
-      `townsperson-leg-${index}-${side}`,
-      { height: 1.1, diameter: 0.26, tessellation: 8 },
-      scene,
-    );
-    leg.position.set(side * 0.25, 0.25, 0);
-    leg.material = materials.road;
-    finishProp(leg, person, shadows);
-  }
-  return person;
 }
 
 function createDog(
