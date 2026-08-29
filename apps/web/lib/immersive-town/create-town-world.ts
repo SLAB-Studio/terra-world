@@ -8,6 +8,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Scene } from "@babylonjs/core/scene";
 
 import { createTownAnimationController } from "./animation";
+import { cameraPoseForPreset } from "./camera";
 import { createTownCompounds } from "./compounds";
 import { createTownEnvironment } from "./environment";
 import { createTownMaterials, TOWN_PALETTE } from "./materials";
@@ -36,12 +37,20 @@ export function createImmersiveTownWorld(
   scene.imageProcessingConfiguration.contrast = 1.08;
   scene.imageProcessingConfiguration.exposure = 0.98;
 
-  const target = options.cameraTarget?.clone() ?? new Vector3(0, 2.4, 0);
+  const welcomePose = cameraPoseForPreset(
+    "welcome",
+    options.cameraTarget ?? undefined,
+  );
+  const target = new Vector3(
+    welcomePose.target.x,
+    welcomePose.target.y,
+    welcomePose.target.z,
+  );
   const camera = new ArcRotateCamera(
     "rivergate-camera",
-    -Math.PI / 2.15,
-    0.86,
-    92,
+    welcomePose.alpha,
+    welcomePose.beta,
+    welcomePose.radius,
     target,
     scene,
   );
