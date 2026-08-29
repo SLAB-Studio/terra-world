@@ -122,6 +122,9 @@ export function createImmersiveTownWorld(
   );
 
   const housesByMeshId = indexHouseMeshes(compoundWorld.houses);
+  const housesById = new Map(
+    compoundWorld.houses.map((house) => [house.id, house] as const),
+  );
   scene.metadata = {
     ...(typeof scene.metadata === "object" && scene.metadata !== null
       ? scene.metadata
@@ -140,7 +143,17 @@ export function createImmersiveTownWorld(
     houses: compoundWorld.houses,
     animation,
     getHouseFromMesh(mesh) {
-      return mesh === null ? null : (housesByMeshId.get(mesh.uniqueId) ?? null);
+      if (mesh === null) return null;
+      const indexedHouse = housesByMeshId.get(mesh.uniqueId);
+      if (indexedHouse !== undefined) return indexedHouse;
+      const metadata =
+        typeof mesh.metadata === "object" && mesh.metadata !== null
+          ? (mesh.metadata as Record<string, unknown>)
+          : null;
+      const houseId = metadata?.houseId;
+      return typeof houseId === "string"
+        ? (housesById.get(houseId) ?? null)
+        : null;
     },
     render() {
       if (!disposed) scene.render();

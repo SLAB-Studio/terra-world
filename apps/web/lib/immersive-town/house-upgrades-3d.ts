@@ -31,12 +31,21 @@ export type PlayableUpgradeId =
   | "first-aid"
   | "repair-kit";
 
-const CORE_UPGRADES: readonly PlayableUpgradeId[] = [
+const CORE_UPGRADES = [
   "light",
   "water",
   "garden",
   "recycle",
-];
+] as const satisfies readonly PlayableUpgradeId[];
+
+type CorePlayableUpgradeId = (typeof CORE_UPGRADES)[number];
+
+const HELP_REQUESTS: Readonly<Record<CorePlayableUpgradeId, string>> = {
+  light: "Our home is dark!",
+  water: "Our garden is thirsty!",
+  garden: "Can we grow a garden?",
+  recycle: "Can we sort this mess?",
+};
 
 export type HouseUpgradeVisuals = Readonly<{
   sync(
@@ -52,10 +61,21 @@ type HouseRig = Readonly<{
   selection: TransformNode;
   light: PointLight;
   resident: TownCharacterRig;
+  helpBubble: Mesh;
+  helpBubbleTexture: DynamicTexture;
+  helpBubbleMaterial: StandardMaterial;
   windows: readonly Mesh[];
   darkWindowMaterial: StandardMaterial;
   litWindowMaterial: StandardMaterial;
 }>;
+
+export function houseHelpRequest(
+  installedUpgrades: readonly PlayableUpgradeId[],
+): string | null {
+  const installed = new Set(installedUpgrades);
+  const missing = CORE_UPGRADES.find((upgrade) => !installed.has(upgrade));
+  return missing === undefined ? null : HELP_REQUESTS[missing];
+}
 
 export function createHouseUpgradeVisuals(
   scene: Scene,
@@ -99,9 +119,12 @@ export function createHouseUpgradeVisuals(
             ? rig.litWindowMaterial
             : rig.darkWindowMaterial;
         });
-        rig.resident.root.setEnabled(
-          CORE_UPGRADES.some((upgrade) => !installed.has(upgrade)),
-        );
+        const helpRequest = houseHelpRequest(state[houseId]);
+        rig.resident.root.setEnabled(helpRequest !== null);
+        rig.helpBubble.setEnabled(helpRequest !== null);
+        if (helpRequest !== null) {
+          drawHelpBubble(rig.helpBubbleTexture, helpRequest);
+        }
         rig.selection.setEnabled(selectedHouseId === houseId);
       });
     },
@@ -115,6 +138,9 @@ export function createHouseUpgradeVisuals(
         Object.values(rig.upgrades).forEach((node) => node.dispose(false));
         rig.selection.dispose(false);
         rig.resident.root.dispose(false);
+        rig.helpBubble.dispose(false);
+        rig.helpBubbleTexture.dispose();
+        rig.helpBubbleMaterial.dispose();
         rig.light.dispose();
         rig.darkWindowMaterial.dispose();
         rig.litWindowMaterial.dispose();
@@ -255,7 +281,7 @@ function createHouseRig(scene: Scene, house: TownHouseMetadata): HouseRig {
   pointLight.intensity = 0.72;
   pointLight.range = 13;
 
-  const resident = createResident(scene, house);
+  const residentHelp = createResident(scene, house);
 
   return {
     upgrades: {
@@ -274,7 +300,10 @@ function createHouseRig(scene: Scene, house: TownHouseMetadata): HouseRig {
     },
     selection,
     light: pointLight,
-    resident,
+    resident: residentHelp.resident,
+    helpBubble: residentHelp.bubble,
+    helpBubbleTexture: residentHelp.texture,
+    helpBubbleMaterial: residentHelp.material,
     windows,
     darkWindowMaterial,
     litWindowMaterial,
@@ -563,27 +592,12 @@ function createResident(scene: Scene, house: TownHouseMetadata) {
 
   const bubbleTexture = new DynamicTexture(
     `${house.id}-help-bubble-texture`,
-    { width: 512, height: 256 },
+    { width: 1024, height: 512 },
     scene,
     true,
   );
   bubbleTexture.hasAlpha = true;
-  const context =
-    bubbleTexture.getContext() as unknown as CanvasRenderingContext2D;
-  context.clearRect(0, 0, 512, 256);
-  context.fillStyle = "#FFF9E8";
-  context.strokeStyle = "#2B190F";
-  context.lineWidth = 18;
-  context.beginPath();
-  context.roundRect(18, 18, 476, 188, 42);
-  context.fill();
-  context.stroke();
-  context.fillStyle = "#2B190F";
-  context.font = "bold 72px sans-serif";
-  context.textAlign = "center";
-  context.textBaseline = "middle";
-  context.fillText("Help!", 256, 112);
-  bubbleTexture.update();
+  drawHelpBubble(bubbleTexture, HELP_REQUESTS.light);
 
   const bubbleMaterial = new StandardMaterial(
     `${house.id}-help-bubble-material`,
@@ -591,21 +605,66 @@ function createResident(scene: Scene, house: TownHouseMetadata) {
   );
   bubbleMaterial.diffuseTexture = bubbleTexture;
   bubbleMaterial.opacityTexture = bubbleTexture;
-  bubbleMaterial.emissiveColor = Color3.White().scale(0.7);
+  bubbleMaterial.emissiveColor = Color3.White().scale(0.82);
   bubbleMaterial.backFaceCulling = false;
+  bubbleMaterial.disableDepthWrite = true;
+  bubbleMaterial.disableLighting = true;
 
   const bubble = MeshBuilder.CreatePlane(
     `${house.id}-help-bubble`,
-    { width: 3.6, height: 1.8 },
+    { width: 10, height: 5 },
     scene,
   );
-  bubble.position.set(0.4, 4.25, 0);
+  bubble.position.copyFrom(house.worldPosition);
+  bubble.position.y += 12;
   bubble.billboardMode = Mesh.BILLBOARDMODE_ALL;
   bubble.material = bubbleMaterial;
-  bubble.parent = resident.root;
-  bubble.isPickable = false;
+  bubble.isPickable = true;
+  bubble.alwaysSelectAsActiveMesh = true;
+  bubble.renderingGroupId = 3;
+  bubble.metadata = {
+    kind: "terra-house-help",
+    houseId: house.id,
+    compoundId: house.compoundId,
+    displayName: house.displayName,
+    interactionRole: "house-pick-surface",
+  };
 
-  return resident;
+  return { resident, bubble, texture: bubbleTexture, material: bubbleMaterial };
+}
+
+function drawHelpBubble(texture: DynamicTexture, message: string) {
+  const context = texture.getContext() as unknown as CanvasRenderingContext2D;
+  context.clearRect(0, 0, 1024, 512);
+
+  context.fillStyle = "#FFF9E8";
+  context.strokeStyle = "#2B190F";
+  context.lineWidth = 28;
+  context.lineJoin = "round";
+  context.beginPath();
+  context.roundRect(32, 28, 960, 350, 64);
+  context.fill();
+  context.stroke();
+
+  context.beginPath();
+  context.moveTo(744, 372);
+  context.lineTo(838, 474);
+  context.lineTo(876, 370);
+  context.closePath();
+  context.fill();
+  context.stroke();
+
+  context.fillStyle = "#F0643B";
+  context.font = "900 48px sans-serif";
+  context.textAlign = "left";
+  context.textBaseline = "middle";
+  context.fillText("WE NEED HELP", 86, 112);
+
+  context.fillStyle = "#2B190F";
+  context.font = "900 68px sans-serif";
+  context.textAlign = "center";
+  context.fillText(message, 512, 252, 850);
+  texture.update();
 }
 
 function makeMaterial(
