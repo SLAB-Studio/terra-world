@@ -12,20 +12,30 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { Coordinate } from "@terra/campaign-schema";
+import { RIVERGATE_EN_MESSAGES } from "@terra/simulation";
 
 import { buildingName, CATEGORY_NAMES } from "../../lib/game/catalogue";
 import {
   BUILDING_CATALOGUE,
   OVERLAY_IDS,
   createDeveloperGame,
+  createGameSessionSave,
+  getChildFeedback,
+  getCurrentMission,
   gameReducer,
+  getUnlockedChapterIds,
   getOverlayView,
   getPlanningCity,
   getCursorSummary,
   operationCount,
   provisionalCost,
+  restoreGameSession,
   type OverlayId,
 } from "../../lib/game/controller";
+import {
+  createOfflinePersistence,
+  type OfflinePersistence,
+} from "../../lib/offline";
 import { GameIcon } from "./GameIcon";
 import type { GameMapApi } from "./GameMap";
 
@@ -35,7 +45,7 @@ const GameMap = dynamic(() => import("./GameMap"), {
     <div className="map-state" role="status">
       <span className="map-loader" aria-hidden="true" />
       <strong>Preparing Rivergate…</strong>
-      <span>The map is loading from its saved seed.</span>
+      <span>Your river valley is getting ready.</span>
     </div>
   ),
 });
@@ -45,6 +55,8 @@ type DragGhost = {
   readonly x: number;
   readonly y: number;
 };
+
+const RIVERGATE_CITY_ID = "rivergate-city";
 
 const OVERLAY_SHORT_NAMES: Readonly<Record<OverlayId, string>> = {
   validity: "Build",
@@ -65,14 +77,85 @@ export default function GameShell() {
   const [mapError, setMapError] = useState<string | null>(null);
   const [dragGhost, setDragGhost] = useState<DragGhost | null>(null);
   const dragGhostRef = useRef<DragGhost | null>(null);
+  const persistenceRef = useRef<OfflinePersistence | null>(null);
+  const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const [persistenceReady, setPersistenceReady] = useState(false);
   const planningCity = useMemo(() => getPlanningCity(state), [state]);
   const overlay = useMemo(() => getOverlayView(state), [state]);
   const cursorSummary = useMemo(() => getCursorSummary(state), [state]);
+  const currentMission = useMemo(() => getCurrentMission(state), [state]);
+  const childFeedback = useMemo(() => getChildFeedback(state), [state]);
+  const unlockedChapterIds = useMemo(
+    () => getUnlockedChapterIds(state),
+    [state],
+  );
   const selected = BUILDING_CATALOGUE.find(
     (building) => building.id === state.selectedBuildingId,
   );
   const costs = provisionalCost(state);
   const changes = operationCount(state);
+
+  useEffect(() => {
+    let disposed = false;
+    void createOfflinePersistence()
+      .then(async (persistence) => {
+        if (disposed) {
+          persistence.close();
+          return;
+        }
+        persistenceRef.current = persistence;
+        const saved = await persistence.getCampaignSession(RIVERGATE_CITY_ID);
+        if (saved !== null) {
+          try {
+            dispatch({ type: "restore", state: restoreGameSession(saved) });
+          } catch {
+            await persistence.deleteCampaignSession(RIVERGATE_CITY_ID);
+            dispatch({
+              type: "restore",
+              state: {
+                ...createDeveloperGame(),
+                status:
+                  "Rivergate started a fresh safe save after it could not restore the previous one.",
+              },
+            });
+          }
+        }
+        if (!disposed) setPersistenceReady(true);
+      })
+      .catch(() => {
+        if (!disposed) setPersistenceReady(true);
+      });
+    return () => {
+      disposed = true;
+      persistenceRef.current?.close();
+      persistenceRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const persistence = persistenceRef.current;
+    if (!persistenceReady || persistence === null) return;
+    const savedAt = Date.now();
+    const session = createGameSessionSave(state, savedAt);
+    writeQueueRef.current = writeQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        await Promise.all([
+          persistence.saveCampaignSession(session),
+          persistence.saveCity({
+            cityId: state.city.cityId,
+            committedAt: savedAt,
+            state: state.city,
+          }),
+          persistence.saveActionLog({
+            cityId: state.city.cityId,
+            savedAt,
+            actions: state.city.actionLog,
+          }),
+        ]);
+      })
+      .catch(() => undefined);
+  }, [persistenceReady, state]);
 
   const handleTileActivate = useCallback(
     (coordinate: Coordinate) => {
@@ -153,6 +236,18 @@ export default function GameShell() {
     }
   }
 
+  if (!persistenceReady) {
+    return (
+      <main className="game-shell">
+        <div className="map-state" role="status">
+          <span className="map-loader" aria-hidden="true" />
+          <strong>Restoring Rivergate…</strong>
+          <span>Checking your saved city before play begins.</span>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="game-shell">
       <header className="game-header">
@@ -162,7 +257,7 @@ export default function GameShell() {
           </span>
           <div>
             <strong>Terra World</strong>
-            <span>Rivergate · developer playground</span>
+            <span>Rivergate · build a city that cares</span>
           </div>
         </div>
         <dl className="city-facts" aria-label="Rivergate status">
@@ -211,31 +306,21 @@ export default function GameShell() {
                   <h2 id={`category-${category}`}>{label}</h2>
                   <div className="catalogue-grid">
                     {items.map((item) => (
-                      <button
-                        aria-pressed={state.selectedBuildingId === item.id}
-                        className="catalogue-item"
+                      <CatalogueItem
+                        isUnlocked={isBuildingUnlocked(
+                          item,
+                          unlockedChapterIds,
+                        )}
+                        item={item}
                         key={item.id}
-                        onClick={() =>
+                        onSelect={() =>
                           dispatch({ type: "select", buildingId: item.id })
                         }
-                        onPointerDown={(event) =>
+                        onStartDrag={(event) =>
                           beginCatalogueDrag(event, item.id)
                         }
-                        type="button"
-                      >
-                        <span
-                          className={`catalogue-icon category-${item.category}`}
-                        >
-                          <GameIcon name={iconFor(item.id)} />
-                        </span>
-                        <span className="catalogue-copy">
-                          <strong>{buildingName(item.id)}</strong>
-                          <span>
-                            ${item.constructionCost} · ${item.maintenanceCost}
-                            /turn
-                          </span>
-                        </span>
-                      </button>
+                        selected={state.selectedBuildingId === item.id}
+                      />
                     ))}
                   </div>
                 </section>
@@ -339,6 +424,16 @@ export default function GameShell() {
         </section>
 
         <aside className="planning-panel" aria-label="Planning tools">
+          {state.ending !== null ? (
+            <EndingCard ending={state.ending} />
+          ) : (
+            <MissionCard
+              feedback={childFeedback}
+              mission={currentMission}
+              progress={state.campaign.completedMissionKeys.length}
+            />
+          )}
+
           <section
             className="overlay-section"
             aria-labelledby="overlays-heading"
@@ -398,7 +493,7 @@ export default function GameShell() {
           <div className="commit-area">
             {changes === 0 ? (
               <p className="empty-plan">
-                Your plan is empty. Try placing a road or park.
+                No new buildings planned. Run the city to let time pass.
               </p>
             ) : (
               <p>
@@ -410,7 +505,7 @@ export default function GameShell() {
             )}
             <button
               className="commit-button"
-              disabled={changes === 0}
+              disabled={state.campaign.phase === "completed"}
               onClick={() => dispatch({ type: "commit" })}
               type="button"
             >
@@ -431,6 +526,167 @@ export default function GameShell() {
         </div>
       )}
     </main>
+  );
+}
+
+type CatalogueItemProps = {
+  readonly item: (typeof BUILDING_CATALOGUE)[number];
+  readonly isUnlocked: boolean;
+  readonly selected: boolean;
+  readonly onSelect: () => void;
+  readonly onStartDrag: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+};
+
+function CatalogueItem({
+  item,
+  isUnlocked,
+  onSelect,
+  onStartDrag,
+  selected,
+}: CatalogueItemProps) {
+  const prerequisiteChapter = requiredChapterFor(item);
+  const lockMessage =
+    prerequisiteChapter === null
+      ? ""
+      : `Finish ${chapterLabel(prerequisiteChapter)} to unlock this.`;
+
+  return (
+    <button
+      aria-label={
+        isUnlocked
+          ? undefined
+          : `${buildingName(item.id)} is locked. ${lockMessage}`
+      }
+      aria-pressed={selected}
+      className="catalogue-item"
+      disabled={!isUnlocked}
+      onClick={onSelect}
+      onPointerDown={onStartDrag}
+      type="button"
+    >
+      <span className={`catalogue-icon category-${item.category}`}>
+        <GameIcon name={iconFor(item.id)} />
+      </span>
+      <span className="catalogue-copy">
+        <strong>{buildingName(item.id)}</strong>
+        <span>
+          ${item.constructionCost} · ${item.maintenanceCost}/turn
+        </span>
+        {!isUnlocked && <em className="catalogue-lock">{lockMessage}</em>}
+      </span>
+    </button>
+  );
+}
+
+type MissionCardProps = {
+  readonly mission: ReturnType<typeof getCurrentMission>;
+  readonly feedback: ReturnType<typeof getChildFeedback>;
+  readonly progress: number;
+};
+
+function MissionCard({ feedback, mission, progress }: MissionCardProps) {
+  if (mission === null) return null;
+
+  return (
+    <section className="mission-section" aria-labelledby="mission-heading">
+      <div className="mission-heading-row">
+        <div>
+          <p className="mission-position">
+            {chapterLabel(mission.chapterId)} · Mission {progress + 1} of 15
+          </p>
+          <h2 id="mission-heading">{mission.title}</h2>
+        </div>
+        <span
+          className={
+            mission.requiredComplete ? "mission-ready" : "mission-next"
+          }
+        >
+          {mission.requiredComplete ? "Ready" : "In progress"}
+        </span>
+      </div>
+      <p className="mission-briefing">{mission.briefing}</p>
+      <p
+        className="mission-progress"
+        aria-label={`${progress} of 15 missions complete`}
+      >
+        <strong>{progress}/15</strong> missions complete
+      </p>
+      <ul className="objective-list" aria-label="Mission objectives">
+        {mission.objectives.map((objective) => (
+          <li
+            className={
+              objective.completed ? "objective-complete" : "objective-pending"
+            }
+            key={objective.id}
+          >
+            <span className="objective-state" aria-hidden="true" />
+            <span>
+              <span className="sr-only">
+                {objective.completed ? "Complete: " : "Still to do: "}
+              </span>
+              {objective.description}
+              <small>{objective.required ? "Needed" : "Bonus"}</small>
+            </span>
+          </li>
+        ))}
+      </ul>
+      {feedback !== null && (
+        <div className="mission-feedback" aria-label="Rivergate guide">
+          <p>
+            <strong>What Rivergate noticed</strong>
+            {feedback.explanation}
+          </p>
+          <p>
+            <strong>Think about it</strong>
+            {feedback.question}
+          </p>
+          <p>
+            <strong>Try next</strong>
+            {feedback.hint}
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+type EndingCardProps = {
+  readonly ending: NonNullable<
+    ReturnType<typeof createDeveloperGame>["ending"]
+  >;
+};
+
+function EndingCard({ ending }: EndingCardProps) {
+  return (
+    <section className="ending-section" aria-labelledby="ending-heading">
+      <p className="mission-position">Rivergate story complete</p>
+      <h2 id="ending-heading">{messageFor(ending.titleKey)}</h2>
+      <p className="ending-summary">{messageFor(ending.childSummaryKey)}</p>
+      <div className="ending-systems" aria-label="Rivergate systems">
+        <p>
+          <strong>Strongest</strong>
+          <span>{capitalize(ending.strongestSystem.system)}</span>
+        </p>
+        <p>
+          <strong>Next to strengthen</strong>
+          <span>{capitalize(ending.weakestSystem.system)}</span>
+        </p>
+      </div>
+      {ending.traits.length > 0 && (
+        <div className="ending-traits">
+          <strong>What you earned</strong>
+          <ul>
+            {ending.traits.map((trait) => (
+              <li key={trait.traitId}>{messageFor(trait.titleKey)}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <p className="ending-reflection">
+        <strong>Think back</strong>
+        {messageFor(ending.adultLearningSummary.reflectionKey)}
+      </p>
+    </section>
   );
 }
 
@@ -456,4 +712,41 @@ function patternFor(id: OverlayId): string {
 
 function capitalize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function requiredChapterFor(
+  item: (typeof BUILDING_CATALOGUE)[number],
+): string | null {
+  const prerequisite = item.prerequisites.find(
+    (candidate) => candidate.type === "chapter-unlocked",
+  );
+  return prerequisite !== undefined && prerequisite.type === "chapter-unlocked"
+    ? prerequisite.chapterId
+    : null;
+}
+
+function isBuildingUnlocked(
+  item: (typeof BUILDING_CATALOGUE)[number],
+  unlockedChapterIds: readonly string[],
+): boolean {
+  const prerequisiteChapter = requiredChapterFor(item);
+  return (
+    prerequisiteChapter === null ||
+    unlockedChapterIds.includes(prerequisiteChapter)
+  );
+}
+
+function chapterLabel(chapterId: string): string {
+  const labels: Readonly<Record<string, string>> = {
+    "chapter-1-water": "Chapter 1 · Water",
+    "chapter-2-power": "Chapter 2 · Power",
+    "chapter-3-care": "Chapter 3 · Care",
+    "chapter-4-growth": "Chapter 4 · Growth",
+    "chapter-5-storm": "Chapter 5 · Storm",
+  };
+  return labels[chapterId] ?? "This chapter";
+}
+
+function messageFor(key: string): string {
+  return RIVERGATE_EN_MESSAGES[key] ?? key;
 }
