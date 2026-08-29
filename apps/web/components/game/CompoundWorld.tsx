@@ -26,6 +26,7 @@ import HouseDiagnostics, {
   type HouseId,
   type HouseUpgradeId,
 } from "./HouseDiagnostics";
+import ImmersiveTownMap from "./ImmersiveTownMap";
 import LivingMapDecor from "./LivingMapDecor";
 
 type UpgradeId = HouseUpgradeId;
@@ -481,6 +482,7 @@ export default function CompoundWorld({
             tabIndex={0}
           >
             <div className="world-canvas">
+              <ImmersiveTownMap />
               <span className="world-river" aria-hidden="true">
                 <i className="river-shimmer river-shimmer-one" />
                 <i className="river-shimmer river-shimmer-two" />

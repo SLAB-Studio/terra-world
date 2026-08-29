@@ -11,110 +11,6 @@
   user-select: none;
 }
 
-.path {
-  position: absolute;
-  z-index: 0;
-  display: block;
-  height: 34px;
-  border-block: 2px dashed rgba(255, 247, 217, 0.3);
-  background: rgba(255, 239, 192, 0.18);
-  transform-origin: left center;
-}
-
-.pathNorth {
-  top: 370px;
-  left: -80px;
-  width: 1980px;
-  transform: rotate(-8deg);
-}
-
-.pathSouth {
-  top: 705px;
-  left: 20px;
-  width: 1780px;
-  transform: rotate(5deg);
-}
-
-.pathCross {
-  top: 12px;
-  left: 1020px;
-  width: 930px;
-  transform: rotate(64deg);
-}
-
-.car {
-  position: absolute;
-  z-index: 5;
-  width: 68px;
-  height: 34px;
-  display: block;
-  border: 3px solid #2b190f;
-  border-radius: 10px 14px 8px 8px;
-  background: #ffcf45;
-  box-shadow: 0 5px 7px rgba(43, 25, 15, 0.19);
-}
-
-.carNorth {
-  top: 354px;
-  left: -90px;
-  animation: drive-east 18s linear infinite;
-}
-
-.carSouth {
-  top: 690px;
-  left: 1840px;
-  background: #62aef0;
-  animation: drive-west 23s linear 4s infinite;
-}
-
-.carRoof,
-.carWindow,
-.carWheel {
-  position: absolute;
-  display: block;
-  box-sizing: border-box;
-}
-
-.carRoof {
-  bottom: 27px;
-  left: 16px;
-  width: 38px;
-  height: 19px;
-  border: 3px solid #2b190f;
-  border-bottom: 0;
-  border-radius: 12px 12px 0 0;
-  background: inherit;
-}
-
-.carWindow {
-  bottom: 28px;
-  left: 29px;
-  width: 16px;
-  height: 12px;
-  border: 2px solid #2b190f;
-  border-bottom: 0;
-  border-radius: 5px 5px 0 0;
-  background: #c7efff;
-}
-
-.carWheel {
-  bottom: -8px;
-  width: 16px;
-  height: 16px;
-  border: 3px solid #2b190f;
-  border-radius: 50%;
-  background: #5d4b63;
-  animation: wheel-turn 0.75s linear infinite;
-}
-
-.carWheelFront {
-  right: 7px;
-}
-
-.carWheelBack {
-  left: 7px;
-}
-
 .birds {
   position: absolute;
   z-index: 4;
@@ -379,8 +275,8 @@
 }
 
 .chatNorth {
-  top: 404px;
-  left: 442px;
+  top: 315px;
+  left: 325px;
 }
 
 .chatSouth {
@@ -612,30 +508,6 @@
   }
 }
 
-@keyframes drive-east {
-  from {
-    transform: translateX(0) rotate(-8deg);
-  }
-  to {
-    transform: translateX(1990px) rotate(-8deg);
-  }
-}
-
-@keyframes drive-west {
-  from {
-    transform: translateX(0) rotate(5deg);
-  }
-  to {
-    transform: translateX(-2020px) rotate(5deg);
-  }
-}
-
-@keyframes wheel-turn {
-  to {
-    rotate: 1turn;
-  }
-}
-
 @keyframes flock-drift {
   from {
     translate: -12px 4px;
@@ -669,10 +541,6 @@
   .chatMarks,
   .ball {
     animation: none;
-  }
-
-  .car {
-    display: none;
   }
 
   .birds,
