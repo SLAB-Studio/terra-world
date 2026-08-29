@@ -95,7 +95,7 @@ describe("Rivergate campaign v1 package", () => {
 
   it("keeps canonical component and package hashes stable", () => {
     expect(RIVERGATE_CAMPAIGN_V1_PACKAGE.manifest.contentHashes).toEqual({
-      campaign: "8d9c980225e80e0e",
+      campaign: "5710e7710621bc34",
       map: "67c8bc95554e07dd",
       buildings: "17fdc6d1f3202203",
       ruleset: "2ec5406be504aada",
@@ -103,7 +103,7 @@ describe("Rivergate campaign v1 package", () => {
       localizations: "18a2b178344abf55",
       assetManifest: "03ae5b8e1dcad36b",
     });
-    expect(RIVERGATE_CAMPAIGN_V1_HASH).toBe("1929be31c58172ed");
+    expect(RIVERGATE_CAMPAIGN_V1_HASH).toBe("0ca0cf041460eb3c");
 
     const source = RIVERGATE_CAMPAIGN_V1_PACKAGE;
     const reordered = {

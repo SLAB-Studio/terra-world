@@ -361,7 +361,10 @@ export const RIVERGATE_FOUNDATIONS_CAMPAIGN: Campaign = CampaignSchema.parse({
   titleKey: "rivergate.campaign.title",
   mapId: "river-valley",
   buildingIds: BUILDING_IDS,
-  initialBudget: 8_000,
+  // The protected-path regression spends 9,936 through the turn-15 storm.
+  // 11,000 leaves 1,064: enough for 347 upkeep, the authored 600 repair
+  // reserve, and 117 for a child's final planning choice.
+  initialBudget: 11_000,
   initialPopulation: 0,
   chapters: [
     CHAPTER_ONE_WATER,

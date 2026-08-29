@@ -9,7 +9,7 @@ const ROOT = `0x${"11".repeat(32)}`;
 const OTHER_ROOT = `0x${"22".repeat(32)}`;
 const TX_HASH = `0x${"33".repeat(32)}`;
 const CANONICAL_CAMPAIGN = bytes('{"a":1,"b":2}');
-const PACKAGE_HASH = "1929be31c58172ed";
+const PACKAGE_HASH = "0ca0cf041460eb3c";
 
 const CONFIG: ZeroGServerConfig = {
   network: "testnet",

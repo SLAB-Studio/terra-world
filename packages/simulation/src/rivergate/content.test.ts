@@ -239,6 +239,21 @@ describe("Rivergate foundations campaign content", () => {
     expect(RIVERGATE_FOUNDATIONS_CAMPAIGN.initialBudget).toBeGreaterThanOrEqual(
       construction + maintenancePerTurn * 15 + eventCosts,
     );
+
+    // The clean-map Guardian regression is the stronger affordability check:
+    // its real placements, removals, upkeep, and scheduled events spend 9,936.
+    // A round 11,000 allocation then preserves the 600 storm reserve and 117
+    // of genuine planning choice after the final 347 upkeep bill.
+    const verifiedGuardianSpend = 9_936;
+    const finalMaintenance = 347;
+    const authoredRepairReserve = 600;
+    expect(RIVERGATE_FOUNDATIONS_CAMPAIGN.initialBudget).toBe(11_000);
+    expect(
+      RIVERGATE_FOUNDATIONS_CAMPAIGN.initialBudget -
+        verifiedGuardianSpend -
+        finalMaintenance -
+        authoredRepairReserve,
+    ).toBe(117);
   });
 
   it("keeps every player-facing field localization-keyed and translated", () => {

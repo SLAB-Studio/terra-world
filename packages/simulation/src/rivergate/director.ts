@@ -129,8 +129,12 @@ const DIRECTOR_MILESTONES = [
 ] as const;
 const FLOOD_EXPOSURE_THRESHOLD = 0.5;
 const HOME_CAPACITY = 8;
-const CRITICAL_SERVICE_IDS = [
+const FLOOD_CRITICAL_INFRASTRUCTURE_IDS = [
   "water-pump",
+  "water-treatment-plant",
+  "clinic",
+] as const satisfies readonly BuildingId[];
+const ROAD_ACCESS_DESTINATION_IDS = [
   "water-treatment-plant",
   "clinic",
 ] as const satisfies readonly BuildingId[];
@@ -417,8 +421,13 @@ export function adaptCityToStormEvaluation(
   const counts = countBuildings(city);
   const networks = analyzeCityNetworks(city);
   const homes = buildingsOfType(city, "home");
-  const criticalServices = city.buildings.filter((building) =>
-    (CRITICAL_SERVICE_IDS as readonly BuildingId[]).includes(
+  const criticalInfrastructure = city.buildings.filter((building) =>
+    (FLOOD_CRITICAL_INFRASTRUCTURE_IDS as readonly BuildingId[]).includes(
+      building.definitionId as BuildingId,
+    ),
+  );
+  const emergencyDestinations = criticalInfrastructure.filter((building) =>
+    (ROAD_ACCESS_DESTINATION_IDS as readonly BuildingId[]).includes(
       building.definitionId as BuildingId,
     ),
   );
@@ -429,7 +438,7 @@ export function adaptCityToStormEvaluation(
     (tileId) =>
       (tileById(city, tileId)?.floodRisk ?? 1) >= FLOOD_EXPOSURE_THRESHOLD,
   );
-  const criticalDemand = sumElectricityInputs(criticalServices);
+  const criticalDemand = sumElectricityInputs(criticalInfrastructure);
   const naturalWetlandTiles = city.tiles.filter(
     (tile) => tile.terrain === "wetland" && tile.occupantId === null,
   ).length;
@@ -470,13 +479,13 @@ export function adaptCityToStormEvaluation(
       drainageCapacity,
       runoffLoad: Math.max(
         1,
-        5 * (roadTiles.length + homes.length + criticalServices.length),
+        5 * (roadTiles.length + homes.length + criticalInfrastructure.length),
       ),
     },
     transport: {
-      emergencyDestinations: criticalServices.length,
-      accessibleEmergencyDestinations: criticalServices.filter((building) =>
-        roadConnected.has(building.instanceId),
+      emergencyDestinations: emergencyDestinations.length,
+      accessibleEmergencyDestinations: emergencyDestinations.filter(
+        (building) => roadConnected.has(building.instanceId),
       ).length,
       roadTiles: roadTiles.length,
       exposedRoadTiles: exposedRoadTiles.length,
@@ -484,8 +493,11 @@ export function adaptCityToStormEvaluation(
     floodExposure: {
       homes: homes.length,
       exposedHomes: exposedBuildingCount(city, homes),
-      criticalServices: criticalServices.length,
-      exposedCriticalServices: exposedBuildingCount(city, criticalServices),
+      criticalServices: criticalInfrastructure.length,
+      exposedCriticalServices: exposedBuildingCount(
+        city,
+        criticalInfrastructure,
+      ),
     },
     budget: {
       availableForRecovery: city.budget,

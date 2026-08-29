@@ -9,6 +9,7 @@ import {
 import { makeTestCity } from "../test-fixtures";
 import { RIVERGATE_FOUNDATIONS_CAMPAIGN } from "./content";
 import {
+  adaptCityToStormEvaluation,
   advanceRivergateCampaignState,
   evaluateRivergateChapterGate,
   FINAL_STORM_EVENT_ID,
@@ -17,6 +18,16 @@ import {
 const NO_EVENTS = { turn: 0, firedEventIds: [] } as const;
 
 describe("Rivergate campaign director", () => {
+  it("checks road access only for services designed to join the road network", () => {
+    const snapshot = adaptCityToStormEvaluation(stormCity());
+
+    // The riverside pump remains flood-critical, but its catalogue placement
+    // rules do not make it a road-network participant. Counting it as an
+    // emergency road destination would create an impossible readiness penalty.
+    expect(snapshot.floodExposure.criticalServices).toBe(3);
+    expect(snapshot.transport.emergencyDestinations).toBe(2);
+  });
+
   it("blocks unequal care even when generic citywide objectives pass", () => {
     const city = careCity(false);
     const progress = progressAt(

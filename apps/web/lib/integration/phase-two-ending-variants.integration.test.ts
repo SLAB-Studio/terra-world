@@ -14,6 +14,67 @@ const PLAYTHROUGH_SEED = "rivergate-phase-two";
 const SERVICE_RESERVES = new Set(["tile-12-4", "tile-13-4", "tile-12-6"]);
 
 describe("phase two clean-map ending variants", () => {
+  it("earns the River Guardian ending from an empty map", () => {
+    let state = createDeveloperGame(PLAYTHROUGH_SEED);
+    expect(state.city.buildings).toEqual([]);
+
+    state = establishRivergate(state);
+    state = placeExact(state, "wetland", { x: 6, y: 2 });
+    state = placeNear(state, "wetland", { x: 7, y: 5 });
+    state = placeNear(state, "wetland", { x: 7, y: 7 });
+    state = placeNear(state, "wetland", { x: 7, y: 9 });
+    state = placeNear(state, "community-park", { x: 8, y: 4 });
+    state = placeNear(state, "community-park", { x: 8, y: 8 });
+    state = commit(state);
+    expectPosition(state, 13, "chapter-5-storm", "keep-help-moving");
+
+    state = placeNear(state, "bus-stop", { x: 12, y: 10 });
+    state = placeForCoverage(state, "water-treatment-plant", "water");
+    state = placeForCoverage(state, "solar-array", "electricity");
+    state = placeNear(state, "battery", { x: 9, y: 9 });
+    state = commit(state);
+    expectPosition(state, 14, "chapter-5-storm", "repair-together");
+
+    state = placeSafest(state, "water-pump");
+    state = commit(state);
+    expect(state.turnHistory.at(-1)?.firedEventIds).toEqual([
+      "chapter-5-river-storm",
+    ]);
+    expect(state.city).toMatchObject({
+      turn: 15,
+      budget: 1_064,
+      indicators: {
+        water: 76.03,
+        energy: 83.72,
+        nature: 90,
+        resilience: 77.5,
+      },
+      resources: { maintenanceDue: 347 },
+    });
+    expect(state.campaign).toMatchObject({ phase: "completed" });
+    expect(state.campaign.completedMissionKeys).toHaveLength(15);
+    expect(state.ending).toMatchObject({
+      endingId: "river-guardian",
+      stormOutcomeBand: "protected",
+      strongestSystem: { system: "budget", score: 100, readiness: "ready" },
+      weakestSystem: { system: "water", score: 61.07, readiness: "strained" },
+      adultLearningSummary: {
+        finalCity: { remainingBudget: 1_064 },
+        storm: {
+          outcomeBand: "protected",
+          readinessScore: 76.67,
+          recovery: {
+            maintenanceShortfall: 0,
+            repairCostCovered: 155,
+            unfundedRepairCost: 0,
+            remainingRecoveryBudget: 562,
+            estimatedTurns: 4,
+          },
+        },
+      },
+    });
+  });
+
   it("earns the Brave Rebuilder ending from an empty map", () => {
     let state = createDeveloperGame(PLAYTHROUGH_SEED);
     expect(state.city.buildings).toEqual([]);
@@ -202,6 +263,29 @@ function placeNear(
   throw new Error(
     `No valid ${buildingId} placement near ${target.x},${target.y}`,
   );
+}
+
+function placeSafest(state: GameState, buildingId: string): GameState {
+  let selected = gameReducer(state, { type: "select", buildingId });
+  for (let rotations = 0; rotations < 4; rotations += 1) {
+    const overlay = getOverlayView(selected);
+    const candidate = selected.city.tiles
+      .filter((tile) => overlay.cells[tile.id]?.label === "OK")
+      .sort(
+        (left, right) =>
+          left.floodRisk - right.floodRisk || left.id.localeCompare(right.id),
+      )[0];
+    if (candidate !== undefined) {
+      const next = gameReducer(selected, {
+        type: "place",
+        coordinate: candidate.coordinate,
+      });
+      expect(operationCount(next), next.status).toBe(operationCount(state) + 1);
+      return next;
+    }
+    selected = gameReducer(selected, { type: "rotate" });
+  }
+  throw new Error(`No valid ${buildingId} placement`);
 }
 
 function placeForCoverage(

@@ -320,7 +320,7 @@ describe("developer game controller", () => {
     expect(state.city.buildings).toMatchObject([
       { definitionId: "road", anchor: tile.coordinate, rotation: 0 },
     ]);
-    expect(state.city.budget).toBe(7_979);
+    expect(state.city.budget).toBe(10_979);
     expect(operationCount(state)).toBe(0);
     expect(state.planning.baseState).toBe(state.city);
   });
