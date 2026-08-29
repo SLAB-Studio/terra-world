@@ -120,6 +120,7 @@ export default function CompoundWorld({
   );
   const [townAwake, setTownAwake] = useState(false);
   const dragPieceRef = useRef<DragPiece | null>(null);
+  const worldScrollRef = useRef<HTMLDivElement>(null);
   const celebrationTimerRef = useRef<number | null>(null);
 
   const litHomes = useMemo(
@@ -185,6 +186,13 @@ export default function CompoundWorld({
     },
     [],
   );
+
+  useEffect(() => {
+    const map = worldScrollRef.current;
+    if (map === null) return;
+    map.scrollLeft = 315;
+    map.scrollTop = 28;
+  }, []);
 
   function addUpgrade(compoundId: CompoundId, upgradeId: UpgradeId) {
     if (!compounds[compoundId].includes(upgradeId)) {
@@ -280,7 +288,7 @@ export default function CompoundWorld({
         </div>
         <p className="toy-box-tip">
           <span aria-hidden="true">☝</span>
-          You can also tap a piece, then tap a home.
+          Drag a piece to a home. Tap a home for its check-up.
         </p>
       </aside>
 
@@ -319,6 +327,7 @@ export default function CompoundWorld({
           <div
             aria-label="Scrollable Terra World neighborhood map"
             className="world-scroll-region"
+            ref={worldScrollRef}
             role="region"
             tabIndex={0}
           >
@@ -413,6 +422,10 @@ export default function CompoundWorld({
               </div>
             </div>
           </div>
+          <p className="map-pan-hint">
+            <span aria-hidden="true">↔</span>
+            Scroll or swipe to explore
+          </p>
         </div>
 
         <footer className="neighborhood-actions">

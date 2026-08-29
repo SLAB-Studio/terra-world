@@ -4,40 +4,6 @@ import styles from "./LivingMapDecor.module.css";
 
 type DecorStyle = CSSProperties & Record<`--${string}`, string | number>;
 
-type Home = Readonly<{
-  x: number;
-  y: number;
-  wall: string;
-  roof: string;
-  owner?: Readonly<{
-    message: string;
-    shirt: string;
-  }>;
-}>;
-
-const HOMES: readonly Home[] = [
-  {
-    x: 112,
-    y: 148,
-    wall: "#ff7d4d",
-    roof: "#fff7d9",
-  },
-  {
-    x: 754,
-    y: 218,
-    wall: "#ffb842",
-    roof: "#fff7d9",
-  },
-  { x: 1450, y: 245, wall: "#be8de2", roof: "#fff7d9" },
-  { x: 270, y: 588, wall: "#ef86a7", roof: "#fff7d9" },
-  {
-    x: 1330,
-    y: 626,
-    wall: "#ff9366",
-    roof: "#fff7d9",
-  },
-] as const;
-
 const TREES = [
   [52, 360, 0.78],
   [330, 334, 0.62],
@@ -76,37 +42,6 @@ export default function LivingMapDecor() {
         </span>
       ))}
 
-      {HOMES.map((home, index) => (
-        <span
-          className={styles.homeLot}
-          key={`${home.x}-${home.y}`}
-          style={
-            {
-              "--x": `${home.x}px`,
-              "--y": `${home.y}px`,
-              "--wall": home.wall,
-              "--roof": home.roof,
-              "--delay": `${(index % 4) * -1.7}s`,
-            } as DecorStyle
-          }
-        >
-          <span className={styles.house}>
-            <i className={styles.houseShadow} />
-            <i className={styles.roof} />
-            <i className={styles.wallLeft} />
-            <i className={styles.wallRight} />
-            <i className={styles.window} />
-            <i className={styles.door} />
-          </span>
-          {home.owner ? (
-            <span className={styles.owner}>
-              <span className={styles.helpBubble}>{home.owner.message}</span>
-              <Person shirt={home.owner.shirt} pose="wave" />
-            </span>
-          ) : null}
-        </span>
-      ))}
-
       <span className={`${styles.peopleScene} ${styles.chatNorth}`}>
         <Person shirt="#ffd24a" pose="chat" />
         <span className={styles.chatMarks}>
@@ -141,7 +76,13 @@ function Person({
 }: Readonly<{ shirt: string; pose: "chat" | "play" | "wave" }>) {
   return (
     <span
-      className={`${styles.person} ${styles[`person${capitalize(pose)}`]}`}
+      className={`${styles.person} ${
+        pose === "play"
+          ? styles.personPlay
+          : pose === "wave"
+            ? styles.personWave
+            : ""
+      }`}
       style={{ "--shirt": shirt } as DecorStyle}
     >
       <i className={styles.head} />
@@ -152,8 +93,4 @@ function Person({
       <i className={styles.legRight} />
     </span>
   );
-}
-
-function capitalize(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
 }

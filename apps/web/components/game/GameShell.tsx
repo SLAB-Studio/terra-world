@@ -897,7 +897,7 @@ export default function GameShell() {
             <span aria-hidden="true">💡</span>
             <p>
               <strong>Try it and watch.</strong>
-              Every thing you add changes a home right away.
+              Everything you add changes a home right away.
             </p>
           </div>
         </aside>
