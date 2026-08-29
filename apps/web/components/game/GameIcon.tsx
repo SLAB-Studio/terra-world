@@ -20,7 +20,15 @@ type GameIconProps = {
     | "close"
     | "volume"
     | "contrast"
-    | "text";
+    | "text"
+    | "rain"
+    | "compost"
+    | "tree"
+    | "bike"
+    | "warm"
+    | "bird"
+    | "first-aid"
+    | "tools";
   readonly size?: number;
 };
 
@@ -139,6 +147,55 @@ export function GameIcon({ name, size = 22 }: GameIconProps) {
       {name === "text" && (
         <>
           <path d="M4 5h11M9.5 5v14M6 19h7M15 10h5m-2.5 0v9M15 19h5" />
+        </>
+      )}
+      {name === "rain" && (
+        <>
+          <path d="M7 15h10a4 4 0 0 0 .5-8A5.5 5.5 0 0 0 7 8.5 3.3 3.3 0 0 0 7 15Z" />
+          <path d="m8 18-1 2m5-2-1 2m5-2-1 2" />
+        </>
+      )}
+      {name === "compost" && (
+        <>
+          <path d="M5 8h14l-1 13H6L5 8Zm-1-3h16M9 5V3h6v2" />
+          <path d="M12 17v-5m0 3c-3 0-4-2-4-4 3 0 5 1 4 4Zm0 2c3 0 4-2 4-4-3 0-4 1-4 4Z" />
+        </>
+      )}
+      {name === "tree" && (
+        <>
+          <path d="M12 13v8m-3 0h6" />
+          <path d="M7.5 13.5A4 4 0 0 1 8 6a4.5 4.5 0 0 1 8.5 2A3.5 3.5 0 0 1 16 15H8.5a3 3 0 0 1-1-1.5Z" />
+        </>
+      )}
+      {name === "bike" && (
+        <>
+          <circle cx="6" cy="17" r="3.5" />
+          <circle cx="18" cy="17" r="3.5" />
+          <path d="m6 17 4-7 3 7H6Zm4-7h5l3 7m-8-7-1.5-3H6m8 0h3" />
+        </>
+      )}
+      {name === "warm" && (
+        <>
+          <path d="m4 11 8-7 8 7v9H4v-9Z" />
+          <path d="M8 16c1-1 1-2 0-3m4 3c1-1 1-2 0-3m4 3c1-1 1-2 0-3" />
+        </>
+      )}
+      {name === "bird" && (
+        <>
+          <path d="M4 15c4-1 5-5 8-7 1 3 3 4 7 4-2 5-7 7-12 6" />
+          <path d="M12 8c-3-2-6-1-8 2 3 0 5 1 7 3m8-1 2-1" />
+        </>
+      )}
+      {name === "first-aid" && (
+        <>
+          <rect height="15" rx="2" width="18" x="3" y="6" />
+          <path d="M9 6V3h6v3m-3 4v7m-3.5-3.5h7" />
+        </>
+      )}
+      {name === "tools" && (
+        <>
+          <path d="M14 6a4 4 0 0 0-5-4l2.4 2.4-3 3L6 5a4 4 0 0 0 4 5L20 20l2-2-10-10" />
+          <path d="m8 13-6 6 3 3 6-6" />
         </>
       )}
     </svg>

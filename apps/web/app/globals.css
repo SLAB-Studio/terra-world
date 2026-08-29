@@ -184,12 +184,34 @@
 .toy-shelf {
   padding: 12px;
   display: grid;
-  gap: 11px;
+  align-content: start;
+  gap: 16px;
   overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+.toy-shelf-group {
+  display: grid;
+  gap: 8px;
+}
+
+.toy-shelf-group h2 {
+  margin: 0;
+  color: #674836;
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.toy-shelf-items {
+  display: grid;
+  gap: 10px;
 }
 
 .toy-piece {
-  min-height: 102px;
+  min-height: 88px;
   padding: 10px;
   display: grid;
   grid-template-columns: 58px minmax(0, 1fr);
@@ -252,6 +274,42 @@
 .toy-recycle .toy-piece-icon {
   color: #205444;
   background: #a5e6d1;
+}
+
+.toy-rain-tank .toy-piece-icon {
+  color: #174f87;
+  background: #b7e8ff;
+}
+
+.toy-compost .toy-piece-icon {
+  color: #5a3a21;
+  background: #d9b985;
+}
+
+.toy-shade-tree .toy-piece-icon,
+.toy-bird-home .toy-piece-icon {
+  color: #245923;
+  background: #c7ee9f;
+}
+
+.toy-bike-rack .toy-piece-icon {
+  color: #254f72;
+  background: #b9d9ef;
+}
+
+.toy-insulation .toy-piece-icon {
+  color: #8b4516;
+  background: #ffd09a;
+}
+
+.toy-first-aid .toy-piece-icon {
+  color: #8f2926;
+  background: #ffb6ae;
+}
+
+.toy-repair-kit .toy-piece-icon {
+  color: #4d3a31;
+  background: #d7c5ae;
 }
 
 .toy-piece > span:last-child {
@@ -1090,6 +1148,29 @@
   background: #a5e6d1;
 }
 
+.toy-drag-ghost.toy-rain-tank,
+.toy-drag-ghost.toy-bike-rack {
+  background: #b7e8ff;
+}
+
+.toy-drag-ghost.toy-compost,
+.toy-drag-ghost.toy-repair-kit {
+  background: #d9b985;
+}
+
+.toy-drag-ghost.toy-shade-tree,
+.toy-drag-ghost.toy-bird-home {
+  background: #c7ee9f;
+}
+
+.toy-drag-ghost.toy-insulation {
+  background: #ffd09a;
+}
+
+.toy-drag-ghost.toy-first-aid {
+  background: #ffb6ae;
+}
+
 .kid-workspace .planning-panel {
   display: flex;
   flex-direction: column;
@@ -1352,6 +1433,15 @@
     gap: 9px;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
+  }
+
+  .toy-shelf-group {
+    min-width: max-content;
+  }
+
+  .toy-shelf-items {
+    display: flex;
+    gap: 9px;
   }
 
   .toy-piece {

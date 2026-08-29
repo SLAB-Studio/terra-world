@@ -22,7 +22,10 @@ import {
 import ChallengeTrail from "./ChallengeTrail";
 import { GameIcon } from "./GameIcon";
 import HouseDiagnostics, {
+  CORE_HOUSE_UPGRADE_IDS,
   getHouseHealth,
+  HOUSE_UPGRADE_IDS,
+  type CoreHouseUpgradeId,
   type HouseId,
   type HouseUpgradeId,
 } from "./HouseDiagnostics";
@@ -44,34 +47,103 @@ type CompoundWorldProps = Readonly<{
 
 const UPGRADES: readonly {
   id: UpgradeId;
+  group: "energy" | "water" | "nature" | "care" | "travel";
   label: string;
   hint: string;
   icon: Parameters<typeof GameIcon>[0]["name"];
 }[] = [
   {
     id: "light",
+    group: "energy",
     label: "Sun light",
     hint: "Lights the home",
     icon: "energy",
   },
   {
     id: "water",
+    group: "water",
     label: "Clean water",
     hint: "Helps plants grow",
     icon: "water",
   },
   {
     id: "garden",
+    group: "nature",
     label: "Garden",
     hint: "Gives nature a home",
     icon: "nature",
   },
   {
     id: "recycle",
+    group: "care",
     label: "Recycle bin",
     hint: "Keeps the yard clean",
     icon: "recycle",
   },
+  {
+    id: "rain-tank",
+    group: "water",
+    label: "Rain barrel",
+    hint: "Saves water for dry days",
+    icon: "rain",
+  },
+  {
+    id: "compost",
+    group: "nature",
+    label: "Compost box",
+    hint: "Turns scraps into plant food",
+    icon: "compost",
+  },
+  {
+    id: "shade-tree",
+    group: "nature",
+    label: "Shade tree",
+    hint: "Cools the yard naturally",
+    icon: "tree",
+  },
+  {
+    id: "bike-rack",
+    group: "travel",
+    label: "Bike rack",
+    hint: "Makes clean trips easier",
+    icon: "bike",
+  },
+  {
+    id: "insulation",
+    group: "energy",
+    label: "Cozy walls",
+    hint: "Keeps heat in or out",
+    icon: "warm",
+  },
+  {
+    id: "bird-home",
+    group: "nature",
+    label: "Bird home",
+    hint: "Welcomes tiny neighbours",
+    icon: "bird",
+  },
+  {
+    id: "first-aid",
+    group: "care",
+    label: "Safety kit",
+    hint: "Helps families stay ready",
+    icon: "first-aid",
+  },
+  {
+    id: "repair-kit",
+    group: "care",
+    label: "Fix-it kit",
+    hint: "Mends small home problems",
+    icon: "tools",
+  },
+] as const;
+
+const UPGRADE_GROUPS = [
+  { id: "energy", label: "Power & comfort" },
+  { id: "water", label: "Water helpers" },
+  { id: "nature", label: "Nature helpers" },
+  { id: "care", label: "Clean & safe" },
+  { id: "travel", label: "Getting around" },
 ] as const;
 
 const COMPOUNDS: readonly {
@@ -99,9 +171,25 @@ const RIVER_MESSAGES: Readonly<Record<UpgradeId, string>> = {
     "The garden is blooming! Flowers, trees, and vegetables give insects, birds, and families a healthier home.",
   recycle:
     "The yard is tidy! Sorting old things means less rubbish and more materials can be used again.",
+  "rain-tank":
+    "The rain barrel is filling up! Saved rainwater can help the garden during a dry week.",
+  compost:
+    "The compost box is working! Fruit peels and leaves can become rich food for the soil.",
+  "shade-tree":
+    "The new tree is casting cool shade. Trees can cool homes, hold soil, and shelter wildlife.",
+  "bike-rack":
+    "The bikes have a safe place to rest. Short bike trips can keep the air cleaner and bodies active.",
+  insulation:
+    "The walls feel cozier now. Good insulation helps a home use less energy to stay comfortable.",
+  "bird-home":
+    "A bird has a safe little home! A healthy town leaves space for people and wildlife.",
+  "first-aid":
+    "The safety kit is easy to find. Being prepared helps neighbours respond calmly to small accidents.",
+  "repair-kit":
+    "The fix-it kit is ready. Caring for small problems early can stop them from becoming big problems.",
 };
 
-const OWNER_HELP: Readonly<Record<UpgradeId, string>> = {
+const OWNER_HELP: Readonly<Record<CoreHouseUpgradeId, string>> = {
   light: "Our lights are out!",
   water: "Our garden is thirsty!",
   garden: "Can we grow a garden?",
@@ -120,7 +208,7 @@ export default function CompoundWorld({
   backgroundInert = false,
   onRiverMessage,
 }: CompoundWorldProps) {
-  const [selectedUpgrade, setSelectedUpgrade] = useState<UpgradeId>("light");
+  const [armedUpgrade, setArmedUpgrade] = useState<UpgradeId | null>(null);
   const [compounds, setCompounds] = useState(initialCompoundState);
   const [activeChallengeId, setActiveChallengeId] = useState(
     FIRST_CHALLENGE?.id ?? "sunny-after-dark",
@@ -271,6 +359,7 @@ export default function CompoundWorld({
   ]);
 
   function addUpgrade(compoundId: CompoundId, upgradeId: UpgradeId) {
+    setArmedUpgrade(null);
     if (!compounds[compoundId].includes(upgradeId)) {
       const nextTown = {
         ...compounds,
@@ -329,7 +418,9 @@ export default function CompoundWorld({
     )
       return;
     setActiveChallengeId(challenge.id);
-    setCompounds(copyChallengeSetup(challenge));
+    setCompounds((current) =>
+      preserveTownHelpers(copyChallengeSetup(challenge), current),
+    );
     setChallengeMoves(0);
     setChallengeHintsUsed(0);
     setAttemptComplete(false);
@@ -359,7 +450,7 @@ export default function CompoundWorld({
     upgradeId: UpgradeId,
   ) {
     if (event.pointerType === "mouse" && event.button !== 0) return;
-    setSelectedUpgrade(upgradeId);
+    setArmedUpgrade(null);
     const next = { id: upgradeId, x: event.clientX, y: event.clientY };
     dragPieceRef.current = next;
     setDragPiece(next);
@@ -397,35 +488,52 @@ export default function CompoundWorld({
         aria-labelledby="toy-box-heading"
       >
         <div className="toy-box-heading">
-          <span aria-hidden="true">☀</span>
+          <span aria-hidden="true">
+            <GameIcon name="tools" size={25} />
+          </span>
           <div>
             <h1 id="toy-box-heading">Things to add</h1>
-            <p>Drag one to a home</p>
+            <p>12 helpers for your town</p>
           </div>
         </div>
         <div className="toy-shelf">
-          {UPGRADES.map((upgrade) => (
-            <button
-              aria-pressed={selectedUpgrade === upgrade.id}
-              className={`toy-piece toy-${upgrade.id}`}
-              key={upgrade.id}
-              onClick={() => setSelectedUpgrade(upgrade.id)}
-              onPointerDown={(event) => startDrag(event, upgrade.id)}
-              type="button"
-            >
-              <span className="toy-piece-icon">
-                <GameIcon name={upgrade.icon} size={36} />
-              </span>
-              <span>
-                <strong>{upgrade.label}</strong>
-                <small>{upgrade.hint}</small>
-              </span>
-            </button>
+          {UPGRADE_GROUPS.map((group) => (
+            <section className="toy-shelf-group" key={group.id}>
+              <h2>{group.label}</h2>
+              <div className="toy-shelf-items">
+                {UPGRADES.filter((upgrade) => upgrade.group === group.id).map(
+                  (upgrade) => (
+                    <button
+                      aria-label={`${upgrade.label}. ${upgrade.hint}. Drag to a home.`}
+                      aria-pressed={armedUpgrade === upgrade.id}
+                      className={`toy-piece toy-${upgrade.id}`}
+                      key={upgrade.id}
+                      onClick={() => {
+                        setArmedUpgrade((current) =>
+                          current === upgrade.id ? null : upgrade.id,
+                        );
+                      }}
+                      onPointerDown={(event) => startDrag(event, upgrade.id)}
+                      type="button"
+                    >
+                      <span className="toy-piece-icon">
+                        <GameIcon name={upgrade.icon} size={34} />
+                      </span>
+                      <span>
+                        <strong>{upgrade.label}</strong>
+                        <small>{upgrade.hint}</small>
+                      </span>
+                    </button>
+                  ),
+                )}
+              </div>
+            </section>
           ))}
         </div>
         <p className="toy-box-tip">
           <span aria-hidden="true">☝</span>
-          Drag a piece to a home. Tap a home for its check-up.
+          Drag a helper—or tap it, then tap a home. Tap a home alone for its
+          check-up.
         </p>
       </aside>
 
@@ -482,7 +590,7 @@ export default function CompoundWorld({
           >
             <div className="world-canvas is-immersive-3d">
               <ImmersiveTownMap
-                activeUpgradeId={dragPiece?.id ?? null}
+                activeUpgradeId={dragPiece?.id ?? armedUpgrade}
                 houses={compounds}
                 onHouseDrop={addUpgrade}
                 onHouseSelect={setSelectedCompound}
@@ -512,7 +620,13 @@ export default function CompoundWorld({
                       }${health.allHealthy ? " is-healthy" : " needs-help"}`}
                       data-compound-id={compound.id}
                       key={compound.id}
-                      onClick={() => setSelectedCompound(compound.id)}
+                      onClick={() => {
+                        if (armedUpgrade !== null) {
+                          addUpgrade(compound.id, armedUpgrade);
+                        } else {
+                          setSelectedCompound(compound.id);
+                        }
+                      }}
                       type="button"
                     >
                       <span className="compound-scene" aria-hidden="true">
@@ -745,15 +859,35 @@ function isChallengeTown(
       Array.isArray(upgrades) &&
       upgrades.length <= UPGRADES.length &&
       new Set(upgrades).size === upgrades.length &&
-      upgrades.every(
-        (upgrade) =>
-          upgrade === "light" ||
-          upgrade === "water" ||
-          upgrade === "garden" ||
-          upgrade === "recycle",
-      )
+      upgrades.every(isHouseUpgradeId)
     );
   });
+}
+
+function isHouseUpgradeId(value: unknown): value is HouseUpgradeId {
+  return (
+    typeof value === "string" &&
+    HOUSE_UPGRADE_IDS.some((upgrade) => upgrade === value)
+  );
+}
+
+function preserveTownHelpers(
+  setup: Readonly<Record<CompoundId, readonly string[]>>,
+  current: Readonly<Record<CompoundId, readonly UpgradeId[]>>,
+): Record<CompoundId, readonly UpgradeId[]> {
+  const merge = (compoundId: CompoundId): readonly UpgradeId[] => {
+    const core = setup[compoundId].filter(isHouseUpgradeId);
+    const helpers = current[compoundId].filter(
+      (upgrade) =>
+        !CORE_HOUSE_UPGRADE_IDS.some((coreUpgrade) => coreUpgrade === upgrade),
+    );
+    return [...core, ...helpers];
+  };
+  return {
+    sunny: merge("sunny"),
+    bluebell: merge("bluebell"),
+    mango: merge("mango"),
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
