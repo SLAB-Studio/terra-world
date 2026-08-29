@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@terra/campaign-schema": ["../campaign-schema/src/index.ts"]
+    },
+    "types": ["vitest/globals"]
+  },
+  "include": ["src/**/*.ts"]
+}

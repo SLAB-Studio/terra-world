@@ -77,6 +77,22 @@ importers:
         specifier: ^3.1.1
         version: 3.2.7(@types/node@22.20.1)
 
+  packages/safety:
+    dependencies:
+      '@terra/campaign-schema':
+        specifier: workspace:*
+        version: link:../campaign-schema
+      zod:
+        specifier: ^3.24.2
+        version: 3.25.76
+    devDependencies:
+      typescript:
+        specifier: ^5.8.2
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.1
+        version: 3.2.7(@types/node@22.20.1)
+
   packages/simulation:
     dependencies:
       '@terra/campaign-schema':
