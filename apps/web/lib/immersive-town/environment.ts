@@ -14,6 +14,7 @@ import {
   sampleRoadFrame,
 } from "./road";
 import { createTownDistricts } from "./town-districts";
+import type { TownHouseMetadata } from "./types";
 
 export type TownEnvironment = Readonly<{
   root: TransformNode;
@@ -23,6 +24,7 @@ export type TownEnvironment = Readonly<{
   treeCanopies: readonly TransformNode[];
   cloudRoots: readonly TransformNode[];
   lampBulbs: readonly Mesh[];
+  houses: readonly TownHouseMetadata[];
   dispose(): void;
 }>;
 
@@ -37,6 +39,7 @@ export function createTownEnvironment(
   const treeCanopies: TransformNode[] = [];
   const cloudRoots: TransformNode[] = [];
   const lampBulbs: Mesh[] = [];
+  let districtHouses: readonly TownHouseMetadata[] = [];
 
   const terrain = MeshBuilder.CreateBox(
     "terrain-extruded-base",
@@ -300,6 +303,7 @@ export function createTownEnvironment(
   const districts = createTownDistricts(scene, materials, shadows);
   districts.root.parent = root;
   treeCanopies.push(...districts.treeCanopies);
+  districtHouses = districts.houses;
 
   for (const [index, x, z, scale] of [
     [0, -48, -32, 1.2],
@@ -317,6 +321,7 @@ export function createTownEnvironment(
     treeCanopies,
     cloudRoots,
     lampBulbs,
+    houses: districtHouses,
     dispose: () => root.dispose(false),
   };
 }

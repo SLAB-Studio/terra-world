@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { SECONDARY_HOME_LAYOUT } from "./town-districts";
 
 describe("Rivergate secondary district layout", () => {
-  it("adds enough non-playable homes for a visibly established town", () => {
+  it("adds enough background homes for a visibly established town", () => {
     expect(SECONDARY_HOME_LAYOUT.length).toBeGreaterThanOrEqual(12);
     expect(new Set(SECONDARY_HOME_LAYOUT.map((home) => home.id)).size).toBe(
       SECONDARY_HOME_LAYOUT.length,

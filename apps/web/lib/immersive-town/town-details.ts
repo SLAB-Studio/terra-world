@@ -9,10 +9,13 @@ import {
   type TownCharacterRig,
 } from "./characters-3d";
 import type { TownMaterials } from "./materials";
+import { TOWN_DETAIL_HOME_PROFILES } from "./neighborhood-home-stories";
 import { renderedRoadHeight, sampleRoadFrame } from "./road";
+import type { TownHouseMetadata } from "./types";
 
 export type TownDetails = Readonly<{
   root: TransformNode;
+  houses: readonly TownHouseMetadata[];
   ambientActors: readonly TownCharacterRig[];
   playgroundSpinners: readonly TransformNode[];
 }>;
@@ -30,6 +33,7 @@ export function createTownDetails(
 ): TownDetails {
   const root = new TransformNode("rivergate-town-details", scene);
   const ambientActors: TownCharacterRig[] = [];
+  const houses: TownHouseMetadata[] = [];
   const playgroundSpinners: TransformNode[] = [];
 
   const homeStyles: readonly HomeStyle[] = [
@@ -61,18 +65,23 @@ export function createTownDetails(
     [31, 68, Math.PI - 0.06],
     [50, 67, Math.PI + 0.05],
   ] as const;
-  neighborhoodHomes.forEach(([x, z, rotation], index) =>
-    createNeighborhoodHome(
-      scene,
-      root,
-      shadows,
-      materials,
-      index,
-      new Vector3(x, 0.75, z),
-      rotation,
-      homeStyles[index % homeStyles.length] ?? homeStyles[0]!,
-    ),
-  );
+  neighborhoodHomes.forEach(([x, z, rotation], index) => {
+    const profile = TOWN_DETAIL_HOME_PROFILES[index];
+    if (profile === undefined) return;
+    houses.push(
+      createNeighborhoodHome(
+        scene,
+        root,
+        shadows,
+        materials,
+        profile.id,
+        profile.displayName,
+        new Vector3(x, 0.75, z),
+        rotation,
+        homeStyles[index % homeStyles.length] ?? homeStyles[0]!,
+      ),
+    );
+  });
 
   createSchool(scene, root, materials, shadows);
   createClinic(scene, root, materials, shadows);
@@ -85,7 +94,7 @@ export function createTownDetails(
   createDog(scene, root, shadows, materials, "market-dog", 50, 12, 0.8);
   createDog(scene, root, shadows, materials, "river-dog", -4, 44, -0.65);
 
-  return { root, ambientActors, playgroundSpinners };
+  return { root, houses, ambientActors, playgroundSpinners };
 }
 
 function createNeighborhoodHome(
@@ -93,18 +102,19 @@ function createNeighborhoodHome(
   parent: TransformNode,
   shadows: ShadowGenerator,
   materials: TownMaterials,
-  index: number,
+  id: string,
+  displayName: string,
   position: Vector3,
   rotation: number,
   style: HomeStyle,
-) {
-  const home = new TransformNode(`neighborhood-home-${index}`, scene);
+): TownHouseMetadata {
+  const home = new TransformNode(id, scene);
   home.position.copyFrom(position);
   home.rotation.y = rotation;
   home.parent = parent;
 
   const foundation = MeshBuilder.CreateBox(
-    `neighborhood-home-${index}-foundation`,
+    `${id}-foundation`,
     { width: 7.8, height: 0.45, depth: 6.7 },
     scene,
   );
@@ -113,7 +123,7 @@ function createNeighborhoodHome(
   finishProp(foundation, home, shadows, true);
 
   const walls = MeshBuilder.CreateBox(
-    `neighborhood-home-${index}-walls`,
+    `${id}-walls`,
     { width: 6.9, height: 3.5, depth: 5.9 },
     scene,
   );
@@ -126,7 +136,7 @@ function createNeighborhoodHome(
     [1, 1.95, -0.57],
   ] as const) {
     const roof = MeshBuilder.CreateBox(
-      `neighborhood-home-${index}-roof-${side}`,
+      `${id}-roof-${side}`,
       { width: 4.7, height: 0.48, depth: 6.8 },
       scene,
     );
@@ -137,7 +147,7 @@ function createNeighborhoodHome(
   }
 
   const door = MeshBuilder.CreateBox(
-    `neighborhood-home-${index}-door`,
+    `${id}-door`,
     { width: 1.2, height: 2.1, depth: 0.18 },
     scene,
   );
@@ -147,7 +157,7 @@ function createNeighborhoodHome(
 
   for (const side of [-1, 1]) {
     const window = MeshBuilder.CreateBox(
-      `neighborhood-home-${index}-window-${side}`,
+      `${id}-window-${side}`,
       { width: 1.25, height: 1.1, depth: 0.17 },
       scene,
     );
@@ -157,13 +167,42 @@ function createNeighborhoodHome(
   }
 
   const hedge = MeshBuilder.CreateBox(
-    `neighborhood-home-${index}-hedge`,
+    `${id}-hedge`,
     { width: 6.8, height: 0.85, depth: 0.8 },
     scene,
   );
   hedge.position.set(0, 0.78, 3.25);
   hedge.material = materials.hedge;
   finishProp(hedge, home, shadows);
+
+  home.computeWorldMatrix(true);
+  const meshes = home.getChildMeshes();
+  meshes.forEach((mesh) => {
+    mesh.isPickable = true;
+    mesh.metadata = {
+      ...(typeof mesh.metadata === "object" && mesh.metadata !== null
+        ? mesh.metadata
+        : {}),
+      kind: "terra-house",
+      houseId: id,
+      compoundId: "rivergate-neighborhood",
+      displayName,
+    };
+  });
+  walls.metadata = {
+    ...walls.metadata,
+    interactionRole: "house-pick-surface",
+  };
+
+  return {
+    id,
+    compoundId: "rivergate-neighborhood",
+    displayName,
+    root: home,
+    pickMesh: walls,
+    meshes,
+    worldPosition: home.getAbsolutePosition().clone(),
+  };
 }
 
 function createSchool(

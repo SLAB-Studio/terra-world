@@ -107,6 +107,11 @@ export function createImmersiveTownWorld(
   const environment = createTownEnvironment(scene, materials, shadows);
   const compoundWorld = createTownCompounds(scene, materials, shadows);
   const details = createTownDetails(scene, materials, shadows);
+  const houses = [
+    ...compoundWorld.houses,
+    ...details.houses,
+    ...environment.houses,
+  ];
   const animation = createTownAnimationController(
     scene,
     {
@@ -121,16 +126,14 @@ export function createImmersiveTownWorld(
     options.reducedMotion ?? false,
   );
 
-  const housesByMeshId = indexHouseMeshes(compoundWorld.houses);
-  const housesById = new Map(
-    compoundWorld.houses.map((house) => [house.id, house] as const),
-  );
+  const housesByMeshId = indexHouseMeshes(houses);
+  const housesById = new Map(houses.map((house) => [house.id, house] as const));
   scene.metadata = {
     ...(typeof scene.metadata === "object" && scene.metadata !== null
       ? scene.metadata
       : {}),
     kind: "terra-immersive-town",
-    houseCount: compoundWorld.houses.length,
+    houseCount: houses.length,
     compoundCount: compoundWorld.compounds.length,
   };
 
@@ -140,7 +143,7 @@ export function createImmersiveTownWorld(
     scene,
     camera,
     compounds: compoundWorld.compounds,
-    houses: compoundWorld.houses,
+    houses,
     animation,
     getHouseFromMesh(mesh) {
       if (mesh === null) return null;

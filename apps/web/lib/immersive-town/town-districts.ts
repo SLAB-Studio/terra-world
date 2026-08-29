@@ -1,6 +1,7 @@
 import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
 import type { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import "@babylonjs/core/Meshes/instancedMesh";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
@@ -8,6 +9,8 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
 
 import type { TownMaterials } from "./materials";
+import { neighborhoodHomeProfile } from "./neighborhood-home-stories";
+import type { TownHouseMetadata } from "./types";
 
 type SecondaryHomeStyleId = "orchard" | "river" | "sunflower";
 
@@ -134,6 +137,7 @@ export const SECONDARY_HOME_LAYOUT: readonly SecondaryHomePlacement[] = [
 
 export type TownDistricts = Readonly<{
   root: TransformNode;
+  houses: readonly TownHouseMetadata[];
   buildingCount: number;
   streetFurnitureCount: number;
   treeCanopies: readonly TransformNode[];
@@ -169,28 +173,32 @@ export function createTownDistricts(
     },
   };
 
-  createInstancedHomes(scene, root, materials, shadows, styles);
-  createApartment(
-    scene,
-    root,
-    materials,
-    shadows,
-    "west",
-    -72,
-    45,
-    0.08,
-    styles.orchard,
+  const houses = createInstancedHomes(scene, root, materials, shadows, styles);
+  houses.push(
+    createApartment(
+      scene,
+      root,
+      materials,
+      shadows,
+      "west",
+      -72,
+      45,
+      0.08,
+      styles.orchard,
+    ),
   );
-  createApartment(
-    scene,
-    root,
-    materials,
-    shadows,
-    "east",
-    72,
-    43,
-    -0.08,
-    styles.river,
+  houses.push(
+    createApartment(
+      scene,
+      root,
+      materials,
+      shadows,
+      "east",
+      72,
+      43,
+      -0.08,
+      styles.river,
+    ),
   );
 
   const treeCanopies = createDistrictTrees(scene, root, materials, shadows);
@@ -204,6 +212,7 @@ export function createTownDistricts(
 
   return {
     root,
+    houses,
     buildingCount: SECONDARY_HOME_LAYOUT.length + 2,
     streetFurnitureCount,
     treeCanopies,
@@ -216,7 +225,8 @@ function createInstancedHomes(
   materials: TownMaterials,
   shadows: ShadowGenerator,
   styles: Readonly<Record<SecondaryHomeStyleId, HomeStyle>>,
-) {
+): TownHouseMetadata[] {
+  const houses: TownHouseMetadata[] = [];
   for (const styleId of ["orchard", "river", "sunflower"] as const) {
     const placements = SECONDARY_HOME_LAYOUT.filter(
       (placement) => placement.style === styleId,
@@ -233,20 +243,69 @@ function createInstancedHomes(
       `district-home-${styleId}-source`,
       styles[styleId],
     );
+    houses.push(
+      registerInteractiveHome(
+        first,
+        sourceRoot,
+        sources,
+        sources[1] ?? sources[0]!,
+      ),
+    );
 
     placements.slice(1).forEach((placement) => {
       const instanceRoot = createHomeRoot(scene, parent, placement);
-      sources.forEach((source, partIndex) => {
+      const instances = sources.map((source, partIndex) => {
         const instance = source.createInstance(
           `district-home-${placement.id}-part-${partIndex}`,
         );
         instance.parent = instanceRoot;
-        instance.isPickable = false;
         instance.receiveShadows = source.receiveShadows;
         if (partIndex <= 3) shadows.addShadowCaster(instance);
+        return instance;
       });
+      houses.push(
+        registerInteractiveHome(
+          placement,
+          instanceRoot,
+          instances,
+          instances[1] ?? instances[0]!,
+        ),
+      );
     });
   }
+  return houses;
+}
+
+function registerInteractiveHome(
+  placement: SecondaryHomePlacement,
+  root: TransformNode,
+  meshes: readonly AbstractMesh[],
+  pickMesh: AbstractMesh,
+): TownHouseMetadata {
+  const id = `district-home-${placement.id}`;
+  const profile = neighborhoodHomeProfile(id);
+  root.computeWorldMatrix(true);
+  meshes.forEach((mesh) => {
+    mesh.isPickable = true;
+    mesh.metadata = {
+      ...(typeof mesh.metadata === "object" && mesh.metadata !== null
+        ? mesh.metadata
+        : {}),
+      kind: "terra-house",
+      houseId: id,
+      compoundId: "rivergate-neighborhood",
+      displayName: profile.displayName,
+    };
+  });
+  return {
+    id,
+    compoundId: "rivergate-neighborhood",
+    displayName: profile.displayName,
+    root,
+    pickMesh,
+    meshes,
+    worldPosition: root.getAbsolutePosition().clone(),
+  };
 }
 
 function createHomeRoot(
@@ -345,8 +404,10 @@ function createApartment(
   z: number,
   rotation: number,
   style: HomeStyle,
-) {
-  const root = new TransformNode(`district-apartments-${id}`, scene);
+): TownHouseMetadata {
+  const houseId = `district-apartments-${id}`;
+  const profile = neighborhoodHomeProfile(houseId);
+  const root = new TransformNode(houseId, scene);
   root.position.set(x, 0.75, z);
   root.rotation.y = rotation;
   root.parent = parent;
@@ -401,6 +462,34 @@ function createApartment(
     balcony.material = materials.bridge;
     finishStatic(balcony, root, shadows, true);
   }
+
+  root.computeWorldMatrix(true);
+  const meshes = root.getChildMeshes();
+  meshes.forEach((mesh) => {
+    mesh.isPickable = true;
+    mesh.metadata = {
+      ...(typeof mesh.metadata === "object" && mesh.metadata !== null
+        ? mesh.metadata
+        : {}),
+      kind: "terra-house",
+      houseId,
+      compoundId: "rivergate-neighborhood",
+      displayName: profile.displayName,
+    };
+  });
+  building.metadata = {
+    ...building.metadata,
+    interactionRole: "house-pick-surface",
+  };
+  return {
+    id: houseId,
+    compoundId: "rivergate-neighborhood",
+    displayName: profile.displayName,
+    root,
+    pickMesh: building,
+    meshes,
+    worldPosition: root.getAbsolutePosition().clone(),
+  };
 }
 
 function createDistrictTrees(

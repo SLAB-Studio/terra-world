@@ -2,12 +2,14 @@ import type { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import type { Engine } from "@babylonjs/core/Engines/engine";
 import type { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
-import type { Mesh } from "@babylonjs/core/Meshes/mesh";
 import type { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
 
 export type TownCompoundId =
-  "sunflower-court" | "riverbend-gardens" | "orchard-lane";
+  | "sunflower-court"
+  | "riverbend-gardens"
+  | "orchard-lane"
+  | "rivergate-neighborhood";
 
 export type TownQuality = "low" | "medium" | "high";
 
@@ -16,7 +18,7 @@ export type TownHouseMetadata = Readonly<{
   compoundId: TownCompoundId;
   displayName: string;
   root: TransformNode;
-  pickMesh: Mesh;
+  pickMesh: AbstractMesh;
   meshes: readonly AbstractMesh[];
   worldPosition: Vector3;
 }>;
