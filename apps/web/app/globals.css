@@ -5336,15 +5336,15 @@ body {
 }
 
 .world-canvas .compound-bluebell {
-  top: 112px;
+  top: 180px;
   right: auto;
-  left: 1080px;
+  left: 780px;
 }
 
 .world-canvas .compound-mango {
-  top: 548px;
+  top: 610px;
   bottom: auto;
-  left: 865px;
+  left: 1320px;
 }
 
 .world-canvas .compound-name,
@@ -5505,6 +5505,33 @@ body {
   z-index: 40;
 }
 
+.map-pan-hint {
+  position: absolute;
+  z-index: 40;
+  right: 22px;
+  bottom: 22px;
+  margin: 0;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 3px solid #2b190f;
+  border-radius: 999px;
+  color: #2b190f;
+  background: #fff7dd;
+  box-shadow: 0 4px 0 rgba(43, 25, 15, 0.2);
+  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-size: 0.76rem;
+  font-weight: 850;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.map-pan-hint span {
+  color: #f0643b;
+  font-size: 1.15rem;
+}
+
 .town-awake .world-canvas {
   animation: map-life-breathe 900ms ease-in-out 2;
 }
@@ -5555,18 +5582,25 @@ body {
   }
 
   .world-canvas .compound-bluebell {
-    top: 112px;
-    left: 1080px;
+    top: 180px;
+    left: 780px;
   }
 
   .world-canvas .compound-mango {
-    top: 548px;
-    left: 865px;
+    top: 610px;
+    left: 1320px;
   }
 
   .neighborhood-actions {
     right: 18px;
     bottom: 24px;
+  }
+
+  .map-pan-hint {
+    right: 13px;
+    bottom: 78px;
+    padding: 7px 10px;
+    font-size: 0.7rem;
   }
 }
 
