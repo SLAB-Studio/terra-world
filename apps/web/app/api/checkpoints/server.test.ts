@@ -171,6 +171,20 @@ describe("authenticated checkpoint API contract", () => {
     },
   );
 
+  it("rejects an allowed Origin header when the request URL is cross-origin", async () => {
+    const remote = fakeRemote();
+    const request = uploadRequest();
+    const crossOriginRequest = new Request(
+      `https://unexpected.example${new URL(request.url).pathname}`,
+      request,
+    );
+
+    const response = await makeHandler({ remote })(crossOriginRequest);
+
+    expect(response.status).toBe(403);
+    expect(remote.upload).not.toHaveBeenCalled();
+  });
+
   it("rejects oversized and extra-field bodies before sponsored storage", async () => {
     const remote = fakeRemote();
     const handler = makeHandler({ remote });

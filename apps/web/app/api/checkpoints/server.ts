@@ -429,7 +429,11 @@ function isAllowedOrigin(
   allowedOrigins: Set<string>,
 ): boolean {
   const origin = request.headers.get("origin");
-  return origin !== null && allowedOrigins.has(origin);
+  return (
+    origin !== null &&
+    allowedOrigins.has(origin) &&
+    new URL(request.url).origin === origin
+  );
 }
 
 function validateOrigins(origins: readonly string[]): Set<string> {
