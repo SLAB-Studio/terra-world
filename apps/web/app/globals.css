@@ -73,6 +73,46 @@
   font-weight: 800;
 }
 
+.game-header-controls {
+  grid-area: adult;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.game-shell .town-sound-entry {
+  min-height: 48px;
+  padding: 8px 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 3px solid #2b190f;
+  border-radius: 16px;
+  color: #2b190f;
+  background: #e2f4d4;
+  box-shadow: 0 4px 0 #2b190f;
+  font-family: "Baloo 2", ui-rounded, sans-serif;
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.game-shell .town-sound-entry[aria-pressed="false"] {
+  background: #f4ead7;
+}
+
+.game-shell .town-sound-entry:hover {
+  background: #ffd969;
+  transform: translateY(-1px);
+}
+
+.game-shell .town-sound-entry:focus-visible {
+  outline: 4px solid #137989;
+  outline-offset: 3px;
+}
+
 .game-shell .adult-entry:hover {
   background: #ffe58d;
   transform: translateY(-1px);
@@ -1271,6 +1311,18 @@
     min-height: 44px;
     padding: 7px 10px;
     font-size: 0.72rem;
+  }
+
+  .game-header-controls {
+    gap: 6px;
+  }
+
+  .game-shell .town-sound-entry {
+    width: 44px;
+    min-height: 44px;
+    padding: 7px;
+    overflow: hidden;
+    font-size: 0;
   }
 
   .kid-workspace {

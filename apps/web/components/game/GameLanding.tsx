@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { ChallengeWelcomeProgress } from "../../lib/challenges/welcome-progress";
+import { normalisePlayerName, playerDisplayName } from "../../lib/player-name";
 import { GameIcon } from "./GameIcon";
 import styles from "./GameLanding.module.css";
 
@@ -10,9 +11,13 @@ type GameLandingProps = Readonly<{
   errorMessage: string | null;
   hasSavedGame: boolean;
   loading: boolean;
+  playerName: string;
   playerRoleLabel: string;
   progress: ChallengeWelcomeProgress | null;
+  soundOn: boolean;
   onContinue: () => void;
+  onPlayerNameChange: (name: string) => void;
+  onSoundToggle: () => void;
   onStart: () => Promise<void>;
 }>;
 
@@ -20,15 +25,22 @@ export default function GameLanding({
   errorMessage,
   hasSavedGame,
   loading,
+  playerName,
   playerRoleLabel,
   progress,
+  soundOn,
   onContinue,
+  onPlayerNameChange,
+  onSoundToggle,
   onStart,
 }: GameLandingProps) {
   const [confirmNewGame, setConfirmNewGame] = useState(false);
+  const [nameError, setNameError] = useState(false);
   const startNewButtonRef = useRef<HTMLButtonElement>(null);
   const keepTownButtonRef = useRef<HTMLButtonElement>(null);
-  const welcomeName = hasSavedGame ? playerRoleLabel : "City Builder";
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const safePlayerName = normalisePlayerName(playerName);
+  const welcomeName = playerDisplayName(playerName);
 
   useEffect(() => {
     if (!confirmNewGame) return;
@@ -47,16 +59,38 @@ export default function GameLanding({
     window.requestAnimationFrame(() => startNewButtonRef.current?.focus());
   }
 
+  function canEnterTown(): boolean {
+    if (safePlayerName.length > 0) {
+      setNameError(false);
+      if (safePlayerName !== playerName) onPlayerNameChange(safePlayerName);
+      return true;
+    }
+    setNameError(true);
+    nameInputRef.current?.focus();
+    return false;
+  }
+
   return (
     <main className={styles.screen}>
       <header className={styles.header}>
-        <div className={styles.brandMark} aria-hidden="true">
-          <span />
+        <div className={styles.brandLockup}>
+          <div className={styles.brandMark} aria-hidden="true">
+            <span />
+          </div>
+          <div>
+            <strong>Terra World</strong>
+            <span>Build a kinder, greener city</span>
+          </div>
         </div>
-        <div>
-          <strong>Terra World</strong>
-          <span>Build a kinder, greener city</span>
-        </div>
+        <button
+          aria-pressed={soundOn}
+          className={styles.soundButton}
+          onClick={onSoundToggle}
+          type="button"
+        >
+          <GameIcon name="volume" size={20} />
+          {soundOn ? "Music on" : "Play music"}
+        </button>
       </header>
 
       <div className={styles.gameFrame}>
@@ -70,6 +104,34 @@ export default function GameLanding({
               choice changes Rivergate.
             </p>
           </div>
+
+          <label className={styles.nameField} htmlFor="builder-name">
+            <span>What should River call you?</span>
+            <input
+              aria-describedby="builder-name-help builder-name-error"
+              autoComplete="nickname"
+              id="builder-name"
+              maxLength={24}
+              onChange={(event) => {
+                onPlayerNameChange(event.target.value);
+                if (event.target.value.trim().length > 0) setNameError(false);
+              }}
+              placeholder="Your builder nickname"
+              ref={nameInputRef}
+              value={playerName}
+            />
+            <small id="builder-name-help">
+              Use a nickname. Only this device remembers it.
+            </small>
+            <small
+              className={styles.nameError}
+              hidden={!nameError}
+              id="builder-name-error"
+              role="alert"
+            >
+              Pick a builder nickname before entering Rivergate.
+            </small>
+          </label>
 
           {hasSavedGame && progress !== null && (
             <section className={styles.saveSummary} aria-label="Saved game">
@@ -96,7 +158,9 @@ export default function GameLanding({
               <button
                 className={styles.primaryAction}
                 disabled={loading}
-                onClick={onContinue}
+                onClick={() => {
+                  if (canEnterTown()) onContinue();
+                }}
                 type="button"
               >
                 <span>
@@ -109,7 +173,9 @@ export default function GameLanding({
               <button
                 className={styles.primaryAction}
                 disabled={loading}
-                onClick={() => void onStart()}
+                onClick={() => {
+                  if (canEnterTown()) void onStart();
+                }}
                 type="button"
               >
                 <span>
@@ -144,7 +210,9 @@ export default function GameLanding({
               <div>
                 <button
                   disabled={loading}
-                  onClick={() => void onStart()}
+                  onClick={() => {
+                    if (canEnterTown()) void onStart();
+                  }}
                   type="button"
                 >
                   {loading ? "Starting…" : "Yes, Start Over"}
@@ -168,7 +236,8 @@ export default function GameLanding({
           )}
 
           <p className={styles.safetyNote}>
-            No account or wallet needed. Your town stays on this device.
+            No account or wallet needed. Your nickname and town stay on this
+            device.
           </p>
         </section>
 
@@ -220,8 +289,10 @@ export default function GameLanding({
           </div>
           <p className={styles.guideBubble}>
             {hasSavedGame
-              ? "I kept your place! Ready to help the town?"
-              : "Rivergate needs your ideas. Let’s build!"}
+              ? `I kept your place, ${welcomeName}! Ready to help the town?`
+              : safePlayerName.length > 0
+                ? `Hi ${welcomeName}! Rivergate needs your ideas.`
+                : `Choose a nickname, ${playerRoleLabel}. Then let’s build!`}
           </p>
 
           <div className={styles.worldPromise}>

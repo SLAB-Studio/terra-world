@@ -38,12 +38,19 @@ import {
   type ChallengeWelcomeProgress,
 } from "../../lib/challenges/welcome-progress";
 import {
+  normalisePlayerName,
+  playerDisplayName,
+  PLAYER_NAME_STORAGE_KEY,
+  readStoredPlayerName,
+} from "../../lib/player-name";
+import {
   createOfflinePersistence,
   type OfflinePersistence,
 } from "../../lib/offline";
 import CompoundWorld from "./CompoundWorld";
 import GameLanding from "./GameLanding";
 import { GameIcon } from "./GameIcon";
+import TownSoundscape, { requestTownAudioStart } from "./TownSoundscape";
 
 const RIVERGATE_CITY_ID = "rivergate-city";
 const LOCAL_PROFILE_ID = "local-builder";
@@ -103,6 +110,7 @@ export default function GameShell() {
     useState<ChallengeWelcomeProgress | null>(null);
   const [entryBusy, setEntryBusy] = useState(false);
   const [entryError, setEntryError] = useState<string | null>(null);
+  const [playerName, setPlayerName] = useState("");
   const [playerRole, setPlayerRole] = useState<PlayerRole>("water-keeper");
   const [colourTheme, setColourTheme] = useState<
     "sunrise" | "river" | "forest"
@@ -366,6 +374,11 @@ export default function GameShell() {
         const localChallengeProgress = readChallengeWelcomeProgress(
           window.localStorage.getItem(CHALLENGE_PROGRESS_STORAGE_KEY),
         );
+        setPlayerName(
+          readStoredPlayerName(
+            window.localStorage.getItem(PLAYER_NAME_STORAGE_KEY),
+          ),
+        );
         setWelcomeProgress(localChallengeProgress);
         setHasSavedGame(campaignRestored || localChallengeProgress !== null);
         if (!disposed) {
@@ -377,6 +390,11 @@ export default function GameShell() {
         if (!disposed) {
           const localChallengeProgress = readChallengeWelcomeProgress(
             window.localStorage.getItem(CHALLENGE_PROGRESS_STORAGE_KEY),
+          );
+          setPlayerName(
+            readStoredPlayerName(
+              window.localStorage.getItem(PLAYER_NAME_STORAGE_KEY),
+            ),
           );
           setWelcomeProgress(localChallengeProgress);
           setHasSavedGame(localChallengeProgress !== null);
@@ -431,6 +449,19 @@ export default function GameShell() {
   function enterRivergate() {
     const persistence = persistenceRef.current;
     const now = Date.now();
+    const safePlayerName = normalisePlayerName(playerName);
+    setPlayerName(safePlayerName);
+    window.localStorage.setItem(PLAYER_NAME_STORAGE_KEY, safePlayerName);
+    setExpertMessages((messages) =>
+      messages.map((message) =>
+        message.id === "river-welcome"
+          ? {
+              ...message,
+              text: `Hi ${playerDisplayName(safePlayerName)}! I’m River. Drag something onto a home, then ask me what changed!`,
+            }
+          : message,
+      ),
+    );
     if (persistence !== null) {
       void Promise.all([
         persistence.saveProfile({
@@ -483,8 +514,7 @@ export default function GameShell() {
   }
 
   function continueRivergate() {
-    setOnboardingComplete(true);
-    window.scrollTo({ top: 0, behavior: "auto" });
+    enterRivergate();
   }
 
   function saveAccessibilitySettings(next: {
@@ -495,6 +525,7 @@ export default function GameShell() {
     const nextContrast = next.highContrast ?? highContrast;
     const nextTextScale = next.textScale ?? textScale;
     const nextMuted = next.muted ?? muted;
+    if (!nextMuted) requestTownAudioStart();
     setHighContrast(nextContrast);
     setTextScale(nextTextScale);
     setMuted(nextMuted);
@@ -708,296 +739,331 @@ export default function GameShell() {
 
   if (!onboardingComplete) {
     return (
-      <GameLanding
-        errorMessage={entryError}
-        hasSavedGame={hasSavedGame}
-        loading={entryBusy}
-        onContinue={continueRivergate}
-        onStart={startNewRivergate}
-        playerRoleLabel={
-          PLAYER_ROLES.find((role) => role.id === playerRole)?.label ??
-          "City Builder"
-        }
-        progress={welcomeProgress}
-      />
+      <>
+        <TownSoundscape mode="welcome" muted={muted} />
+        <GameLanding
+          errorMessage={entryError}
+          hasSavedGame={hasSavedGame}
+          loading={entryBusy}
+          onContinue={continueRivergate}
+          onPlayerNameChange={setPlayerName}
+          onSoundToggle={() => {
+            if (muted) requestTownAudioStart();
+            saveAccessibilitySettings({ muted: !muted });
+          }}
+          onStart={startNewRivergate}
+          playerName={playerName}
+          playerRoleLabel={
+            PLAYER_ROLES.find((role) => role.id === playerRole)?.label ??
+            "City Builder"
+          }
+          progress={welcomeProgress}
+          soundOn={!muted}
+        />
+      </>
     );
   }
 
   return (
-    <main
-      className={`game-shell theme-${colourTheme}${highContrast ? " high-contrast" : ""}`}
-    >
-      <header
-        aria-hidden={adultPanelOpen || expertDrawerOpen || undefined}
-        className="game-header"
-        inert={adultPanelOpen || expertDrawerOpen || undefined}
+    <>
+      <TownSoundscape mode="town" muted={muted} />
+      <main
+        className={`game-shell theme-${colourTheme}${highContrast ? " high-contrast" : ""}`}
       >
-        <div className="brand-lockup">
-          <span className="brand-mark" aria-hidden="true">
-            <span />
-          </span>
-          <div>
-            <strong>Terra World</strong>
-            <span>Make every little home happy</span>
-          </div>
-        </div>
-        <button
-          className="adult-entry"
-          onClick={() => setAdultPanelOpen(true)}
-          ref={adultEntryRef}
-          type="button"
+        <header
+          aria-hidden={adultPanelOpen || expertDrawerOpen || undefined}
+          className="game-header"
+          inert={adultPanelOpen || expertDrawerOpen || undefined}
         >
-          <GameIcon name="shield" size={19} />
-          Grown-ups
-        </button>
-      </header>
-
-      <button
-        aria-controls="river-expert-panel"
-        aria-expanded={expertDrawerOpen}
-        aria-hidden={expertDrawerOpen || undefined}
-        className="mobile-expert-jump"
-        inert={expertDrawerOpen || undefined}
-        onClick={() => setExpertDrawerOpen(true)}
-        ref={expertEntryRef}
-        type="button"
-      >
-        <GameIcon name="spark" size={19} />
-        Ask River
-      </button>
-
-      <section
-        aria-hidden={adultPanelOpen || undefined}
-        className="kid-workspace"
-        inert={adultPanelOpen || undefined}
-        aria-label="Terra World neighborhood"
-      >
-        <CompoundWorld
-          backgroundInert={expertDrawerOpen}
-          onRiverMessage={shareBuilderLearning}
-        />
-
-        <aside
-          aria-modal={expertDrawerOpen || undefined}
-          className={`planning-panel${expertDrawerOpen ? " expert-drawer-open" : ""}`}
-          aria-label="River helper"
-          ref={expertDialogRef}
-          role={expertDrawerOpen ? "dialog" : undefined}
-        >
-          <section
-            className="expert-panel"
-            id="river-expert-panel"
-            aria-labelledby="expert-heading"
-          >
-            {expertDrawerOpen && (
-              <button
-                aria-label="Close River expert"
-                autoFocus
-                className="expert-drawer-close"
-                onClick={() => setExpertDrawerOpen(false)}
-                ref={expertCloseRef}
-                type="button"
-              >
-                <GameIcon name="close" size={18} />
-                Close
-              </button>
-            )}
-            <header className="expert-hero">
-              <div className="expert-face" aria-hidden="true">
-                <span className="expert-eye expert-eye-left" />
-                <span className="expert-eye expert-eye-right" />
-                <span className="expert-smile" />
-              </div>
-              <div>
-                <h2 id="expert-heading">Ask River</h2>
-                <p>Your friendly town helper</p>
-                <span className="expert-online">Ready to help</span>
-              </div>
-            </header>
-            <div className="expert-chat" aria-live="polite">
-              {expertMessages.map((message) => (
-                <p
-                  className={`chat-bubble chat-${message.speaker}`}
-                  key={message.id}
-                >
-                  {message.text}
-                </p>
-              ))}
-              {guideSnapshot.status === "loading" && (
-                <p className="chat-bubble chat-river chat-thinking">
-                  I’m checking what changed…
-                </p>
-              )}
+          <div className="brand-lockup">
+            <span className="brand-mark" aria-hidden="true">
+              <span />
+            </span>
+            <div>
+              <strong>Terra World</strong>
+              <span>{playerDisplayName(playerName)}’s Rivergate</span>
             </div>
-            <div className="expert-prompts" aria-label="Quick questions">
-              <button
-                onClick={() => askRiver("What should I add next?")}
-                type="button"
-              >
-                What should I add?
-              </button>
-              <button
-                onClick={() => askRiver("What did that teach me?")}
-                type="button"
-              >
-                What did I learn?
-              </button>
-            </div>
-            <form
-              className="expert-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                askRiver();
-              }}
-            >
-              <label className="sr-only" htmlFor="expert-question">
-                Ask River a question about your city
-              </label>
-              <input
-                autoComplete="off"
-                id="expert-question"
-                maxLength={120}
-                onChange={(event) => setExpertQuestion(event.target.value)}
-                placeholder="Ask about your city…"
-                value={expertQuestion}
-              />
-              <button
-                aria-label="Ask River"
-                disabled={expertQuestion.trim().length === 0}
-                type="submit"
-              >
-                <GameIcon name="arrow" size={20} />
-              </button>
-            </form>
-            <p className="expert-safety">
-              River only talks about the town. Your words stay on this device.
-            </p>
-          </section>
-          <div className="river-learning-card">
-            <span aria-hidden="true">💡</span>
-            <p>
-              <strong>Try it and watch.</strong>
-              Everything you add changes a home right away.
-            </p>
           </div>
-        </aside>
-      </section>
-
-      {expertDrawerOpen && (
-        <button
-          aria-label="Close River expert"
-          className="expert-drawer-backdrop"
-          onClick={() => setExpertDrawerOpen(false)}
-          type="button"
-        />
-      )}
-
-      {adultPanelOpen && (
-        <div
-          className="adult-dialog-backdrop"
-          onMouseDown={(event) => {
-            if (event.currentTarget === event.target) closeAdultPanel();
-          }}
-        >
-          <section
-            aria-labelledby="adult-dialog-heading"
-            aria-modal="true"
-            className="adult-dialog"
-            ref={adultDialogRef}
-            role="dialog"
-          >
+          <div className="game-header-controls">
             <button
-              aria-label="Close adult controls"
-              className="dialog-close"
-              onClick={closeAdultPanel}
+              aria-label={muted ? "Turn town sounds on" : "Mute town sounds"}
+              aria-pressed={!muted}
+              className="town-sound-entry"
+              onClick={() => {
+                if (muted) requestTownAudioStart();
+                saveAccessibilitySettings({ muted: !muted });
+              }}
               type="button"
             >
-              <GameIcon name="close" />
+              <GameIcon name="volume" size={19} />
+              {muted ? "Sounds off" : "Sounds on"}
             </button>
-            {!adultUnlocked ? (
-              <div className="adult-gate">
-                <span className="adult-gate-icon" aria-hidden="true">
-                  <GameIcon name="shield" size={34} />
-                </span>
-                <h2 id="adult-dialog-heading">Adult space</h2>
-                <p>
-                  Backup, reset, learning notes, and technical proof live here
-                  so children can focus on building.
-                </p>
-                <p className="adult-gate-note">
-                  {adultPinConfigured
-                    ? "Ask the adult who set up this device for the private family code."
-                    : "An adult should create a private 4–8 digit family code before continuing."}
-                </p>
-                <label htmlFor="adult-check">
-                  {adultPinConfigured ? "Family code" : "Create family code"}
-                </label>
-                <div className="adult-check-row">
-                  <input
-                    autoFocus
-                    autoComplete="off"
-                    id="adult-check"
-                    inputMode="numeric"
-                    maxLength={8}
-                    onChange={(event) => setAdultAnswer(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" && adultPinConfigured)
-                        void unlockAdultPanel();
-                    }}
-                    type="password"
-                    value={adultAnswer}
-                  />
-                  {!adultPinConfigured && (
-                    <input
-                      aria-label="Confirm family code"
-                      autoComplete="off"
-                      inputMode="numeric"
-                      maxLength={8}
-                      onChange={(event) => setAdultConfirm(event.target.value)}
-                      placeholder="Repeat code"
-                      type="password"
-                      value={adultConfirm}
-                    />
-                  )}
-                  <button onClick={() => void unlockAdultPanel()} type="button">
-                    Continue
-                  </button>
+            <button
+              className="adult-entry"
+              onClick={() => setAdultPanelOpen(true)}
+              ref={adultEntryRef}
+              type="button"
+            >
+              <GameIcon name="shield" size={19} />
+              Grown-ups
+            </button>
+          </div>
+        </header>
+
+        <button
+          aria-controls="river-expert-panel"
+          aria-expanded={expertDrawerOpen}
+          aria-hidden={expertDrawerOpen || undefined}
+          className="mobile-expert-jump"
+          inert={expertDrawerOpen || undefined}
+          onClick={() => setExpertDrawerOpen(true)}
+          ref={expertEntryRef}
+          type="button"
+        >
+          <GameIcon name="spark" size={19} />
+          Ask River
+        </button>
+
+        <section
+          aria-hidden={adultPanelOpen || undefined}
+          className="kid-workspace"
+          inert={adultPanelOpen || undefined}
+          aria-label="Terra World neighborhood"
+        >
+          <CompoundWorld
+            backgroundInert={expertDrawerOpen}
+            onRiverMessage={shareBuilderLearning}
+          />
+
+          <aside
+            aria-modal={expertDrawerOpen || undefined}
+            className={`planning-panel${expertDrawerOpen ? " expert-drawer-open" : ""}`}
+            aria-label="River helper"
+            ref={expertDialogRef}
+            role={expertDrawerOpen ? "dialog" : undefined}
+          >
+            <section
+              className="expert-panel"
+              id="river-expert-panel"
+              aria-labelledby="expert-heading"
+            >
+              {expertDrawerOpen && (
+                <button
+                  aria-label="Close River expert"
+                  autoFocus
+                  className="expert-drawer-close"
+                  onClick={() => setExpertDrawerOpen(false)}
+                  ref={expertCloseRef}
+                  type="button"
+                >
+                  <GameIcon name="close" size={18} />
+                  Close
+                </button>
+              )}
+              <header className="expert-hero">
+                <div className="expert-face" aria-hidden="true">
+                  <span className="expert-eye expert-eye-left" />
+                  <span className="expert-eye expert-eye-right" />
+                  <span className="expert-smile" />
                 </div>
-                {adultGateError && (
-                  <p className="adult-gate-error" role="alert">
-                    {adultPinConfigured
-                      ? "That family code did not match. Ask the adult who set it up."
-                      : "Use 4–8 digits and enter the same code twice."}
+                <div>
+                  <h2 id="expert-heading">Ask River</h2>
+                  <p>Here for {playerDisplayName(playerName)}</p>
+                  <span className="expert-online">Ready to help</span>
+                </div>
+              </header>
+              <div className="expert-chat" aria-live="polite">
+                {expertMessages.map((message) => (
+                  <p
+                    className={`chat-bubble chat-${message.speaker}`}
+                    key={message.id}
+                  >
+                    {message.text}
+                  </p>
+                ))}
+                {guideSnapshot.status === "loading" && (
+                  <p className="chat-bubble chat-river chat-thinking">
+                    I’m checking what changed…
                   </p>
                 )}
               </div>
-            ) : (
-              <AdultControls
-                actionLogHash={actionLogHash}
-                backupKit={backupKit}
-                backupMessage={backupMessage}
-                backupState={backupState}
-                cityStateHash={cityStateHash}
-                guideProof={guideProofFor(guideSnapshot)}
-                highContrast={highContrast}
-                muted={muted}
-                onAccessibilityChange={saveAccessibilitySettings}
-                onBackup={() => void backUpRivergate()}
-                onImportRecoveryPack={importRecoveryPack}
-                onReset={() => void resetRivergate()}
-                onRestore={() => void restoreRivergateFromBackup()}
-                saveState={saveState}
-                state={state}
-                textScale={textScale}
-                recoveryPack={
-                  backupKit === null ? null : serializeAdultBackupKit(backupKit)
-                }
-              />
-            )}
-          </section>
-        </div>
-      )}
-    </main>
+              <div className="expert-prompts" aria-label="Quick questions">
+                <button
+                  onClick={() => askRiver("What should I add next?")}
+                  type="button"
+                >
+                  What should I add?
+                </button>
+                <button
+                  onClick={() => askRiver("What did that teach me?")}
+                  type="button"
+                >
+                  What did I learn?
+                </button>
+              </div>
+              <form
+                className="expert-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  askRiver();
+                }}
+              >
+                <label className="sr-only" htmlFor="expert-question">
+                  Ask River a question about your city
+                </label>
+                <input
+                  autoComplete="off"
+                  id="expert-question"
+                  maxLength={120}
+                  onChange={(event) => setExpertQuestion(event.target.value)}
+                  placeholder="Ask about your city…"
+                  value={expertQuestion}
+                />
+                <button
+                  aria-label="Ask River"
+                  disabled={expertQuestion.trim().length === 0}
+                  type="submit"
+                >
+                  <GameIcon name="arrow" size={20} />
+                </button>
+              </form>
+              <p className="expert-safety">
+                River only talks about the town. Your words stay on this device.
+              </p>
+            </section>
+            <div className="river-learning-card">
+              <span aria-hidden="true">💡</span>
+              <p>
+                <strong>Try it and watch.</strong>
+                Everything you add changes a home right away.
+              </p>
+            </div>
+          </aside>
+        </section>
+
+        {expertDrawerOpen && (
+          <button
+            aria-label="Close River expert"
+            className="expert-drawer-backdrop"
+            onClick={() => setExpertDrawerOpen(false)}
+            type="button"
+          />
+        )}
+
+        {adultPanelOpen && (
+          <div
+            className="adult-dialog-backdrop"
+            onMouseDown={(event) => {
+              if (event.currentTarget === event.target) closeAdultPanel();
+            }}
+          >
+            <section
+              aria-labelledby="adult-dialog-heading"
+              aria-modal="true"
+              className="adult-dialog"
+              ref={adultDialogRef}
+              role="dialog"
+            >
+              <button
+                aria-label="Close adult controls"
+                className="dialog-close"
+                onClick={closeAdultPanel}
+                type="button"
+              >
+                <GameIcon name="close" />
+              </button>
+              {!adultUnlocked ? (
+                <div className="adult-gate">
+                  <span className="adult-gate-icon" aria-hidden="true">
+                    <GameIcon name="shield" size={34} />
+                  </span>
+                  <h2 id="adult-dialog-heading">Adult space</h2>
+                  <p>
+                    Backup, reset, learning notes, and technical proof live here
+                    so children can focus on building.
+                  </p>
+                  <p className="adult-gate-note">
+                    {adultPinConfigured
+                      ? "Ask the adult who set up this device for the private family code."
+                      : "An adult should create a private 4–8 digit family code before continuing."}
+                  </p>
+                  <label htmlFor="adult-check">
+                    {adultPinConfigured ? "Family code" : "Create family code"}
+                  </label>
+                  <div className="adult-check-row">
+                    <input
+                      autoFocus
+                      autoComplete="off"
+                      id="adult-check"
+                      inputMode="numeric"
+                      maxLength={8}
+                      onChange={(event) => setAdultAnswer(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && adultPinConfigured)
+                          void unlockAdultPanel();
+                      }}
+                      type="password"
+                      value={adultAnswer}
+                    />
+                    {!adultPinConfigured && (
+                      <input
+                        aria-label="Confirm family code"
+                        autoComplete="off"
+                        inputMode="numeric"
+                        maxLength={8}
+                        onChange={(event) =>
+                          setAdultConfirm(event.target.value)
+                        }
+                        placeholder="Repeat code"
+                        type="password"
+                        value={adultConfirm}
+                      />
+                    )}
+                    <button
+                      onClick={() => void unlockAdultPanel()}
+                      type="button"
+                    >
+                      Continue
+                    </button>
+                  </div>
+                  {adultGateError && (
+                    <p className="adult-gate-error" role="alert">
+                      {adultPinConfigured
+                        ? "That family code did not match. Ask the adult who set it up."
+                        : "Use 4–8 digits and enter the same code twice."}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <AdultControls
+                  actionLogHash={actionLogHash}
+                  backupKit={backupKit}
+                  backupMessage={backupMessage}
+                  backupState={backupState}
+                  cityStateHash={cityStateHash}
+                  guideProof={guideProofFor(guideSnapshot)}
+                  highContrast={highContrast}
+                  muted={muted}
+                  onAccessibilityChange={saveAccessibilitySettings}
+                  onBackup={() => void backUpRivergate()}
+                  onImportRecoveryPack={importRecoveryPack}
+                  onReset={() => void resetRivergate()}
+                  onRestore={() => void restoreRivergateFromBackup()}
+                  saveState={saveState}
+                  state={state}
+                  textScale={textScale}
+                  recoveryPack={
+                    backupKit === null
+                      ? null
+                      : serializeAdultBackupKit(backupKit)
+                  }
+                />
+              )}
+            </section>
+          </div>
+        )}
+      </main>
+    </>
   );
 }
 
@@ -1130,7 +1196,9 @@ function AdultControls({
             <GameIcon name="volume" />
             <span>
               <strong>Sound</strong>
-              <small>The MVP begins muted; no essential clue uses sound.</small>
+              <small>
+                Optional music, birds, and town sounds. No clue needs audio.
+              </small>
             </span>
             <input
               checked={!muted}
