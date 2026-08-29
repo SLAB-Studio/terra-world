@@ -19,6 +19,7 @@ import {
   nextChallengeId,
   TERRA_CHALLENGES,
 } from "../../lib/challenges/catalog";
+import { nextChallengeAction } from "../../lib/challenges/next-action";
 import ChallengeTrail from "./ChallengeTrail";
 import { GameIcon } from "./GameIcon";
 import HouseDiagnostics, {
@@ -249,6 +250,23 @@ export default function CompoundWorld({
     () => completedGoalIds(activeChallenge, compounds),
     [activeChallenge, compounds],
   );
+  const nextAction = useMemo(
+    () => nextChallengeAction(activeChallenge, compounds),
+    [activeChallenge, compounds],
+  );
+  const activePieceId = dragPiece?.id ?? armedUpgrade;
+  const guidedPieceReady =
+    nextAction !== null && activePieceId === nextAction.upgradeId;
+  const nextActionHouse =
+    nextAction === null
+      ? null
+      : (COMPOUNDS.find((compound) => compound.id === nextAction.houseId) ??
+        null);
+  const nextActionUpgrade =
+    nextAction === null
+      ? null
+      : (UPGRADES.find((upgrade) => upgrade.id === nextAction.upgradeId) ??
+        null);
 
   const litHomes = useMemo(
     () =>
@@ -508,7 +526,12 @@ export default function CompoundWorld({
                     <button
                       aria-label={`${upgrade.label}. ${upgrade.hint}. Drag to a home.`}
                       aria-pressed={armedUpgrade === upgrade.id}
-                      className={`toy-piece toy-${upgrade.id}`}
+                      className={`toy-piece toy-${upgrade.id}${
+                        nextAction?.upgradeId === upgrade.id &&
+                        !guidedPieceReady
+                          ? " is-guided-target"
+                          : ""
+                      }`}
                       key={upgrade.id}
                       onClick={() => {
                         setArmedUpgrade((current) =>
@@ -576,6 +599,38 @@ export default function CompoundWorld({
               Trail
             </button>
           </div>
+          <div
+            aria-live="polite"
+            className={`quest-next-move${
+              nextAction === null
+                ? " is-ready-to-watch"
+                : guidedPieceReady
+                  ? " is-ready-for-home"
+                  : ""
+            }`}
+            role="status"
+          >
+            <span className="quest-next-number" aria-hidden="true">
+              {nextAction === null ? "3" : guidedPieceReady ? "2" : "1"}
+            </span>
+            <span className="quest-next-copy">
+              <small>Do this next</small>
+              <strong>
+                {nextAction === null
+                  ? "Watch what changed"
+                  : guidedPieceReady
+                    ? `Tap ${nextActionHouse?.name ?? "the highlighted house"}`
+                    : `Choose ${nextActionUpgrade?.label ?? "the highlighted helper"}`}
+              </strong>
+              <span>
+                {nextAction === null
+                  ? "Press Watch the town and look for the difference."
+                  : guidedPieceReady
+                    ? `${nextActionUpgrade?.label ?? "The helper"} is ready to add.`
+                    : `Then tap ${nextActionHouse?.name ?? "the highlighted house"}.`}
+              </span>
+            </span>
+          </div>
         </header>
 
         <div
@@ -619,7 +674,11 @@ export default function CompoundWorld({
                         isWatered ? " is-watered" : ""
                       }${isGardened ? " is-gardened" : ""}${
                         isRecycling ? " is-recycling" : ""
-                      }${health.allHealthy ? " is-healthy" : " needs-help"}`}
+                      }${health.allHealthy ? " is-healthy" : " needs-help"}${
+                        nextAction?.houseId === compound.id && guidedPieceReady
+                          ? " is-guided-target"
+                          : ""
+                      }`}
                       data-compound-id={compound.id}
                       key={compound.id}
                       onClick={() => {
@@ -710,7 +769,11 @@ export default function CompoundWorld({
               ? "Start with one small change."
               : `${completedActions} kind change${completedActions === 1 ? "" : "s"} added to the neighborhood.`}
           </p>
-          <button onClick={runTown} type="button">
+          <button
+            className={nextAction === null ? "is-guided-target" : undefined}
+            onClick={runTown}
+            type="button"
+          >
             <GameIcon name="play" size={22} />
             Watch the town!
           </button>

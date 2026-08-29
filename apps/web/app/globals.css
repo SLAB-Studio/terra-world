@@ -5482,7 +5482,7 @@ body {
 .town-camera-controls {
   position: absolute;
   z-index: 16;
-  top: 112px;
+  top: 156px;
   bottom: auto;
   left: 18px;
   width: 116px;
@@ -5852,11 +5852,105 @@ body {
 /* Progressive Adventure Trail */
 .neighborhood-quest.challenge-quest {
   width: min(680px, calc(100% - 28px));
-  min-height: 82px;
+  min-height: 124px;
   padding: 9px 11px 9px 14px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
+}
+
+.quest-next-move {
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding-top: 8px;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  border-top: 2px solid rgba(89, 62, 46, 0.2);
+}
+
+.quest-next-number {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #2b190f;
+  border-radius: 50%;
+  color: #2b190f;
+  background: #ffd24a;
+  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-size: 0.92rem;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.quest-next-move.is-ready-for-home .quest-next-number {
+  background: #89cef3;
+}
+
+.quest-next-move.is-ready-to-watch .quest-next-number {
+  background: #8ed36b;
+}
+
+.quest-next-copy {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: 7px;
+}
+
+.quest-next-copy small {
+  color: #754b30;
+  font-size: 0.56rem;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.quest-next-copy strong {
+  overflow: hidden;
+  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-size: 0.86rem;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quest-next-copy > span {
+  grid-column: 1 / -1;
+  margin-top: 1px;
+  overflow: hidden;
+  color: #593e2e;
+  font-size: 0.62rem;
+  font-weight: 760;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toy-piece.is-guided-target,
+.world-canvas .compound.is-guided-target,
+.neighborhood-actions button.is-guided-target {
+  outline: 5px solid #ffd24a;
+  outline-offset: 3px;
+  animation: guide-nudge 1.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.world-canvas .compound.is-guided-target {
+  z-index: 25;
+  background: #fff1a8;
+}
+
+@keyframes guide-nudge {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  45% {
+    transform: translateY(-4px);
+  }
 }
 
 .challenge-quest .quest-kicker {
@@ -6016,7 +6110,7 @@ body {
     top: 10px;
     left: 10px;
     width: calc(100% - 20px);
-    min-height: 78px;
+    min-height: 120px;
     padding: 8px 8px 8px 11px;
     gap: 7px;
   }
@@ -6029,6 +6123,26 @@ body {
   .challenge-quest-instruction {
     max-width: 182px;
     font-size: 0.63rem;
+  }
+
+  .quest-next-move {
+    padding-top: 6px;
+    grid-template-columns: 27px minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .quest-next-number {
+    width: 27px;
+    height: 27px;
+    font-size: 0.82rem;
+  }
+
+  .quest-next-copy strong {
+    font-size: 0.75rem;
+  }
+
+  .quest-next-copy > span {
+    font-size: 0.56rem;
   }
 
   .challenge-goal-count {
@@ -6055,6 +6169,12 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .challenge-complete-toast {
+    animation: none;
+  }
+
+  .toy-piece.is-guided-target,
+  .world-canvas .compound.is-guided-target,
+  .neighborhood-actions button.is-guided-target {
     animation: none;
   }
 }
