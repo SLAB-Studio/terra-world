@@ -5,6 +5,7 @@ import type {
   CityState,
 } from "@terra/campaign-schema";
 
+import { eventCauseCode } from "./cause-codes";
 import { deterministicHash } from "./hash";
 
 export type ScheduledEventResult = {
@@ -49,7 +50,7 @@ export function applyScheduledEvents(
     }
 
     causes.push({
-      code: `event.${event.id}`,
+      code: eventCauseCode(event.id),
       category: "event",
       severity: eventSeverity(event, changes),
       phase: 6,

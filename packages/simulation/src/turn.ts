@@ -9,6 +9,13 @@ import {
 } from "@terra/campaign-schema";
 
 import { BUILDING_CATALOGUE } from "./catalogue";
+import {
+  milestoneCauseCode,
+  stageTransitionCauseCode,
+  type MilestoneCauseCode,
+  type RuntimeStaticCauseCode,
+  type StageTransitionCauseCode,
+} from "./cause-codes";
 import { applyScheduledEvents } from "./events";
 import { deterministicHash } from "./hash";
 import {
@@ -315,13 +322,16 @@ export function simulateTurn(input: SimulateTurnInput): TurnResult {
   state = progression.state;
   for (const milestoneId of progression.earnedMilestoneIds) {
     causes.push(
-      emptyCause(`milestone.${milestoneId}`, "community", "positive", 7),
+      emptyCause(milestoneCauseCode(milestoneId), "community", "positive", 7),
     );
   }
   if (progression.transition !== null) {
     causes.push(
       emptyCause(
-        `stage.${progression.transition.from}-to-${progression.transition.to}`,
+        stageTransitionCauseCode(
+          progression.transition.from,
+          progression.transition.to,
+        ),
         "community",
         "positive",
         8,
@@ -486,7 +496,7 @@ function reliability(supply: number, demand: number, coverage: number): number {
 }
 
 function metricCause(
-  code: string,
+  code: RuntimeStaticCauseCode,
   category: CauseEffect["category"],
   severity: CauseEffect["severity"],
   phase: number,
@@ -508,7 +518,7 @@ function metricCause(
 }
 
 function emptyCause(
-  code: string,
+  code: MilestoneCauseCode | StageTransitionCauseCode,
   category: CauseEffect["category"],
   severity: CauseEffect["severity"],
   phase: number,
