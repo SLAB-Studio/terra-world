@@ -1,356 +1,468 @@
 "use client";
 
-import type Phaser from "phaser";
-import { memo, useEffect, useRef } from "react";
+import type { ArcRotateCamera } from "@babylonjs/core";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 
-import {
-  MAIN_ROAD_LANE_OFFSET,
-  MAIN_ROAD_WIDTH,
-  sampleCarLane,
-  sampleRoadCenterline,
-} from "../../lib/town-road";
+import type { HouseUpgradeVisuals } from "../../lib/immersive-town/house-upgrades-3d";
+import type { ImmersiveTownWorld } from "../../lib/immersive-town/types";
+import type { VehicleFleet } from "../../lib/immersive-town/vehicles-3d";
+import type { HouseId, HouseUpgradeId } from "./HouseDiagnostics";
 
-const WORLD_WIDTH = 1800;
-const WORLD_HEIGHT = 900;
+type ImmersiveTownMapProps = Readonly<{
+  activeUpgradeId: HouseUpgradeId | null;
+  houses: Readonly<Record<HouseId, readonly HouseUpgradeId[]>>;
+  onHouseDrop: (houseId: HouseId, upgradeId: HouseUpgradeId) => void;
+  onHouseSelect: (houseId: HouseId) => void;
+  selectedHouseId: HouseId | null;
+}>;
 
-type MovingVehicle = Readonly<{
-  body: Phaser.GameObjects.Container;
-  laneOffset: number;
-  progressOffset: number;
-  reverse: boolean;
-  speed: number;
+type RuntimeHandle = Readonly<{
+  camera: ArcRotateCamera;
+  upgrades: HouseUpgradeVisuals;
+  vehicles: VehicleFleet;
+  world: ImmersiveTownWorld;
+  cancelCameraAnimation(): void;
+  resetCamera(): void;
+  focusHouse(houseId: HouseId): void;
+  dispose(): void;
 }>;
 
 /**
- * Phaser owns the continuous environmental simulation underneath the HTML
- * house controls. The road drawing and every vehicle use the same route
- * sampler, making it impossible for cars to drift onto lawns or buildings.
+ * Babylon.js owns the real 3D world, camera, lighting, picking and simulation.
+ * React remains authoritative for learning state and the accessible house UI.
  */
-function ImmersiveTownMap() {
-  const hostRef = useRef<HTMLDivElement>(null);
+function ImmersiveTownMap({
+  activeUpgradeId,
+  houses,
+  onHouseDrop,
+  onHouseSelect,
+  selectedHouseId,
+}: ImmersiveTownMapProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const runtimeRef = useRef<RuntimeHandle | null>(null);
+  const propsRef = useRef({
+    activeUpgradeId,
+    houses,
+    onHouseDrop,
+    onHouseSelect,
+    selectedHouseId,
+  });
+  const [engineStatus, setEngineStatus] = useState<
+    "loading" | "ready" | "failed"
+  >("loading");
+
+  propsRef.current = {
+    activeUpgradeId,
+    houses,
+    onHouseDrop,
+    onHouseSelect,
+    selectedHouseId,
+  };
 
   useEffect(() => {
     let cancelled = false;
-    let game: Phaser.Game | null = null;
+    let cleanup: (() => void) | undefined;
 
     async function mountEngine() {
-      const PhaserModule = await import("phaser");
-      if (cancelled || hostRef.current === null) return;
-      const PhaserLib = PhaserModule.default;
+      const canvas = canvasRef.current;
+      if (canvas === null) return;
 
-      class LivingRivergateScene extends PhaserLib.Scene {
-        private vehicles: MovingVehicle[] = [];
-        private elapsedSeconds = 0;
-        private reducedMotion = false;
-        private reduceMotionQuery?: MediaQueryList;
-        private cloudShadows: Phaser.GameObjects.Ellipse[] = [];
+      try {
+        const [
+          Babylon,
+          town,
+          cameraTools,
+          trafficTools,
+          vehicleTools,
+          upgradeTools,
+          adapterTools,
+        ] = await Promise.all([
+          import("@babylonjs/core"),
+          import("../../lib/immersive-town"),
+          import("../../lib/immersive-town/camera"),
+          import("../../lib/immersive-town/traffic"),
+          import("../../lib/immersive-town/vehicles-3d"),
+          import("../../lib/immersive-town/house-upgrades-3d"),
+          import("../../lib/immersive-town/babylon-adapter"),
+        ]);
+        if (cancelled) return;
 
-        constructor() {
-          super("living-rivergate");
-        }
+        const mobile = window.matchMedia("(max-width: 760px)").matches;
+        const reducedMotionQuery = window.matchMedia(
+          "(prefers-reduced-motion: reduce)",
+        );
+        const engine = new Babylon.Engine(
+          canvas,
+          true,
+          {
+            antialias: true,
+            audioEngine: false,
+            preserveDrawingBuffer: false,
+            powerPreference: "high-performance",
+            stencil: true,
+          },
+          true,
+        );
+        const devicePixelRatio = Math.max(1, window.devicePixelRatio || 1);
+        const targetPixelRatio = mobile ? 1 : 1.5;
+        engine.setHardwareScalingLevel(
+          1 / Math.min(devicePixelRatio, targetPixelRatio),
+        );
 
-        create() {
-          this.cameras.main.setBackgroundColor("rgba(0,0,0,0)");
-          this.drawGroundDepth();
-          this.drawMainRoad();
-          this.drawFootpaths();
-          this.drawRoadFurniture();
-          this.createCloudShadows();
-          this.createVehicles();
+        const world = town.createImmersiveTownWorld(engine, {
+          attachCameraControls: true,
+          quality: mobile ? "low" : "medium",
+          reducedMotion: reducedMotionQuery.matches,
+        });
+        adapterTools.configureKidFriendlyCamera(world.camera);
+        const upgrades = upgradeTools.createHouseUpgradeVisuals(
+          world.scene,
+          world.houses,
+        );
+        let traffic = trafficTools.createTrafficSimulation();
+        const vehicles = vehicleTools.createVehicleFleet(
+          world.scene,
+          traffic.vehicles.map((vehicle) => vehicle.id),
+        );
+        vehicles.sync(trafficTools.getVehicleTransforms(traffic), 0);
+        upgrades.sync(
+          propsRef.current.houses,
+          propsRef.current.selectedHouseId,
+        );
 
-          this.reduceMotionQuery = window.matchMedia(
-            "(prefers-reduced-motion: reduce)",
-          );
-          this.reducedMotion = this.reduceMotionQuery.matches;
-          const updateMotionPreference = (event: MediaQueryListEvent) => {
-            this.reducedMotion = event.matches;
-          };
-          this.reduceMotionQuery.addEventListener(
-            "change",
-            updateMotionPreference,
-          );
-          this.events.once(PhaserLib.Scenes.Events.SHUTDOWN, () =>
-            this.reduceMotionQuery?.removeEventListener(
-              "change",
-              updateMotionPreference,
-            ),
-          );
-        }
-
-        update(_time: number, delta: number) {
-          if (document.hidden) return;
-          const seconds = Math.min(delta, 60) / 1000;
-          if (!this.reducedMotion) this.elapsedSeconds += seconds;
-          this.updateVehicles();
-          this.updateCloudShadows(seconds);
-        }
-
-        private drawGroundDepth() {
-          const graphics = this.add.graphics().setDepth(1);
-          graphics.fillStyle(0x2d7550, 0.34);
-          graphics.fillEllipse(270, 190, 520, 260);
-          graphics.fillStyle(0x174d36, 0.2);
-          graphics.fillEllipse(1450, 720, 760, 330);
-          graphics.fillStyle(0xa7d77e, 0.08);
-          graphics.fillEllipse(930, 120, 670, 210);
-
-          graphics.lineStyle(2, 0xc8f0a4, 0.12);
-          for (let offset = -420; offset < 1950; offset += 145) {
-            graphics.lineBetween(offset, 0, offset + 600, WORLD_HEIGHT);
-          }
-          graphics.lineStyle(2, 0x133f2e, 0.12);
-          for (let offset = -180; offset < 2050; offset += 190) {
-            graphics.lineBetween(offset, WORLD_HEIGHT, offset + 510, 0);
-          }
-        }
-
-        private drawMainRoad() {
-          const graphics = this.add.graphics().setDepth(10);
-          const points = roadPoints(240);
-
-          graphics.lineStyle(MAIN_ROAD_WIDTH + 24, 0x163b2d, 0.34);
-          graphics.strokePoints(
-            points.map((point) => ({ x: point.x + 4, y: point.y + 12 })),
-            false,
-          );
-          graphics.lineStyle(MAIN_ROAD_WIDTH + 18, 0xe8d7ab, 1);
-          graphics.strokePoints(points, false);
-          graphics.lineStyle(MAIN_ROAD_WIDTH + 4, 0xf6e9c4, 1);
-          graphics.strokePoints(points, false);
-          graphics.lineStyle(MAIN_ROAD_WIDTH, 0x46545a, 1);
-          graphics.strokePoints(points, false);
-
-          graphics.lineStyle(3, 0xf9e6a0, 0.9);
-          for (let index = 2; index < points.length - 5; index += 12) {
-            const start = points[index];
-            const end = points[index + 5];
-            if (start !== undefined && end !== undefined)
-              graphics.lineBetween(start.x, start.y, end.x, end.y);
-          }
-
-          graphics.lineStyle(3, 0xf9f2dd, 0.76);
-          for (const edgeOffset of [
-            -(MAIN_ROAD_WIDTH / 2 - 5),
-            MAIN_ROAD_WIDTH / 2 - 5,
-          ]) {
-            const edge = lanePoints(edgeOffset, 180);
-            graphics.strokePoints(edge, false);
-          }
-
-          this.drawCrosswalk(graphics, 0.58);
-          this.drawCrosswalk(graphics, 0.78);
-        }
-
-        private drawCrosswalk(
-          graphics: Phaser.GameObjects.Graphics,
-          progress: number,
-        ) {
-          const centre = sampleCarLane(progress, 0);
-          const tangentX = Math.cos(centre.angle);
-          const tangentY = Math.sin(centre.angle);
-          const normalX = -tangentY;
-          const normalY = tangentX;
-          graphics.lineStyle(5, 0xfff8df, 0.84);
-          for (let stripe = -18; stripe <= 18; stripe += 9) {
-            const stripeX = centre.x + tangentX * stripe;
-            const stripeY = centre.y + tangentY * stripe;
-            graphics.lineBetween(
-              stripeX - normalX * (MAIN_ROAD_WIDTH / 2 - 8),
-              stripeY - normalY * (MAIN_ROAD_WIDTH / 2 - 8),
-              stripeX + normalX * (MAIN_ROAD_WIDTH / 2 - 8),
-              stripeY + normalY * (MAIN_ROAD_WIDTH / 2 - 8),
-            );
-          }
-        }
-
-        private drawFootpaths() {
-          const graphics = this.add.graphics().setDepth(7);
-          const paths = [
-            { from: sampleRoadCenterline(0.33), to: { x: 520, y: 284 } },
-            { from: sampleRoadCenterline(0.49), to: { x: 875, y: 365 } },
-            { from: sampleRoadCenterline(0.77), to: { x: 1415, y: 612 } },
-          ];
-          graphics.lineStyle(28, 0x163b2d, 0.18);
-          for (const path of paths)
-            graphics.lineBetween(
-              path.from.x + 3,
-              path.from.y + 7,
-              path.to.x + 3,
-              path.to.y + 7,
-            );
-          graphics.lineStyle(22, 0xe7c980, 1);
-          for (const path of paths)
-            graphics.lineBetween(
-              path.from.x,
-              path.from.y,
-              path.to.x,
-              path.to.y,
-            );
-          graphics.lineStyle(2, 0xfff4c7, 0.68);
-          for (const path of paths)
-            graphics.lineBetween(
-              path.from.x,
-              path.from.y,
-              path.to.x,
-              path.to.y,
-            );
-        }
-
-        private drawRoadFurniture() {
-          const graphics = this.add.graphics().setDepth(16);
-          for (const progress of [0.13, 0.28, 0.43, 0.66, 0.86]) {
-            const light = sampleCarLane(progress, -(MAIN_ROAD_WIDTH / 2 + 26));
-            graphics.fillStyle(0x18382e, 0.2);
-            graphics.fillEllipse(light.x + 9, light.y + 10, 30, 12);
-            graphics.lineStyle(5, 0x2b190f, 1);
-            graphics.lineBetween(light.x, light.y + 2, light.x, light.y - 40);
-            graphics.fillStyle(0xffd24a, 1);
-            graphics.fillCircle(light.x, light.y - 44, 8);
-            graphics.lineStyle(2, 0xfff4b1, 0.8);
-            graphics.strokeCircle(light.x, light.y - 44, 12);
-          }
-
-          const sign = sampleCarLane(0.74, MAIN_ROAD_WIDTH / 2 + 28);
-          graphics.lineStyle(5, 0x2b190f, 1);
-          graphics.lineBetween(sign.x, sign.y, sign.x, sign.y - 42);
-          graphics.fillStyle(0x62aef0, 1);
-          graphics.fillRoundedRect(sign.x - 27, sign.y - 68, 54, 28, 7);
-          graphics.lineStyle(3, 0x2b190f, 1);
-          graphics.strokeRoundedRect(sign.x - 27, sign.y - 68, 54, 28, 7);
-        }
-
-        private createCloudShadows() {
-          this.cloudShadows = [
-            this.add
-              .ellipse(280, 150, 240, 88, 0x173d2e, 0.09)
-              .setDepth(3)
-              .setRotation(-0.1),
-            this.add
-              .ellipse(1180, 650, 310, 110, 0x173d2e, 0.08)
-              .setDepth(3)
-              .setRotation(0.07),
-          ];
-        }
-
-        private createVehicles() {
-          this.vehicles = [
-            {
-              body: this.createCar(0xffc93d, 1),
-              laneOffset: MAIN_ROAD_LANE_OFFSET,
-              progressOffset: 0.04,
-              reverse: false,
-              speed: 0.028,
-            },
-            {
-              body: this.createCar(0x62aef0, 0.92),
-              laneOffset: -MAIN_ROAD_LANE_OFFSET,
-              progressOffset: 0.48,
-              reverse: true,
-              speed: 0.024,
-            },
-            {
-              body: this.createCar(0xf47f70, 0.82),
-              laneOffset: MAIN_ROAD_LANE_OFFSET,
-              progressOffset: 0.72,
-              reverse: false,
-              speed: 0.02,
-            },
-          ];
-          this.updateVehicles();
-        }
-
-        private createCar(color: number, scale: number) {
-          const container = this.add
-            .container(0, 0)
-            .setDepth(28)
-            .setScale(scale);
-          const graphics = this.add.graphics();
-          graphics.fillStyle(0x142f27, 0.28);
-          graphics.fillEllipse(4, 8, 72, 24);
-          graphics.fillStyle(0x2b190f, 1);
-          graphics.fillCircle(-21, 13, 8);
-          graphics.fillCircle(21, 13, 8);
-          graphics.fillStyle(0x5d4b63, 1);
-          graphics.fillCircle(-21, 13, 4);
-          graphics.fillCircle(21, 13, 4);
-          graphics.fillStyle(color, 1);
-          graphics.fillRoundedRect(-34, -13, 68, 28, 9);
-          graphics.lineStyle(3, 0x2b190f, 1);
-          graphics.strokeRoundedRect(-34, -13, 68, 28, 9);
-          graphics.fillStyle(color, 1);
-          graphics.fillRoundedRect(-14, -28, 36, 20, 9);
-          graphics.lineStyle(3, 0x2b190f, 1);
-          graphics.strokeRoundedRect(-14, -28, 36, 20, 9);
-          graphics.fillStyle(0xbfefff, 1);
-          graphics.fillRoundedRect(-8, -24, 23, 13, 5);
-          graphics.fillStyle(0xfff2a8, 1);
-          graphics.fillCircle(30, -6, 4);
-          graphics.fillCircle(30, 7, 4);
-          container.add(graphics);
-          return container;
-        }
-
-        private updateVehicles() {
-          for (const vehicle of this.vehicles) {
-            const rawProgress =
-              vehicle.progressOffset + this.elapsedSeconds * vehicle.speed;
-            const progress = vehicle.reverse ? 1 - rawProgress : rawProgress;
-            const pose = sampleCarLane(progress, vehicle.laneOffset);
-            vehicle.body.setPosition(pose.x, pose.y);
-            vehicle.body.setRotation(
-              pose.angle + (vehicle.reverse ? Math.PI : 0),
-            );
-          }
-        }
-
-        private updateCloudShadows(seconds: number) {
-          if (this.reducedMotion) return;
-          this.cloudShadows.forEach((shadow, index) => {
-            const speed = index === 0 ? 6 : 4;
-            shadow.x += speed * seconds;
-            if (shadow.x > WORLD_WIDTH + 180) shadow.x = -180;
+        const unsubscribeAnimation = world.animation.subscribe((frame) => {
+          traffic = trafficTools.stepTraffic(traffic, frame.deltaSeconds, {
+            reducedMotion: frame.reducedMotion,
           });
-        }
-      }
+          vehicles.sync(
+            trafficTools.getVehicleTransforms(traffic),
+            traffic.elapsedSeconds,
+          );
+        });
 
-      game = new PhaserLib.Game({
-        type: PhaserLib.AUTO,
-        parent: hostRef.current,
-        width: WORLD_WIDTH,
-        height: WORLD_HEIGHT,
-        transparent: true,
-        render: { antialias: true, pixelArt: false, roundPixels: false },
-        scene: LivingRivergateScene,
-        input: { keyboard: false, mouse: false, touch: false },
-        audio: { noAudio: true },
-      });
+        let cancelCameraAnimation: () => void = () => undefined;
+        let hoveredHouseId: HouseId | null = null;
+        const setHoveredHouse = (houseId: HouseId | null) => {
+          if (houseId === hoveredHouseId) return;
+          world.houses.forEach((house) => {
+            const highlighted = house.id === houseId;
+            house.meshes.forEach((mesh) => {
+              mesh.renderOutline = highlighted;
+              mesh.outlineColor = Babylon.Color3.FromHexString("#FFD24A");
+              mesh.outlineWidth = 0.08;
+            });
+          });
+          hoveredHouseId = houseId;
+          canvas.style.cursor = houseId === null ? "grab" : "pointer";
+        };
+        const pickObserver = world.scene.onPointerObservable.add((pointer) => {
+          if (pointer.type === Babylon.PointerEventTypes.POINTERMOVE) {
+            const hovered = world.getHouseFromMesh(
+              pointer.pickInfo?.pickedMesh ?? null,
+            );
+            setHoveredHouse(
+              hovered !== null && isHouseId(hovered.id) ? hovered.id : null,
+            );
+            return;
+          }
+          if (pointer.type === Babylon.PointerEventTypes.POINTERDOWN) {
+            cancelCameraAnimation();
+            return;
+          }
+          if (pointer.type !== Babylon.PointerEventTypes.POINTERPICK) return;
+          const house = world.getHouseFromMesh(
+            pointer.pickInfo?.pickedMesh ?? null,
+          );
+          if (house === null || !isHouseId(house.id)) return;
+          const active = propsRef.current.activeUpgradeId;
+          if (active === null) propsRef.current.onHouseSelect(house.id);
+        });
+
+        const dropUpgradeOnHouse = (event: PointerEvent) => {
+          const active = propsRef.current.activeUpgradeId;
+          if (active === null) return;
+          const bounds = canvas.getBoundingClientRect();
+          if (
+            event.clientX < bounds.left ||
+            event.clientX > bounds.right ||
+            event.clientY < bounds.top ||
+            event.clientY > bounds.bottom
+          )
+            return;
+          const x =
+            (event.clientX - bounds.left) *
+            (engine.getRenderWidth() / bounds.width);
+          const y =
+            (event.clientY - bounds.top) *
+            (engine.getRenderHeight() / bounds.height);
+          const house = world.getHouseFromMesh(
+            world.scene.pick(x, y)?.pickedMesh ?? null,
+          );
+          if (house !== null && isHouseId(house.id)) {
+            propsRef.current.onHouseDrop(house.id, active);
+          }
+        };
+        window.addEventListener("pointerup", dropUpgradeOnHouse);
+
+        const clampCameraObserver = world.scene.onBeforeRenderObservable.add(
+          () => {
+            const pose = cameraTools.clampCameraPose({
+              alpha: world.camera.alpha,
+              beta: world.camera.beta,
+              radius: world.camera.radius,
+              target: {
+                x: world.camera.target.x,
+                y: world.camera.target.y,
+                z: world.camera.target.z,
+              },
+            });
+            world.camera.target.copyFromFloats(
+              pose.target.x,
+              pose.target.y,
+              pose.target.z,
+            );
+          },
+        );
+
+        const resetCamera = () => {
+          cancelCameraAnimation();
+          cancelCameraAnimation = animateCamera(
+            world.camera,
+            cameraTools.cameraPoseForPreset("welcome"),
+            cameraTools,
+            reducedMotionQuery.matches,
+          );
+        };
+        const focusHouse = (houseId: HouseId) => {
+          const house = world.houses.find((item) => item.id === houseId);
+          if (house === undefined) return;
+          const target = cameraTools.cameraTargetForWorldPoint({
+            x: house.worldPosition.x,
+            y: house.worldPosition.y,
+            z: house.worldPosition.z,
+          });
+          cancelCameraAnimation();
+          cancelCameraAnimation = animateCamera(
+            world.camera,
+            cameraTools.cameraPoseForPreset("explore", target),
+            cameraTools,
+            reducedMotionQuery.matches,
+          );
+        };
+
+        const runtime: RuntimeHandle = {
+          camera: world.camera,
+          upgrades,
+          vehicles,
+          world,
+          cancelCameraAnimation: () => cancelCameraAnimation(),
+          resetCamera,
+          focusHouse,
+          dispose() {
+            cancelCameraAnimation();
+            setHoveredHouse(null);
+            unsubscribeAnimation();
+            if (pickObserver !== null)
+              world.scene.onPointerObservable.remove(pickObserver);
+            if (clampCameraObserver !== null)
+              world.scene.onBeforeRenderObservable.remove(clampCameraObserver);
+            window.removeEventListener("pointerup", dropUpgradeOnHouse);
+            vehicles.dispose();
+            upgrades.dispose();
+            world.dispose();
+            engine.stopRenderLoop();
+            engine.dispose();
+          },
+        };
+        if (cancelled) {
+          runtime.dispose();
+          return;
+        }
+        runtimeRef.current = runtime;
+
+        const resizeObserver = new ResizeObserver(() => world.resize());
+        resizeObserver.observe(canvas);
+        let isOnscreen = true;
+        let isPageVisible = document.visibilityState === "visible";
+        const syncPauseState = () => {
+          const paused = !isOnscreen || !isPageVisible;
+          world.animation.setPaused(paused);
+          if (paused) engine.stopRenderLoop();
+          else engine.runRenderLoop(() => world.render());
+        };
+        const intersectionObserver = new IntersectionObserver(([entry]) => {
+          isOnscreen = entry?.isIntersecting === true;
+          syncPauseState();
+        }, { threshold: 0.08 });
+        intersectionObserver.observe(canvas);
+        const updateVisibility = () => {
+          isPageVisible = document.visibilityState === "visible";
+          syncPauseState();
+        };
+        const updateReducedMotion = () =>
+          world.animation.setReducedMotion(reducedMotionQuery.matches);
+        document.addEventListener("visibilitychange", updateVisibility);
+        reducedMotionQuery.addEventListener("change", updateReducedMotion);
+        syncPauseState();
+        setEngineStatus("ready");
+
+        cleanup = () => {
+          resizeObserver.disconnect();
+          intersectionObserver.disconnect();
+          document.removeEventListener("visibilitychange", updateVisibility);
+          reducedMotionQuery.removeEventListener("change", updateReducedMotion);
+          runtime.dispose();
+          runtimeRef.current = null;
+        };
+      } catch (error) {
+        console.error("Terra World 3D engine could not start", error);
+        if (!cancelled) setEngineStatus("failed");
+      }
     }
 
     void mountEngine();
     return () => {
       cancelled = true;
-      game?.destroy(true);
-      game = null;
+      cleanup?.();
     };
   }, []);
 
+  useEffect(() => {
+    runtimeRef.current?.upgrades.sync(houses, selectedHouseId);
+  }, [houses, selectedHouseId]);
+
+  useEffect(() => {
+    if (selectedHouseId !== null)
+      runtimeRef.current?.focusHouse(selectedHouseId);
+  }, [selectedHouseId]);
+
+  const changeCamera = useCallback(
+    (command: "left" | "right" | "closer" | "farther" | "home") => {
+      const runtime = runtimeRef.current;
+      if (runtime === null) return;
+      runtime.cancelCameraAnimation();
+      if (command === "home") {
+        runtime.resetCamera();
+        return;
+      }
+      if (command === "left") runtime.camera.alpha -= 0.24;
+      if (command === "right") runtime.camera.alpha += 0.24;
+      if (command === "closer")
+        runtime.camera.radius = Math.max(
+          runtime.camera.lowerRadiusLimit ?? 24,
+          runtime.camera.radius - 10,
+        );
+      if (command === "farther")
+        runtime.camera.radius = Math.min(
+          runtime.camera.upperRadiusLimit ?? 132,
+          runtime.camera.radius + 10,
+        );
+    },
+    [],
+  );
+
   return (
-    <div aria-hidden="true" className="immersive-town-map" ref={hostRef} />
+    <div className="immersive-town-map">
+      <canvas aria-hidden="true" ref={canvasRef} />
+      {engineStatus === "loading" ? (
+        <div className="immersive-town-status" role="status">
+          <strong>Building your 3D town…</strong>
+          <span>Planting gardens and starting the buses.</span>
+        </div>
+      ) : null}
+      {engineStatus === "failed" ? (
+        <div className="immersive-town-status is-error" role="alert">
+          <strong>The 3D town needs graphics support.</strong>
+          <span>You can still choose a home using the buttons below.</span>
+        </div>
+      ) : null}
+      <div aria-label="3D camera controls" className="town-camera-controls">
+        <button
+          disabled={engineStatus !== "ready"}
+          onClick={() => changeCamera("left")}
+          type="button"
+        >
+          ↶ Turn left
+        </button>
+        <button
+          disabled={engineStatus !== "ready"}
+          onClick={() => changeCamera("right")}
+          type="button"
+        >
+          Turn right ↷
+        </button>
+        <button
+          disabled={engineStatus !== "ready"}
+          onClick={() => changeCamera("closer")}
+          type="button"
+        >
+          ＋ Closer
+        </button>
+        <button
+          disabled={engineStatus !== "ready"}
+          onClick={() => changeCamera("farther")}
+          type="button"
+        >
+          − Wider
+        </button>
+        <button
+          disabled={engineStatus !== "ready"}
+          onClick={() => changeCamera("home")}
+          type="button"
+        >
+          ⌂ Whole town
+        </button>
+      </div>
+    </div>
   );
 }
 
-function roadPoints(count: number): RoadSample[] {
-  return Array.from({ length: count + 1 }, (_, index) =>
-    sampleRoadCenterline(Math.min(index / count, 0.999_999)),
-  );
+function isHouseId(value: string): value is HouseId {
+  return value === "sunny" || value === "bluebell" || value === "mango";
 }
 
-function lanePoints(offset: number, count: number): RoadSample[] {
-  return Array.from({ length: count + 1 }, (_, index) =>
-    sampleCarLane(Math.min(index / count, 0.999_999), offset),
-  );
+function animateCamera(
+  camera: ArcRotateCamera,
+  target: Readonly<{
+    alpha: number;
+    beta: number;
+    radius: number;
+    target: Readonly<{ x: number; y: number; z: number }>;
+  }>,
+  tools: typeof import("../../lib/immersive-town/camera"),
+  reducedMotion: boolean,
+) {
+  if (reducedMotion) {
+    camera.alpha = target.alpha;
+    camera.beta = target.beta;
+    camera.radius = target.radius;
+    camera.target.copyFromFloats(target.target.x, target.target.y, target.target.z);
+    return () => undefined;
+  }
+  const start = {
+    alpha: camera.alpha,
+    beta: camera.beta,
+    radius: camera.radius,
+    target: { x: camera.target.x, y: camera.target.y, z: camera.target.z },
+  };
+  const startedAt = performance.now();
+  let animationFrame = 0;
+  let cancelled = false;
+  const tick = (now: number) => {
+    if (cancelled) return;
+    const progress = Math.min(1, (now - startedAt) / 620);
+    const pose = tools.interpolateCameraPose(start, target, progress);
+    camera.alpha = pose.alpha;
+    camera.beta = pose.beta;
+    camera.radius = pose.radius;
+    camera.target.copyFromFloats(pose.target.x, pose.target.y, pose.target.z);
+    if (progress < 1) animationFrame = requestAnimationFrame(tick);
+  };
+  animationFrame = requestAnimationFrame(tick);
+  return () => {
+    cancelled = true;
+    cancelAnimationFrame(animationFrame);
+  };
 }
-
-type RoadSample = Readonly<{ x: number; y: number }>;
 
 export default memo(ImmersiveTownMap);

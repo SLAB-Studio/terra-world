@@ -5299,11 +5299,9 @@ body {
   position: absolute;
   inset: 0;
   z-index: 1;
-  overflow: auto;
+  overflow: hidden;
   overscroll-behavior: contain;
-  scrollbar-color: #ffd24a #174d36;
-  scrollbar-width: auto;
-  touch-action: pan-x pan-y;
+  touch-action: none;
 }
 
 .world-scroll-region::-webkit-scrollbar {
@@ -5328,29 +5326,12 @@ body {
 
 .world-canvas {
   position: relative;
-  width: 1800px;
-  height: 900px;
+  width: 100%;
+  height: 100%;
   min-width: 100%;
   min-height: 100%;
   overflow: hidden;
-  background:
-    radial-gradient(
-      circle at 18% 22%,
-      rgba(120, 190, 96, 0.2),
-      transparent 18%
-    ),
-    radial-gradient(circle at 78% 70%, rgba(17, 77, 54, 0.22), transparent 24%),
-    repeating-linear-gradient(
-      30deg,
-      transparent 0 38px,
-      rgba(229, 255, 224, 0.15) 39px 40px
-    ),
-    repeating-linear-gradient(
-      150deg,
-      transparent 0 38px,
-      rgba(229, 255, 224, 0.15) 39px 40px
-    ),
-    #286d48;
+  background: #b9dcf0;
 }
 
 .world-canvas::after {
@@ -5366,16 +5347,85 @@ body {
   position: absolute;
   z-index: 5;
   inset: 0;
-  width: 1800px;
-  height: 900px;
+  width: 100%;
+  height: 100%;
   contain: layout paint;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .immersive-town-map canvas {
   display: block;
-  width: 1800px !important;
-  height: 900px !important;
+  width: 100% !important;
+  height: 100% !important;
+  cursor: grab;
+  outline: none;
+  touch-action: none;
+}
+
+.immersive-town-map canvas:active {
+  cursor: grabbing;
+}
+
+.immersive-town-status {
+  position: absolute;
+  z-index: 7;
+  top: 50%;
+  left: 50%;
+  width: min(330px, calc(100% - 32px));
+  padding: 18px 20px;
+  display: grid;
+  gap: 4px;
+  border: 3px solid #2b190f;
+  border-radius: 16px;
+  color: #2b190f;
+  background: #fff9e8;
+  box-shadow: 0 12px 30px rgba(43, 25, 15, 0.22);
+  text-align: center;
+  transform: translate(-50%, -50%);
+}
+
+.immersive-town-status.is-error {
+  border-color: #9b352a;
+  background: #fff0e7;
+}
+
+.town-camera-controls {
+  position: absolute;
+  z-index: 16;
+  top: 112px;
+  bottom: auto;
+  left: 18px;
+  width: 116px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  pointer-events: auto;
+}
+
+.town-camera-controls button {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 2px solid #2b190f;
+  border-radius: 12px;
+  color: #2b190f;
+  background: rgba(255, 249, 232, 0.94);
+  box-shadow: 0 5px 12px rgba(43, 25, 15, 0.18);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.town-camera-controls button:hover,
+.town-camera-controls button:focus-visible {
+  background: #ffd24a;
+  transform: translateY(-2px);
+}
+
+.town-camera-controls button:disabled {
+  cursor: wait;
+  opacity: 0.52;
+  transform: none;
 }
 
 .world-canvas .world-river {
@@ -5389,57 +5439,66 @@ body {
 
 .world-canvas .compound-grid {
   position: absolute;
-  z-index: 12;
-  inset: 0;
-  width: 1800px;
-  height: 900px;
+  z-index: 17;
+  top: auto;
+  right: 18px;
+  bottom: 18px;
+  left: auto;
+  width: auto;
+  height: auto;
   padding: 0;
+  display: flex;
+  gap: 7px;
   overflow: visible;
+  pointer-events: auto;
 }
 
 .world-canvas .compound {
-  width: 190px;
-  height: 188px;
+  position: relative;
+  inset: auto !important;
+  width: auto;
+  height: auto;
+  min-height: 48px;
+  padding: 8px 11px;
+  border: 2px solid #2b190f;
+  border-radius: 12px;
+  background: rgba(255, 249, 232, 0.94);
+  box-shadow: 0 5px 12px rgba(43, 25, 15, 0.18);
 }
 
-.world-canvas .compound-sunny {
-  top: 98px;
-  left: 424px;
-}
-
-.world-canvas .compound-bluebell {
-  top: 180px;
-  right: auto;
-  left: 780px;
-}
-
-.world-canvas .compound-mango {
-  top: 610px;
-  bottom: auto;
-  left: 1320px;
-}
-
-.world-canvas .compound-name,
+.world-canvas .compound-scene,
 .world-canvas .compound-drop-prompt,
+.world-canvas .home-owner-alert,
 .map-guide-bubble {
   display: none;
+}
+
+.world-canvas .compound-name {
+  display: grid;
+  gap: 0;
+  text-align: left;
+}
+
+.world-canvas .compound-name strong {
+  font-size: 0.74rem;
+}
+
+.world-canvas .compound-name small {
+  font-size: 0.62rem;
 }
 
 .world-canvas .compound:hover,
 .world-canvas .compound:focus-visible,
 .world-canvas .compound.is-drop-target {
   z-index: 24;
-  transform: translateY(-5px) scale(1.025);
+  background: #ffd24a;
+  transform: translateY(-2px);
 }
 
 .world-canvas .compound:focus-visible .compound-scene {
   border-color: #ffd24a;
   background: rgba(255, 232, 107, 0.16);
   box-shadow: 0 0 0 8px rgba(255, 210, 74, 0.25);
-}
-
-.world-canvas .compound-scene {
-  min-height: 156px;
 }
 
 .home-owner-alert {
@@ -5580,7 +5639,7 @@ body {
 .map-pan-hint {
   position: absolute;
   z-index: 40;
-  right: 22px;
+  right: 50%;
   bottom: 22px;
   margin: 0;
   padding: 8px 12px;
@@ -5597,6 +5656,7 @@ body {
   font-weight: 850;
   line-height: 1;
   pointer-events: none;
+  transform: translateX(50%);
 }
 
 .map-pan-hint span {
@@ -5643,24 +5703,35 @@ body {
     min-height: 720px;
   }
 
+  .town-camera-controls {
+    top: auto;
+    right: 12px;
+    bottom: 76px;
+    left: 12px;
+    width: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .town-camera-controls button {
+    min-height: 42px;
+    padding: 7px 9px;
+    font-size: 0.66rem;
+  }
+
+  .world-canvas .compound-grid {
+    top: auto;
+    right: 12px;
+    bottom: 14px;
+    left: 12px;
+    justify-content: flex-end;
+  }
+
   .world-canvas .compound {
-    width: 176px;
-    height: 176px;
-  }
-
-  .world-canvas .compound-sunny {
-    top: 98px;
-    left: 424px;
-  }
-
-  .world-canvas .compound-bluebell {
-    top: 180px;
-    left: 780px;
-  }
-
-  .world-canvas .compound-mango {
-    top: 610px;
-    left: 1320px;
+    inset: auto;
+    min-width: 0;
+    min-height: 44px;
+    padding: 7px 8px;
   }
 
   .neighborhood-actions {
@@ -5669,8 +5740,8 @@ body {
   }
 
   .map-pan-hint {
-    right: 13px;
-    bottom: 78px;
+    right: 50%;
+    bottom: 126px;
     padding: 7px 10px;
     font-size: 0.7rem;
   }

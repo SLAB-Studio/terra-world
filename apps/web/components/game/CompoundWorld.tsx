@@ -27,7 +27,6 @@ import HouseDiagnostics, {
   type HouseUpgradeId,
 } from "./HouseDiagnostics";
 import ImmersiveTownMap from "./ImmersiveTownMap";
-import LivingMapDecor from "./LivingMapDecor";
 
 type UpgradeId = HouseUpgradeId;
 type CompoundId = HouseId;
@@ -475,19 +474,20 @@ export default function CompoundWorld({
           inert={challengeTrailOpen || undefined}
         >
           <div
-            aria-label="Scrollable Terra World neighborhood map"
+            aria-label="Interactive 3D Terra World neighborhood"
             className="world-scroll-region"
             ref={worldScrollRef}
             role="region"
             tabIndex={0}
           >
-            <div className="world-canvas">
-              <ImmersiveTownMap />
-              <span className="world-river" aria-hidden="true">
-                <i className="river-shimmer river-shimmer-one" />
-                <i className="river-shimmer river-shimmer-two" />
-              </span>
-              <LivingMapDecor />
+            <div className="world-canvas is-immersive-3d">
+              <ImmersiveTownMap
+                activeUpgradeId={dragPiece?.id ?? null}
+                houses={compounds}
+                onHouseDrop={addUpgrade}
+                onHouseSelect={setSelectedCompound}
+                selectedHouseId={selectedCompound}
+              />
               <div className="compound-grid">
                 {COMPOUNDS.map((compound) => {
                   const upgrades = compounds[compound.id];
@@ -567,16 +567,21 @@ export default function CompoundWorld({
                           </span>
                         )}
                       </span>
+                      <span className="compound-name">
+                        <strong>{compound.name}</strong>
+                        <small>
+                          {health.allHealthy
+                            ? "All healthy"
+                            : `${health.healthyCount}/${health.totalCount} ready`}
+                        </small>
+                      </span>
                     </button>
                   );
                 })}
               </div>
             </div>
           </div>
-          <p className="map-pan-hint">
-            <span aria-hidden="true">↔</span>
-            Scroll or swipe to explore
-          </p>
+          <p className="map-pan-hint">Drag to look around · scroll to zoom</p>
         </div>
 
         <footer
