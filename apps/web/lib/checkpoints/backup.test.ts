@@ -7,6 +7,7 @@ import {
   MemoryCheckpointBackupStore,
   type AdultCheckpointReference,
   type CheckpointDownload,
+  type CheckpointDownloadRequest,
   type CheckpointRemoteReceipt,
   type CheckpointRemoteStorage,
   type CheckpointUploadRequest,
@@ -394,9 +395,11 @@ class FakeRemoteStorage implements CheckpointRemoteStorage {
     return receipt;
   }
 
-  async download(root: string): Promise<CheckpointDownload> {
-    if (this.downloadOverride) return this.downloadOverride(root);
-    const download = this.downloads.get(root);
+  async download(
+    request: CheckpointDownloadRequest,
+  ): Promise<CheckpointDownload> {
+    if (this.downloadOverride) return this.downloadOverride(request.root);
+    const download = this.downloads.get(request.root);
     if (!download) throw new CheckpointRemoteError("not_found", false);
     return { ...download };
   }

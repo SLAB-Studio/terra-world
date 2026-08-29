@@ -70,10 +70,16 @@ export type CheckpointRemoteReceipt = Readonly<{
 export type CheckpointDownload = CheckpointRemoteReceipt &
   Readonly<{ encryptedEnvelope: string }>;
 
+export type CheckpointDownloadRequest = Readonly<{
+  root: string;
+  expectedContentHash: string;
+  expectedByteLength: number;
+}>;
+
 /** Implemented by the adult-sponsored server boundary, never by a child wallet. */
 export interface CheckpointRemoteStorage {
   upload(request: CheckpointUploadRequest): Promise<CheckpointRemoteReceipt>;
-  download(root: string): Promise<CheckpointDownload>;
+  download(request: CheckpointDownloadRequest): Promise<CheckpointDownload>;
 }
 
 export type AdultCheckpointReference = Readonly<{
@@ -210,7 +216,11 @@ export class CheckpointBackupCoordinator {
     isValid: (value: unknown) => value is T,
   ): Promise<RestoredCheckpoint<T>> {
     assertAdultReference(reference);
-    const downloaded = await this.remote.download(reference.root);
+    const downloaded = await this.remote.download({
+      root: reference.root,
+      expectedContentHash: reference.contentHash,
+      expectedByteLength: reference.byteLength,
+    });
     assertDownloadedMatchesReference(downloaded, reference);
     const bytes = new TextEncoder().encode(downloaded.encryptedEnvelope);
     if (bytes.byteLength !== reference.byteLength) {
