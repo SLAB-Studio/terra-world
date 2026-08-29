@@ -1,0 +1,499 @@
+.layer {
+  position: absolute;
+  z-index: 6;
+  top: 0;
+  left: 0;
+  width: 1800px;
+  height: 900px;
+  contain: layout paint;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.path {
+  position: absolute;
+  z-index: 0;
+  display: block;
+  height: 34px;
+  border-block: 2px dashed rgba(255, 247, 217, 0.3);
+  background: rgba(255, 239, 192, 0.18);
+  transform-origin: left center;
+}
+
+.pathNorth {
+  top: 370px;
+  left: -80px;
+  width: 1980px;
+  transform: rotate(-8deg);
+}
+
+.pathSouth {
+  top: 705px;
+  left: 20px;
+  width: 1780px;
+  transform: rotate(5deg);
+}
+
+.pathCross {
+  top: 12px;
+  left: 1020px;
+  width: 930px;
+  transform: rotate(64deg);
+}
+
+.homeLot {
+  position: absolute;
+  z-index: 3;
+  top: var(--y);
+  left: var(--x);
+  width: 180px;
+  height: 170px;
+  display: block;
+}
+
+.house {
+  position: absolute;
+  right: 8px;
+  bottom: 9px;
+  width: 126px;
+  height: 118px;
+  display: block;
+  animation: home-settle 7.5s cubic-bezier(0.22, 1, 0.36, 1) var(--delay)
+    infinite;
+  transform-origin: 50% 100%;
+}
+
+.house i {
+  position: absolute;
+  display: block;
+  box-sizing: border-box;
+}
+
+.houseShadow {
+  right: 0;
+  bottom: 0;
+  width: 112px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(28, 47, 29, 0.25);
+  transform: skewX(-24deg);
+}
+
+.wallLeft,
+.wallRight {
+  z-index: 2;
+  top: 55px;
+  width: 58px;
+  height: 54px;
+  border: 3px solid #2b190f;
+  background: var(--wall);
+}
+
+.wallLeft {
+  left: 8px;
+  transform: skewY(28deg);
+}
+
+.wallRight {
+  right: 2px;
+  filter: brightness(0.88);
+  transform: skewY(-28deg);
+}
+
+.roof {
+  z-index: 4;
+  top: 17px;
+  left: 30px;
+  width: 74px;
+  height: 74px;
+  border: 3px solid #2b190f;
+  border-radius: 3px;
+  background: var(--roof);
+  transform: rotate(30deg) skewX(-30deg) scaleY(0.84);
+}
+
+.window {
+  z-index: 5;
+  top: 72px;
+  left: 23px;
+  width: 18px;
+  height: 22px;
+  border: 3px solid #2b190f;
+  background: #aee5fb;
+  transform: skewY(28deg);
+}
+
+.door {
+  z-index: 5;
+  right: 18px;
+  bottom: 9px;
+  width: 20px;
+  height: 33px;
+  border: 3px solid #2b190f;
+  background: #75465e;
+  transform: skewY(-28deg);
+}
+
+.owner {
+  position: absolute;
+  z-index: 8;
+  bottom: 3px;
+  left: 2px;
+  width: 52px;
+  height: 93px;
+  display: block;
+}
+
+.helpBubble {
+  position: absolute;
+  right: 4px;
+  bottom: 69px;
+  width: max-content;
+  max-width: 126px;
+  padding: 7px 9px;
+  border: 3px solid #2b190f;
+  border-radius: 12px 12px 4px 12px;
+  color: #2b190f;
+  background: #fff9e8;
+  box-shadow: 3px 4px 7px rgba(43, 25, 15, 0.2);
+  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.08;
+  text-align: center;
+  white-space: normal;
+  animation: bubble-breathe 4.8s cubic-bezier(0.22, 1, 0.36, 1) var(--delay)
+    infinite;
+}
+
+.helpBubble::after {
+  content: "";
+  position: absolute;
+  right: 7px;
+  bottom: -9px;
+  width: 10px;
+  height: 10px;
+  border-right: 3px solid #2b190f;
+  border-bottom: 3px solid #2b190f;
+  background: #fff9e8;
+  transform: skewY(35deg);
+}
+
+.tree {
+  position: absolute;
+  z-index: 2;
+  top: var(--y);
+  left: var(--x);
+  width: 58px;
+  height: 92px;
+  display: block;
+  transform: scale(var(--scale));
+  transform-origin: bottom center;
+}
+
+.tree::before,
+.tree::after,
+.tree i {
+  content: "";
+  position: absolute;
+  display: block;
+  box-sizing: border-box;
+}
+
+.tree::before,
+.tree i {
+  z-index: 2;
+  border: 3px solid #2b190f;
+  border-radius: 48% 52% 44% 56%;
+  background: #75cf56;
+}
+
+.tree::before {
+  top: 2px;
+  left: 2px;
+  width: 54px;
+  height: 56px;
+  box-shadow: inset 8px -7px 0 rgba(42, 135, 56, 0.19);
+}
+
+.tree i {
+  top: 21px;
+  left: -8px;
+  width: 36px;
+  height: 38px;
+  border-width: 2px;
+}
+
+.tree::after {
+  z-index: 1;
+  bottom: 1px;
+  left: 23px;
+  width: 13px;
+  height: 48px;
+  border: 3px solid #2b190f;
+  border-radius: 5px 5px 2px 2px;
+  background: #75465e;
+}
+
+.peopleScene {
+  position: absolute;
+  z-index: 8;
+  width: 106px;
+  height: 72px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.chatNorth {
+  top: 404px;
+  left: 442px;
+}
+
+.chatSouth {
+  top: 730px;
+  left: 1115px;
+}
+
+.person {
+  position: relative;
+  width: 30px;
+  height: 61px;
+  display: block;
+  animation: friendly-bob 3.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  transform-origin: 50% 100%;
+}
+
+.person i {
+  position: absolute;
+  display: block;
+  box-sizing: border-box;
+}
+
+.head {
+  z-index: 3;
+  top: 0;
+  left: 7px;
+  width: 17px;
+  height: 18px;
+  border: 2px solid #2b190f;
+  border-radius: 48%;
+  background: #9d6547;
+}
+
+.body {
+  z-index: 2;
+  top: 16px;
+  left: 5px;
+  width: 20px;
+  height: 27px;
+  border: 2px solid #2b190f;
+  border-radius: 8px 8px 5px 5px;
+  background: var(--shirt);
+}
+
+.armLeft,
+.armRight,
+.legLeft,
+.legRight {
+  width: 6px;
+  border: 2px solid #2b190f;
+  border-radius: 5px;
+  background: #9d6547;
+  transform-origin: top center;
+}
+
+.armLeft,
+.armRight {
+  z-index: 1;
+  top: 20px;
+  height: 22px;
+}
+
+.armLeft {
+  left: 2px;
+  transform: rotate(18deg);
+}
+
+.armRight {
+  right: 2px;
+  transform: rotate(-18deg);
+}
+
+.legLeft,
+.legRight {
+  top: 40px;
+  height: 21px;
+  background: #5d4b63;
+}
+
+.legLeft {
+  left: 7px;
+  transform: rotate(4deg);
+}
+
+.legRight {
+  right: 7px;
+  transform: rotate(-4deg);
+}
+
+.personWave .armRight {
+  top: 18px;
+  right: -1px;
+  animation: little-wave 2.8s ease-in-out infinite;
+  transform: rotate(-130deg);
+}
+
+.personPlay:first-child {
+  animation-delay: -0.8s;
+}
+
+.chatMarks {
+  align-self: center;
+  width: 28px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 2px solid rgba(43, 25, 15, 0.78);
+  border-radius: 9px;
+  background: rgba(255, 249, 232, 0.86);
+  animation: chatter 4.2s ease-in-out infinite;
+}
+
+.chatMarks i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #2b190f;
+}
+
+.playScene {
+  position: absolute;
+  z-index: 8;
+  top: 474px;
+  left: 1510px;
+  width: 124px;
+  height: 76px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.ball {
+  position: absolute;
+  z-index: 3;
+  bottom: 6px;
+  left: 54px;
+  width: 16px;
+  height: 16px;
+  display: block;
+  border: 2px solid #2b190f;
+  border-radius: 50%;
+  background: #f0643b;
+  animation: ball-hop 2.7s cubic-bezier(0.55, 0, 0.45, 1) infinite;
+}
+
+@keyframes home-settle {
+  0%,
+  82%,
+  100% {
+    transform: translateY(0) scaleY(1);
+    filter: none;
+  }
+  88% {
+    transform: translateY(-2px) scaleY(1.012);
+    filter: brightness(1.03);
+  }
+}
+
+@keyframes bubble-breathe {
+  0%,
+  70%,
+  100% {
+    transform: translateY(0);
+    box-shadow: 3px 4px 7px rgba(43, 25, 15, 0.2);
+  }
+  82% {
+    transform: translateY(-4px);
+    box-shadow: 3px 7px 10px rgba(43, 25, 15, 0.15);
+  }
+}
+
+@keyframes friendly-bob {
+  0%,
+  74%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+  82% {
+    transform: translateY(-2px) rotate(-1deg);
+  }
+  90% {
+    transform: translateY(0) rotate(1deg);
+  }
+}
+
+@keyframes little-wave {
+  0%,
+  65%,
+  100% {
+    transform: rotate(-130deg);
+  }
+  76% {
+    transform: rotate(-105deg);
+  }
+  87% {
+    transform: rotate(-145deg);
+  }
+}
+
+@keyframes chatter {
+  0%,
+  62%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  70% {
+    transform: translateY(-2px) scale(1.04);
+  }
+  80% {
+    transform: translateY(0) scale(0.98);
+  }
+}
+
+@keyframes ball-hop {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0);
+  }
+  25% {
+    transform: translate(15px, -24px) rotate(90deg);
+  }
+  50% {
+    transform: translate(30px, 0) rotate(180deg);
+  }
+  75% {
+    transform: translate(15px, -18px) rotate(270deg);
+  }
+}
+
+@media (max-width: 760px) {
+  .layer {
+    transform: scale(0.86);
+    transform-origin: top left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .house,
+  .helpBubble,
+  .person,
+  .personWave .armRight,
+  .chatMarks,
+  .ball {
+    animation: none;
+  }
+}
