@@ -4525,6 +4525,10 @@ body {
   background: #235f42;
 }
 
+.neighborhood-panel.challenge-trail-open {
+  z-index: 80;
+}
+
 .neighborhood-world {
   position: absolute;
   inset: 0;
@@ -5608,6 +5612,216 @@ body {
   .home-owner-alert,
   .owner-arm,
   .town-awake .world-canvas {
+    animation: none;
+  }
+}
+
+/* Progressive Adventure Trail */
+.neighborhood-quest.challenge-quest {
+  width: min(680px, calc(100% - 28px));
+  min-height: 82px;
+  padding: 9px 11px 9px 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
+.challenge-quest .quest-kicker {
+  display: block;
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
+}
+
+.challenge-quest h2 {
+  margin: 1px 0 0;
+  overflow: hidden;
+  font-size: clamp(1rem, 1.7vw, 1.28rem);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.challenge-quest-instruction {
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: #593e2e;
+  font-size: 0.7rem;
+  font-weight: 760;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.challenge-quest-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.challenge-goal-count {
+  min-width: 70px;
+  padding: 5px 8px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 5px;
+  border: 2px solid #2b190f;
+  border-radius: 11px;
+  background: #fffdf4;
+}
+
+.challenge-goal-count strong {
+  color: #2f7c3e;
+  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.challenge-goal-count small {
+  max-width: 38px;
+  font-size: 0.52rem;
+  font-weight: 900;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.challenge-quest-actions button {
+  min-height: 42px;
+  padding: 7px 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 3px solid #2b190f;
+  border-radius: 11px;
+  color: #2b190f;
+  background: #ffd24a;
+  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.challenge-quest-actions button:focus-visible {
+  outline: 4px solid #167c8a;
+  outline-offset: 2px;
+}
+
+.challenge-complete-toast {
+  position: absolute;
+  z-index: 65;
+  right: 18px;
+  bottom: 78px;
+  width: min(380px, calc(100% - 36px));
+  min-height: 74px;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  border: 4px solid #2b190f;
+  border-radius: 18px;
+  color: #2b190f;
+  background: #ddf1cf;
+  box-shadow: 0 10px 22px rgba(31, 19, 12, 0.3);
+  animation: challenge-arrive 430ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.challenge-complete-mark {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border: 3px solid #2b190f;
+  border-radius: 14px;
+  color: #285f37;
+  background: #8ed36b;
+}
+
+.challenge-complete-toast strong,
+.challenge-complete-toast span {
+  display: block;
+}
+
+.challenge-complete-toast strong {
+  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.challenge-complete-toast div > span {
+  margin-top: 3px;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.challenge-complete-toast button {
+  min-height: 42px;
+  padding: 7px 9px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 3px solid #2b190f;
+  border-radius: 11px;
+  color: #2b190f;
+  background: #ffd24a;
+  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+@keyframes challenge-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 760px) {
+  .neighborhood-quest.challenge-quest {
+    top: 10px;
+    left: 10px;
+    width: calc(100% - 20px);
+    min-height: 78px;
+    padding: 8px 8px 8px 11px;
+    gap: 7px;
+  }
+
+  .challenge-quest h2 {
+    max-width: 180px;
+    font-size: 0.98rem;
+  }
+
+  .challenge-quest-instruction {
+    max-width: 182px;
+    font-size: 0.63rem;
+  }
+
+  .challenge-goal-count {
+    display: none;
+  }
+
+  .challenge-quest-actions button {
+    min-height: 44px;
+    padding: 7px 9px;
+  }
+
+  .challenge-complete-toast {
+    position: fixed;
+    right: 10px;
+    bottom: 12px;
+    width: calc(100% - 20px);
+    grid-template-columns: auto 1fr;
+  }
+
+  .challenge-complete-toast button {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .challenge-complete-toast {
     animation: none;
   }
 }

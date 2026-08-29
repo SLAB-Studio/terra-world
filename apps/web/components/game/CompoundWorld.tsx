@@ -8,10 +8,20 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
+import {
+  challengeById,
+  challengeStars,
+  completedGoalIds,
+  copyChallengeSetup,
+  isChallengeComplete,
+  isChallengeUnlocked,
+  nextChallengeId,
+  TERRA_CHALLENGES,
+} from "../../lib/challenges/catalog";
+import ChallengeTrail from "./ChallengeTrail";
 import { GameIcon } from "./GameIcon";
 import HouseDiagnostics, {
   getHouseHealth,
-  HOUSE_PROFILES,
   type HouseId,
   type HouseUpgradeId,
 } from "./HouseDiagnostics";
@@ -97,12 +107,13 @@ const OWNER_HELP: Readonly<Record<UpgradeId, string>> = {
   recycle: "Can we tidy our yard?",
 };
 
+const CHALLENGE_PROGRESS_KEY = "terra-world-challenge-progress-v1";
+const FIRST_CHALLENGE = TERRA_CHALLENGES[0];
+
 function initialCompoundState(): Record<CompoundId, readonly UpgradeId[]> {
-  return {
-    sunny: HOUSE_PROFILES.sunny.defaultUpgrades,
-    bluebell: HOUSE_PROFILES.bluebell.defaultUpgrades,
-    mango: HOUSE_PROFILES.mango.defaultUpgrades,
-  };
+  if (FIRST_CHALLENGE === undefined)
+    return { sunny: [], bluebell: [], mango: [] };
+  return copyChallengeSetup(FIRST_CHALLENGE);
 }
 
 export default function CompoundWorld({
@@ -111,6 +122,24 @@ export default function CompoundWorld({
 }: CompoundWorldProps) {
   const [selectedUpgrade, setSelectedUpgrade] = useState<UpgradeId>("light");
   const [compounds, setCompounds] = useState(initialCompoundState);
+  const [activeChallengeId, setActiveChallengeId] = useState(
+    FIRST_CHALLENGE?.id ?? "sunny-after-dark",
+  );
+  const [challengeTrailOpen, setChallengeTrailOpen] = useState(false);
+  const [challengeMoves, setChallengeMoves] = useState(0);
+  const [challengeHintsUsed, setChallengeHintsUsed] = useState(0);
+  const [completedChallengeIds, setCompletedChallengeIds] = useState<
+    readonly string[]
+  >([]);
+  const [bestChallengeStars, setBestChallengeStars] = useState<
+    Readonly<Record<string, number>>
+  >({});
+  const [attemptComplete, setAttemptComplete] = useState(false);
+  const [challengeProgressReady, setChallengeProgressReady] = useState(false);
+  const [completionNotice, setCompletionNotice] = useState<{
+    readonly challengeId: string;
+    readonly stars: 1 | 2 | 3;
+  } | null>(null);
   const [selectedCompound, setSelectedCompound] = useState<CompoundId | null>(
     null,
   );
@@ -121,7 +150,17 @@ export default function CompoundWorld({
   const [townAwake, setTownAwake] = useState(false);
   const dragPieceRef = useRef<DragPiece | null>(null);
   const worldScrollRef = useRef<HTMLDivElement>(null);
+  const challengeTrailButtonRef = useRef<HTMLButtonElement>(null);
   const celebrationTimerRef = useRef<number | null>(null);
+  const activeChallenge =
+    challengeById(activeChallengeId) ??
+    FIRST_CHALLENGE ??
+    missingChallengeCatalogue();
+
+  const activeCompletedGoalIds = useMemo(
+    () => completedGoalIds(activeChallenge, compounds),
+    [activeChallenge, compounds],
+  );
 
   const litHomes = useMemo(
     () =>
@@ -134,15 +173,6 @@ export default function CompoundWorld({
       Object.values(compounds).reduce((sum, items) => sum + items.length, 0),
     [compounds],
   );
-  const healthyHomes = useMemo(
-    () =>
-      COMPOUNDS.filter(
-        (compound) =>
-          getHouseHealth(compound.id, compounds[compound.id]).allHealthy,
-      ).length,
-    [compounds],
-  );
-
   useEffect(() => {
     function move(event: PointerEvent) {
       const active = dragPieceRef.current;
@@ -194,21 +224,130 @@ export default function CompoundWorld({
     map.scrollTop = 28;
   }, []);
 
+  useEffect(() => {
+    const restored = restoreChallengeProgress();
+    if (restored !== null) {
+      const restoredChallenge =
+        challengeById(restored.activeChallengeId) ??
+        FIRST_CHALLENGE ??
+        missingChallengeCatalogue();
+      setActiveChallengeId(restoredChallenge.id);
+      setCompounds(restored.town);
+      setChallengeMoves(restored.moves);
+      setChallengeHintsUsed(restored.hintsUsed);
+      setCompletedChallengeIds(restored.completedIds);
+      setBestChallengeStars(restored.bestStars);
+      setAttemptComplete(isChallengeComplete(restoredChallenge, restored.town));
+    }
+    setChallengeProgressReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!challengeProgressReady) return;
+    window.localStorage.setItem(
+      CHALLENGE_PROGRESS_KEY,
+      JSON.stringify({
+        schemaVersion: 1,
+        activeChallengeId,
+        town: compounds,
+        moves: challengeMoves,
+        hintsUsed: challengeHintsUsed,
+        completedIds: completedChallengeIds,
+        bestStars: bestChallengeStars,
+      }),
+    );
+  }, [
+    activeChallengeId,
+    bestChallengeStars,
+    challengeHintsUsed,
+    challengeMoves,
+    challengeProgressReady,
+    completedChallengeIds,
+    compounds,
+  ]);
+
   function addUpgrade(compoundId: CompoundId, upgradeId: UpgradeId) {
     if (!compounds[compoundId].includes(upgradeId)) {
-      setCompounds((current) => ({
-        ...current,
-        [compoundId]: [...current[compoundId], upgradeId],
-      }));
+      const nextTown = {
+        ...compounds,
+        [compoundId]: [...compounds[compoundId], upgradeId],
+      };
+      const nextMoves = challengeMoves + 1;
+      setCompounds(nextTown);
+      setChallengeMoves(nextMoves);
       const home = COMPOUNDS.find((compound) => compound.id === compoundId);
       onRiverMessage(
         `${home?.family ?? "This home"} added ${upgradeLabel(upgradeId).toLowerCase()}. ${RIVER_MESSAGES[upgradeId]}`,
       );
+      if (!attemptComplete && isChallengeComplete(activeChallenge, nextTown)) {
+        const stars = challengeStars({
+          challenge: activeChallenge,
+          moves: nextMoves,
+          hintsUsed: challengeHintsUsed,
+        });
+        setAttemptComplete(true);
+        setCompletionNotice({ challengeId: activeChallenge.id, stars });
+        setCompletedChallengeIds((current) =>
+          current.includes(activeChallenge.id)
+            ? current
+            : [...current, activeChallenge.id],
+        );
+        setBestChallengeStars((current) => ({
+          ...current,
+          [activeChallenge.id]: Math.max(
+            current[activeChallenge.id] ?? 0,
+            stars,
+          ),
+        }));
+        setTownAwake(true);
+        if (celebrationTimerRef.current !== null)
+          window.clearTimeout(celebrationTimerRef.current);
+        celebrationTimerRef.current = window.setTimeout(
+          () => setTownAwake(false),
+          2200,
+        );
+        onRiverMessage(
+          `Challenge complete! ${activeChallenge.learning} You earned ${stars} ${stars === 1 ? "leaf" : "leaves"}.`,
+        );
+      }
     } else {
       onRiverMessage(
         `${upgradeLabel(upgradeId)} is already helping this home. Try it on another compound!`,
       );
     }
+  }
+
+  function startChallenge(challengeId: string) {
+    const challenge = challengeById(challengeId);
+    if (
+      challenge === null ||
+      !isChallengeUnlocked(challenge.id, completedChallengeIds)
+    )
+      return;
+    setActiveChallengeId(challenge.id);
+    setCompounds(copyChallengeSetup(challenge));
+    setChallengeMoves(0);
+    setChallengeHintsUsed(0);
+    setAttemptComplete(false);
+    setCompletionNotice(null);
+    setSelectedCompound(null);
+    setChallengeTrailOpen(false);
+    onRiverMessage(`${challenge.story} ${challenge.instruction}`);
+    const map = worldScrollRef.current;
+    if (map !== null) {
+      map.scrollLeft = 315;
+      map.scrollTop = 28;
+    }
+  }
+
+  function startNextChallenge() {
+    const nextId = nextChallengeId(activeChallenge.id);
+    if (nextId === null) {
+      setCompletionNotice(null);
+      setChallengeTrailOpen(true);
+      return;
+    }
+    startChallenge(nextId);
   }
 
   function startDrag(
@@ -244,12 +383,6 @@ export default function CompoundWorld({
       );
     }
   }
-
-  const homesNeedingHelp = COMPOUNDS.length - healthyHomes;
-  const questText =
-    homesNeedingHelp === 0
-      ? "Every home feels great!"
-      : `${homesNeedingHelp} home${homesNeedingHelp === 1 ? "" : "s"} asking for help`;
 
   return (
     <>
@@ -294,36 +427,48 @@ export default function CompoundWorld({
 
       <section
         aria-hidden={backgroundInert || undefined}
-        className={`neighborhood-panel${townAwake ? " town-awake" : ""}`}
+        className={`neighborhood-panel${townAwake ? " town-awake" : ""}${challengeTrailOpen ? " challenge-trail-open" : ""}`}
         inert={backgroundInert || undefined}
         aria-labelledby="neighborhood-heading"
       >
-        <header className="neighborhood-quest">
+        <header
+          aria-hidden={challengeTrailOpen || undefined}
+          className="neighborhood-quest challenge-quest"
+          inert={challengeTrailOpen || undefined}
+        >
           <div>
-            <span className="quest-kicker">Today&apos;s little quest</span>
-            <h2 id="neighborhood-heading">{questText}</h2>
+            <span className="quest-kicker">
+              Stage {activeChallenge.stage} · {activeChallenge.difficulty}
+            </span>
+            <h2 id="neighborhood-heading">{activeChallenge.title}</h2>
+            <p className="challenge-quest-instruction">
+              {activeChallenge.instruction}
+            </p>
           </div>
-          <div
-            className="quest-suns"
-            aria-label={`${healthyHomes} of 3 homes fully healthy`}
-          >
-            {COMPOUNDS.map((compound) => (
-              <span
-                className={
-                  getHouseHealth(compound.id, compounds[compound.id]).allHealthy
-                    ? "is-on"
-                    : ""
-                }
-                key={compound.id}
-                aria-hidden="true"
-              >
-                ☀
-              </span>
-            ))}
+          <div className="challenge-quest-actions">
+            <span className="challenge-goal-count">
+              <strong>{activeCompletedGoalIds.length}</strong>
+              <small>of {activeChallenge.goals.length} goals</small>
+            </span>
+            <button
+              onClick={() => {
+                setSelectedCompound(null);
+                setChallengeTrailOpen(true);
+              }}
+              ref={challengeTrailButtonRef}
+              type="button"
+            >
+              <GameIcon name="spark" size={19} />
+              Trail
+            </button>
           </div>
         </header>
 
-        <div className="neighborhood-world">
+        <div
+          aria-hidden={challengeTrailOpen || undefined}
+          className="neighborhood-world"
+          inert={challengeTrailOpen || undefined}
+        >
           <div
             aria-label="Scrollable Terra World neighborhood map"
             className="world-scroll-region"
@@ -428,7 +573,11 @@ export default function CompoundWorld({
           </p>
         </div>
 
-        <footer className="neighborhood-actions">
+        <footer
+          aria-hidden={challengeTrailOpen || undefined}
+          className="neighborhood-actions"
+          inert={challengeTrailOpen || undefined}
+        >
           <p aria-live="polite">
             {completedActions === 0
               ? "Start with one small change."
@@ -439,6 +588,45 @@ export default function CompoundWorld({
             Watch the town!
           </button>
         </footer>
+
+        {completionNotice !== null && !challengeTrailOpen && (
+          <div className="challenge-complete-toast" aria-live="polite">
+            <span className="challenge-complete-mark" aria-hidden="true">
+              <GameIcon name="nature" size={27} />
+            </span>
+            <div>
+              <strong>Challenge complete!</strong>
+              <span>
+                {completionNotice.stars}{" "}
+                {completionNotice.stars === 1 ? "leaf" : "leaves"} earned
+              </span>
+            </div>
+            <button onClick={startNextChallenge} type="button">
+              {nextChallengeId(completionNotice.challengeId) === null
+                ? "See my trail"
+                : "Next challenge"}
+              <GameIcon name="arrow" size={19} />
+            </button>
+          </div>
+        )}
+
+        <ChallengeTrail
+          activeChallenge={activeChallenge}
+          bestStars={bestChallengeStars}
+          completedIds={completedChallengeIds}
+          moves={challengeMoves}
+          onClose={() => {
+            setChallengeTrailOpen(false);
+            window.requestAnimationFrame(() =>
+              challengeTrailButtonRef.current?.focus(),
+            );
+          }}
+          onHintUsed={() => setChallengeHintsUsed((count) => count + 1)}
+          onRiverMessage={onRiverMessage}
+          onStart={startChallenge}
+          open={challengeTrailOpen}
+          town={compounds}
+        />
       </section>
 
       {dragPiece !== null && (
@@ -478,4 +666,96 @@ function compoundAt(x: number, y: number): CompoundId | null {
 
 function upgradeLabel(id: UpgradeId): string {
   return UPGRADES.find((upgrade) => upgrade.id === id)?.label ?? id;
+}
+
+function missingChallengeCatalogue(): never {
+  throw new Error("Terra World requires at least one challenge");
+}
+
+type RestoredChallengeProgress = Readonly<{
+  activeChallengeId: string;
+  town: Record<CompoundId, readonly UpgradeId[]>;
+  moves: number;
+  hintsUsed: number;
+  completedIds: readonly string[];
+  bestStars: Readonly<Record<string, number>>;
+}>;
+
+function restoreChallengeProgress(): RestoredChallengeProgress | null {
+  try {
+    const serialized = window.localStorage.getItem(CHALLENGE_PROGRESS_KEY);
+    if (serialized === null) return null;
+    const value = JSON.parse(serialized) as unknown;
+    if (!isRecord(value) || value.schemaVersion !== 1) return null;
+    if (
+      typeof value.activeChallengeId !== "string" ||
+      challengeById(value.activeChallengeId) === null ||
+      !isChallengeTown(value.town) ||
+      !isBoundedInteger(value.moves, 0, 100) ||
+      !isBoundedInteger(value.hintsUsed, 0, 50) ||
+      !Array.isArray(value.completedIds) ||
+      !isRecord(value.bestStars)
+    )
+      return null;
+
+    const completedIds = value.completedIds.filter(
+      (id): id is string =>
+        typeof id === "string" && challengeById(id) !== null,
+    );
+    const bestStars = Object.fromEntries(
+      Object.entries(value.bestStars).filter(
+        ([id, stars]) =>
+          challengeById(id) !== null && isBoundedInteger(stars, 1, 3),
+      ),
+    ) as Record<string, number>;
+
+    return {
+      activeChallengeId: value.activeChallengeId,
+      town: value.town,
+      moves: value.moves,
+      hintsUsed: value.hintsUsed,
+      completedIds,
+      bestStars,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function isChallengeTown(
+  value: unknown,
+): value is Record<CompoundId, readonly UpgradeId[]> {
+  if (!isRecord(value)) return false;
+  return COMPOUNDS.every((compound) => {
+    const upgrades = value[compound.id];
+    return (
+      Array.isArray(upgrades) &&
+      upgrades.length <= UPGRADES.length &&
+      new Set(upgrades).size === upgrades.length &&
+      upgrades.every(
+        (upgrade) =>
+          upgrade === "light" ||
+          upgrade === "water" ||
+          upgrade === "garden" ||
+          upgrade === "recycle",
+      )
+    );
+  });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isBoundedInteger(
+  value: unknown,
+  minimum: number,
+  maximum: number,
+): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= minimum &&
+    value <= maximum
+  );
 }
