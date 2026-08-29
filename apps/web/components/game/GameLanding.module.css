@@ -542,6 +542,27 @@
   transform: scale(0.88);
 }
 
+.homeThree {
+  left: 2%;
+  bottom: 48%;
+  background: #f4a6bf;
+  transform: scale(0.52);
+}
+
+.homeFour {
+  right: 42%;
+  bottom: 54%;
+  background: #8fd6c3;
+  transform: scale(0.48);
+}
+
+.homeFive {
+  right: 37%;
+  bottom: 20%;
+  background: #b6a5e8;
+  transform: scale(0.56);
+}
+
 .roof {
   position: absolute;
   right: -9px;
@@ -665,6 +686,42 @@
   font-size: clamp(0.8rem, 1.3vw, 1.02rem);
   font-weight: 850;
   line-height: 1.2;
+}
+
+.townActivity {
+  position: absolute;
+  z-index: 10;
+  top: 48%;
+  left: 3%;
+  margin: 0;
+  padding: 8px 10px;
+  display: grid;
+  gap: 5px;
+  border: 3px solid var(--landing-ink);
+  border-radius: 12px;
+  background: #fff7dc;
+  box-shadow: 0 6px 14px rgba(43, 25, 15, 0.18);
+  color: #4d3326;
+  font-size: 0.68rem;
+  font-weight: 850;
+  line-height: 1.1;
+  list-style: none;
+}
+
+.townActivity li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.townActivity li::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border: 2px solid var(--landing-ink);
+  border-radius: 50%;
+  background: var(--landing-green);
 }
 
 .worldPromise {
@@ -860,6 +917,34 @@
     left: 5%;
     bottom: 20%;
     transform: scale(0.7);
+  }
+
+  .homeThree {
+    left: -8%;
+    bottom: 46%;
+    transform: scale(0.4);
+  }
+
+  .homeFour {
+    right: 37%;
+    bottom: 52%;
+    transform: scale(0.4);
+  }
+
+  .homeFive {
+    right: 29%;
+    bottom: 18%;
+    transform: scale(0.42);
+  }
+
+  .townActivity {
+    top: auto;
+    right: 9px;
+    bottom: 112px;
+    left: auto;
+    grid-template-columns: repeat(3, auto);
+    gap: 8px;
+    font-size: 0.59rem;
   }
 
   .treeOne {

@@ -162,31 +162,31 @@ const COMPOUNDS: readonly {
   { id: "mango", name: "Mango House", family: "Tomi's home", garden: "Fruit" },
 ] as const;
 
-const RIVER_MESSAGES: Readonly<Record<UpgradeId, string>> = {
+const LEO_OBSERVATIONS: Readonly<Record<UpgradeId, string>> = {
   light:
-    "Look! The windows and yard are glowing. Sunlight can make clean electricity without smoky air.",
+    "Look—the windows and yard began to glow after that change. What do you think reached the home?",
   water:
-    "The garden has clean water now. Plants need water, but saving every drop helps the whole town.",
+    "The thirsty garden perked up when clean water arrived. What changed first?",
   garden:
-    "The garden is blooming! Flowers, trees, and vegetables give insects, birds, and families a healthier home.",
+    "New flowers and leaves appeared in the yard. Which neighbours might notice them next?",
   recycle:
-    "The yard is tidy! Sorting old things means less rubbish and more materials can be used again.",
+    "The loose cans and paper now have a sorting place. What looks different around the yard?",
   "rain-tank":
-    "The rain barrel is filling up! Saved rainwater can help the garden during a dry week.",
+    "Rainwater is collecting beside the home instead of running away. When might the garden need it?",
   compost:
-    "The compost box is working! Fruit peels and leaves can become rich food for the soil.",
+    "Fruit peels and dry leaves are gathering in one box. What might happen to them over time?",
   "shade-tree":
-    "The new tree is casting cool shade. Trees can cool homes, hold soil, and shelter wildlife.",
+    "A new patch of shade reaches the yard. What else might change near this home later?",
   "bike-rack":
-    "The bikes have a safe place to rest. Short bike trips can keep the air cleaner and bodies active.",
+    "More bikes have a safe place to stop. How might that change short trips around Rivergate?",
   insulation:
-    "The walls feel cozier now. Good insulation helps a home use less energy to stay comfortable.",
+    "The home looks almost the same outside, but the rooms hold their temperature longer. Why might that be?",
   "bird-home":
-    "A bird has a safe little home! A healthy town leaves space for people and wildlife.",
+    "A bird is circling the new little shelter. What made this yard useful to wildlife?",
   "first-aid":
-    "The safety kit is easy to find. Being prepared helps neighbours respond calmly to small accidents.",
+    "The safety kit now has a clear, easy-to-find place. When could that small choice matter?",
   "repair-kit":
-    "The fix-it kit is ready. Caring for small problems early can stop them from becoming big problems.",
+    "The fix-it kit is ready before anything breaks. What small problem could the family handle early?",
 };
 
 const OWNER_HELP: Readonly<Record<CoreHouseUpgradeId, string>> = {
@@ -370,7 +370,7 @@ export default function CompoundWorld({
       setChallengeMoves(nextMoves);
       const home = COMPOUNDS.find((compound) => compound.id === compoundId);
       onRiverMessage(
-        `${home?.family ?? "This home"} added ${upgradeLabel(upgradeId).toLowerCase()}. ${RIVER_MESSAGES[upgradeId]}`,
+        `${home?.family ?? "This home"} added ${upgradeLabel(upgradeId).toLowerCase()}. ${LEO_OBSERVATIONS[upgradeId]}`,
       );
       if (!attemptComplete && isChallengeComplete(activeChallenge, nextTown)) {
         const stars = challengeStars({
@@ -400,12 +400,12 @@ export default function CompoundWorld({
           2200,
         );
         onRiverMessage(
-          `Challenge complete! ${activeChallenge.learning} You earned ${stars} ${stars === 1 ? "leaf" : "leaves"}.`,
+          `Your experiment worked! Here’s what we discovered: ${activeChallenge.learning} You earned ${stars} ${stars === 1 ? "leaf" : "leaves"}.`,
         );
       }
     } else {
       onRiverMessage(
-        `${upgradeLabel(upgradeId)} is already helping this home. Try it on another compound!`,
+        `${upgradeLabel(upgradeId)} is already helping this home. What might look different if you try it somewhere else?`,
       );
     }
   }
@@ -427,7 +427,9 @@ export default function CompoundWorld({
     setCompletionNotice(null);
     setSelectedCompound(null);
     setChallengeTrailOpen(false);
-    onRiverMessage(`${challenge.story} ${challenge.instruction}`);
+    onRiverMessage(
+      `Take a look before changing anything. ${challenge.story} What do you notice? ${challenge.instruction}`,
+    );
     const map = worldScrollRef.current;
     if (map !== null) {
       map.scrollLeft = 315;
@@ -466,15 +468,15 @@ export default function CompoundWorld({
     );
     if (litHomes === COMPOUNDS.length) {
       onRiverMessage(
-        "Every home is shining with clean energy! What could you add next to help all three gardens?",
+        "All three homes shine when evening arrives. What changed across the whole street?",
       );
     } else if (completedActions === 0) {
       onRiverMessage(
-        "The town is waiting for your first idea. Drag Sun light onto a home and watch its windows glow!",
+        "Rivergate is already busy, but these homes are waiting for your first experiment. Which dark window do you notice?",
       );
     } else {
       onRiverMessage(
-        `${litHomes} of ${COMPOUNDS.length} homes can shine tonight. Can you help another home?`,
+        `${litHomes} of ${COMPOUNDS.length} homes can shine tonight. What is different about the homes that are still dark?`,
       );
     }
   }

@@ -154,29 +154,29 @@ export function createAuthoredGuideFallback(
   switch (request.task) {
     case "explain":
       return {
-        headline: "Let us inspect the city",
+        headline: "Look at what changed",
         message:
-          "I noticed a verified change in our city. The mission clues can help us connect the cause with the result.",
-        reflectiveQuestion: "Which clue best explains what our city observed?",
+          "I noticed one verified change in our city. Let us compare what was there before with what appeared after.",
+        reflectiveQuestion: "What changed first after your choice?",
         grounding,
       };
     case "hint":
       return {
-        headline: "Try a mission clue",
+        headline: "Notice one small clue",
         message:
-          "I can help us work through the verified mission clues one step at a time.",
+          "I can help us inspect the verified mission clues one step at a time.",
         hints: [
-          "Read the mission goal once more.",
-          "Compare the city before and after the last choice.",
+          "Look around before making another change.",
+          "Compare the city before and after your last choice.",
           "Use the highlighted cause to choose the next check.",
         ],
         grounding,
       };
     case "react":
       return {
-        headline: "Our city is learning",
+        headline: "Something changed",
         message:
-          "I noticed this city change, and I am ready to learn from our next choice.",
+          "I noticed one verified change in our city. What else looks different around it?",
         grounding,
       };
     case "memory": {

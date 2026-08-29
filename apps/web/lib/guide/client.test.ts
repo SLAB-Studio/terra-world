@@ -296,7 +296,7 @@ describe("browser city guide client", () => {
       ok: false,
       source: "unavailable",
       childMessage:
-        "Rivergate is resting. Your city still works without the guide.",
+        "Leo is taking a quiet moment. Your city still works without the guide.",
     });
     expect(fetch).not.toHaveBeenCalled();
     expect(JSON.stringify(result)).not.toContain("turn");

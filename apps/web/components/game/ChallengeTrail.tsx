@@ -52,6 +52,7 @@ export default function ChallengeTrail({
   const [visibleHintCount, setVisibleHintCount] = useState(0);
   const [hintLoading, setHintLoading] = useState(false);
   const selected = challengeById(selectedId) ?? activeChallenge;
+  const selectedComplete = completedIds.includes(selected.id);
   const selectedStage = CHALLENGE_STAGES.find(
     (stage) => stage.id === selected.stage,
   );
@@ -95,7 +96,7 @@ export default function ChallengeTrail({
     setVisibleHintCount(nextCount);
     onHintUsed();
     const clue = nextHint.hints[nextCount - 1];
-    if (clue !== undefined) onRiverMessage(`River's clue: ${clue}`);
+    if (clue !== undefined) onRiverMessage(`Leo’s clue: ${clue}`);
   }
 
   if (!open) return null;
@@ -113,7 +114,7 @@ export default function ChallengeTrail({
         </div>
         <div>
           <h2>Adventure Trail</h2>
-          <p>Fifteen challenges grow with your town.</p>
+          <p>Fifteen connected stories unfold across your town.</p>
         </div>
         <button
           aria-label="Close adventure trail"
@@ -247,8 +248,12 @@ export default function ChallengeTrail({
           <div className={styles.learningNote}>
             <GameIcon name="nature" size={22} />
             <p>
-              <strong>What this teaches</strong>
-              {selected.learning}
+              <strong>
+                {selectedComplete ? "What we discovered" : "What to watch"}
+              </strong>
+              {selectedComplete
+                ? selected.learning
+                : "Try a change, run the town, and look for what responds."}
             </p>
           </div>
 
@@ -266,9 +271,9 @@ export default function ChallengeTrail({
               >
                 <GameIcon name="spark" size={20} />
                 {hintLoading
-                  ? "River is thinking…"
+                  ? "Leo is thinking…"
                   : visibleHintCount === 0
-                    ? "Ask River for a tiny clue"
+                    ? "Ask Leo for a tiny clue"
                     : visibleHintCount < 3
                       ? "Show another clue"
                       : "All clues shown"}
@@ -332,7 +337,7 @@ async function requestChallengeHint(input: {
     return value;
   } catch {
     return {
-      message: "Let us look at the town one small step at a time.",
+      message: "Leo says: let’s look at the town one small step at a time.",
       hints: input.challenge.hints,
       source: "authored-local",
     };

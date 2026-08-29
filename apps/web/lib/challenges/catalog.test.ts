@@ -25,6 +25,14 @@ describe("Terra World challenge catalogue", () => {
     );
   });
 
+  it("opens in an established town with an observation-first mystery", () => {
+    const first = TERRA_CHALLENGES[0];
+    expect(first?.title).toBe("Where Did the Light Go?");
+    expect(first?.story).toContain("bus passes the school");
+    expect(first?.instruction).toContain("Inspect the dark windows");
+    expect(CHALLENGE_STAGES[0]?.subtitle).toContain("discover");
+  });
+
   it("starts every challenge incomplete and completes after its authored goal", () => {
     for (const challenge of TERRA_CHALLENGES) {
       const town = copyChallengeSetup(challenge);

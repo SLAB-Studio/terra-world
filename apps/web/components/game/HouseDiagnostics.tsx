@@ -439,7 +439,7 @@ export default function HouseDiagnostics({
                 </div>
                 {selectedRoom === null && recommended !== null && (
                   <span className={styles.recommendedNote}>
-                    River&apos;s next idea: {recommended.label}
+                    Leo&apos;s next idea: {recommended.label}
                   </span>
                 )}
               </div>

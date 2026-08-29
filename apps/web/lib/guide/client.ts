@@ -42,7 +42,7 @@ export type CityGuideClientResult =
       guide: null;
       source: "unavailable";
       proof: CityGuideProof;
-      childMessage: "Rivergate is resting. Your city still works without the guide.";
+      childMessage: "Leo is taking a quiet moment. Your city still works without the guide.";
     }>;
 
 export type CityGuideClientOptions = Readonly<{
@@ -266,29 +266,29 @@ function authoredFallback(request: CityGuideRequest): unknown | null {
   switch (request.task) {
     case "explain":
       return {
-        headline: "Let us inspect the city",
+        headline: "Look at what changed",
         message:
-          "I noticed a verified change in our city. We can connect the mission clue with what happened.",
-        reflectiveQuestion: "Which clue best explains what our city observed?",
+          "I noticed one verified change in our city. Let us compare what was there before with what appeared after.",
+        reflectiveQuestion: "What changed first after your choice?",
         grounding,
       };
     case "hint":
       return {
-        headline: "Try a mission clue",
+        headline: "Notice one small clue",
         message:
-          "I can help us work through the verified mission clues one step at a time.",
+          "I can help us inspect the verified mission clues one step at a time.",
         hints: [
-          "Read the mission goal once more.",
-          "Compare the city before and after the last choice.",
+          "Look around before making another change.",
+          "Compare the city before and after your last choice.",
           "Use the highlighted cause to choose the next check.",
         ],
         grounding,
       };
     case "react":
       return {
-        headline: "Our city is learning",
+        headline: "Something changed",
         message:
-          "I noticed this city change, and I am ready to learn from our next choice.",
+          "I noticed one verified change in our city. What else looks different around it?",
         grounding,
       };
     case "memory": {
@@ -435,7 +435,7 @@ function unavailableResult(
       label: "Guide unavailable; the city simulation continues locally",
     },
     childMessage:
-      "Rivergate is resting. Your city still works without the guide.",
+      "Leo is taking a quiet moment. Your city still works without the guide.",
   };
 }
 

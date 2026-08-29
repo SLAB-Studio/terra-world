@@ -140,7 +140,7 @@ export default function GameShell() {
     {
       id: "river-welcome",
       speaker: "river",
-      text: "Hi! I’m River. Drag something onto a home, then ask me what changed!",
+      text: "Hi! I’m Leo. Rivergate is already bustling—buses are moving, shops are open, and neighbours are out. Want to explore what one small change can do?",
     },
   ]);
   const lastExpertFeedbackRef = useRef<string | null>(null);
@@ -162,7 +162,7 @@ export default function GameShell() {
       question:
         result.guide.reflectiveQuestion ??
         childFeedback?.question ??
-        "What did this choice change in Rivergate?",
+        "What did you notice changing in Rivergate?",
       hint:
         result.guide.hints?.[0] ??
         "Use the planning lenses to compare the system you just changed.",
@@ -452,7 +452,7 @@ export default function GameShell() {
         message.id === "river-welcome"
           ? {
               ...message,
-              text: `Hi ${playerDisplayName(safePlayerName)}! I’m River. Drag something onto a home, then ask me what changed!`,
+              text: `Hi ${playerDisplayName(safePlayerName)}! I’m Leo. Rivergate is already busy and full of stories. Want to explore what one small change can do?`,
             }
           : message,
       ),
@@ -853,7 +853,7 @@ export default function GameShell() {
           type="button"
         >
           <GameIcon name="spark" size={19} />
-          Ask River
+          Ask Leo
         </button>
 
         <section
@@ -870,7 +870,7 @@ export default function GameShell() {
           <aside
             aria-modal={expertDrawerOpen || undefined}
             className={`planning-panel${expertDrawerOpen ? " expert-drawer-open" : ""}`}
-            aria-label="River helper"
+            aria-label="Leo, your Rivergate companion"
             ref={expertDialogRef}
             role={expertDrawerOpen ? "dialog" : undefined}
           >
@@ -881,7 +881,7 @@ export default function GameShell() {
             >
               {expertDrawerOpen && (
                 <button
-                  aria-label="Close River expert"
+                  aria-label="Close Leo companion"
                   autoFocus
                   className="expert-drawer-close"
                   onClick={() => setExpertDrawerOpen(false)}
@@ -899,9 +899,9 @@ export default function GameShell() {
                   <span className="expert-smile" />
                 </div>
                 <div>
-                  <h2 id="expert-heading">Ask River</h2>
-                  <p>Here for {playerDisplayName(playerName)}</p>
-                  <span className="expert-online">Ready to help</span>
+                  <h2 id="expert-heading">Ask Leo</h2>
+                  <p>Exploring with {playerDisplayName(playerName)}</p>
+                  <span className="expert-online">Watching the town</span>
                 </div>
               </header>
               <div className="expert-chat" aria-live="polite">
@@ -941,7 +941,7 @@ export default function GameShell() {
                 }}
               >
                 <label className="sr-only" htmlFor="expert-question">
-                  Ask River a question about your city
+                  Ask Leo a question about your city
                 </label>
                 <input
                   autoComplete="off"
@@ -952,7 +952,7 @@ export default function GameShell() {
                   value={expertQuestion}
                 />
                 <button
-                  aria-label="Ask River"
+                  aria-label="Ask Leo"
                   disabled={expertQuestion.trim().length === 0}
                   type="submit"
                 >
@@ -960,14 +960,14 @@ export default function GameShell() {
                 </button>
               </form>
               <p className="expert-safety">
-                River only talks about the town. Your words stay on this device.
+                Leo only talks about the town. Your words stay on this device.
               </p>
             </section>
             <div className="river-learning-card">
               <span aria-hidden="true">💡</span>
               <p>
                 <strong>Try it and watch.</strong>
-                Everything you add changes a home right away.
+                Make a change, watch the 3D town, then tell Leo what you notice.
               </p>
             </div>
           </aside>
@@ -975,7 +975,7 @@ export default function GameShell() {
 
         {expertDrawerOpen && (
           <button
-            aria-label="Close River expert"
+            aria-label="Close Leo companion"
             className="expert-drawer-backdrop"
             onClick={() => setExpertDrawerOpen(false)}
             type="button"
@@ -1111,7 +1111,7 @@ function expertReplyFor(
   );
 
   if (words.includes("water") || words.includes("clean")) {
-    return `Rivergate’s clean-water score is ${Math.round(state.city.indicators.water)}. ${nextObjective?.description ?? "Try connecting homes to a safe water source."}`;
+    return `I checked the town: Rivergate’s clean-water score is ${Math.round(state.city.indicators.water)}. Which home or garden looks different after your last change?`;
   }
   if (
     words.includes("money") ||
@@ -1121,20 +1121,22 @@ function expertReplyFor(
     return `You have $${state.city.budget.toLocaleString()} to spend. Build what the mission needs first, then save some money for repairs.`;
   }
   if (words.includes("power") || words.includes("energy")) {
-    return `Rivergate’s energy score is ${Math.round(state.city.indicators.energy)}. Solar panels make power, and batteries help save it for later.`;
+    return `I checked the town: Rivergate’s energy score is ${Math.round(state.city.indicators.energy)}. Which windows or rooftops changed after your last move?`;
   }
   if (
     words.includes("tree") ||
     words.includes("park") ||
     words.includes("nature")
   ) {
-    return `Rivergate’s nature score is ${Math.round(state.city.indicators.nature)}. Parks and wetlands give animals space and help with heat and floods.`;
+    return `I checked the town: Rivergate’s nature score is ${Math.round(state.city.indicators.nature)}. What changed around the plants or animals after your last move?`;
   }
   if (words.includes("why") && feedback !== null) {
     return `${feedback.explanation} ${feedback.question}`;
   }
   if (words.includes("learn") || words.includes("teach")) {
-    return "Every home is connected to nature. Sunlight makes clean power, water helps gardens grow, plants shelter living things, and recycling keeps materials in use.";
+    return feedback === null
+      ? "Let’s make one small change first. Then we can watch the town and work out what happened together."
+      : `${feedback.explanation} ${feedback.question}`;
   }
   if (
     words.includes("next") ||
@@ -1142,12 +1144,12 @@ function expertReplyFor(
     words.includes("build")
   ) {
     return nextObjective === undefined
-      ? "Great work—your mission goals are ready. Run the city and see what happens!"
-      : `Your next goal is: ${nextObjective.description}`;
+      ? "Your mission goals are ready. Run the town, watch closely, and tell me what changes first."
+      : `Look around before you build: what seems different near the next goal? If you want a clue, try this: ${nextObjective.description}`;
   }
   return nextObjective === undefined
-    ? "Try running the city, then ask me why one of the scores changed."
-    : `That’s a smart question. For this mission, start here: ${nextObjective.description}`;
+    ? "Try running the town, then tell me the first change you notice."
+    : `Let’s inspect the town first. What do you notice near this goal: ${nextObjective.description}`;
 }
 
 type AdultControlsProps = {

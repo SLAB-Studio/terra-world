@@ -77,36 +77,36 @@ export type ChallengeStage = Readonly<{
 export const CHALLENGE_STAGES: readonly ChallengeStage[] = [
   {
     id: 1,
-    title: "Home Helpers",
-    subtitle: "Notice one problem and make one helpful change.",
+    title: "First Mysteries",
+    subtitle: "Spot one visible change and discover what caused it.",
     difficulty: "Starter",
     colour: "sun",
   },
   {
     id: 2,
-    title: "Street Team",
-    subtitle: "Help the same system reach several neighbours.",
+    title: "Street Connections",
+    subtitle: "Watch one system ripple across several neighbours.",
     difficulty: "Explorer",
     colour: "water",
   },
   {
     id: 3,
-    title: "Eco Planners",
-    subtitle: "Combine water, energy, nature, and clean yards.",
+    title: "Connected Systems",
+    subtitle: "Experiment with water, energy, nature, and clean yards.",
     difficulty: "Planner",
     colour: "leaf",
   },
   {
     id: 4,
     title: "Weather Watchers",
-    subtitle: "Repair connected systems after town events.",
+    subtitle: "Observe what weather changed, then help the town recover.",
     difficulty: "Rescuer",
     colour: "storm",
   },
   {
     id: 5,
-    title: "City Guardians",
-    subtitle: "Use everything you learned to care for the whole town.",
+    title: "The Living Town",
+    subtitle: "Use every discovery to care for a busy, changing Rivergate.",
     difficulty: "Guardian",
     colour: "guardian",
   },
@@ -124,10 +124,13 @@ export const TERRA_CHALLENGES: readonly TerraChallenge[] = [
     id: "sunny-after-dark",
     stage: 1,
     order: 1,
-    title: "Sunny After Dark",
-    story: "Ayo is getting ready to read, but Sunny House has gone dim.",
-    instruction: "Give Sunny House clean sunlight.",
-    learning: "Sunlight can be turned into electricity without smoky air.",
+    title: "Where Did the Light Go?",
+    story:
+      "Rivergate is humming—a bus passes the school and the market is closing—but Ayo's Sunny House has gone dim.",
+    instruction:
+      "Inspect the dark windows, then give Sunny House useful sunlight.",
+    learning:
+      "The solar helper changed where useful sunlight reached the home and turned it into clean electricity.",
     difficulty: "Starter",
     parMoves: 1,
     concepts: ["solar-energy", "cause-and-effect"],
@@ -146,8 +149,8 @@ export const TERRA_CHALLENGES: readonly TerraChallenge[] = [
       },
     ],
     hints: [
-      "Look for the house with dark windows.",
-      "Ayo needs a clean source of electricity.",
+      "Compare the bright street with the house whose windows stayed dark.",
+      "Which helper could change what reaches Ayo's rooftop?",
       "Drag Sun light onto Sunny House, or open its check-up.",
     ],
   },
@@ -155,9 +158,11 @@ export const TERRA_CHALLENGES: readonly TerraChallenge[] = [
     id: "bluebell-thirst",
     stage: 1,
     order: 2,
-    title: "Bluebell Is Thirsty",
-    story: "Mina's vegetables are drooping on a hot afternoon.",
-    instruction: "Help clean water reach Bluebell House.",
+    title: "Something Is Growing",
+    story:
+      "Mina notices that Bluebell's vegetables droop while nearby gardens stay lively in the afternoon sun.",
+    instruction:
+      "Compare the gardens, then help clean water reach Bluebell House.",
     learning: "Plants and people need clean water, and every drop matters.",
     difficulty: "Starter",
     parMoves: 1,
@@ -177,8 +182,8 @@ export const TERRA_CHALLENGES: readonly TerraChallenge[] = [
       },
     ],
     hints: [
-      "Find Mina beside the blue house.",
-      "Her vegetables need something clean to drink.",
+      "Compare Mina's drooping leaves with the livelier gardens nearby.",
+      "What do the healthy gardens have that Bluebell does not?",
       "Add Clean water to Bluebell House.",
     ],
   },
@@ -186,9 +191,11 @@ export const TERRA_CHALLENGES: readonly TerraChallenge[] = [
     id: "mango-tidy-up",
     stage: 1,
     order: 3,
-    title: "Mango Tidy-Up",
-    story: "Tomi found useful cans and paper mixed into the rubbish.",
-    instruction: "Give Mango House a place to sort useful things.",
+    title: "The Sorting Mystery",
+    story:
+      "After a busy market day, Tomi finds useful cans and paper mixed into the rubbish beside Mango House.",
+    instruction:
+      "Inspect the messy yard, then give Mango a place to sort useful things.",
     learning:
       "Sorting materials keeps yards clean and lets things be used again.",
     difficulty: "Starter",
@@ -209,8 +216,8 @@ export const TERRA_CHALLENGES: readonly TerraChallenge[] = [
       },
     ],
     hints: [
-      "Look for the home with things to sort.",
-      "Paper and cans can be collected instead of thrown away.",
+      "Compare Mango's yard with the tidy homes along the street.",
+      "Which helper gives paper and cans their own place?",
       "Add a Recycle bin to Mango House.",
     ],
   },
@@ -219,7 +226,8 @@ export const TERRA_CHALLENGES: readonly TerraChallenge[] = [
     stage: 2,
     order: 4,
     title: "Lights Across the Street",
-    story: "Evening arrives and all three families need safe, clean light.",
+    story:
+      "Evening reaches Rivergate: the market lamps glow, buses head home, and all three family houses need safe, clean light.",
     instruction: "Bring sunlight power to every home.",
     learning: "A neighbourhood system works only when it reaches everyone.",
     difficulty: "Explorer",
@@ -249,7 +257,8 @@ export const TERRA_CHALLENGES: readonly TerraChallenge[] = [
     stage: 2,
     order: 5,
     title: "Garden Partners",
-    story: "Ayo and Mina want to grow flowers and vegetables together.",
+    story:
+      "Ayo and Mina notice bees moving between the park and their yards. They want to grow flowers and vegetables together.",
     instruction: "Give both gardens plants and clean water.",
     learning:
       "Healthy green spaces need both a place to grow and reliable water.",
@@ -302,7 +311,8 @@ export const TERRA_CHALLENGES: readonly TerraChallenge[] = [
     stage: 2,
     order: 6,
     title: "The Clean Street",
-    story: "Collection day is coming, but every yard needs a sorting spot.",
+    story:
+      "Mr. Sam remembers when collection day left the whole street spotless, but every yard now needs a sorting place.",
     instruction: "Put a recycle bin at every home.",
     learning: "Shared habits can make a whole street cleaner.",
     difficulty: "Explorer",
@@ -332,7 +342,8 @@ export const TERRA_CHALLENGES: readonly TerraChallenge[] = [
     stage: 3,
     order: 7,
     title: "One Happy Home",
-    story: "Sunny House is starting again with an empty compound.",
+    story:
+      "Sunny House needs a fresh plan while the rest of its busy neighbourhood carries on around it.",
     instruction: "Build every part Sunny House needs.",
     learning: "A healthy home depends on several systems working together.",
     difficulty: "Planner",
@@ -394,7 +405,8 @@ export const TERRA_CHALLENGES: readonly TerraChallenge[] = [
     stage: 3,
     order: 9,
     title: "Balanced Block",
-    story: "The street needs a strong foundation before it can grow.",
+    story:
+      "Rivergate is growing around the school, clinic, and market. The family street needs a balanced foundation too.",
     instruction: "Give every home at least three healthy systems.",
     learning:
       "Balance means improving several needs instead of only one score.",
@@ -425,7 +437,8 @@ export const TERRA_CHALLENGES: readonly TerraChallenge[] = [
     stage: 4,
     order: 10,
     title: "The Dry Week",
-    story: "A hot, rainless week has emptied every garden barrel.",
+    story:
+      "A hot, rainless week has emptied every garden barrel, even while the town's families and shops still need water.",
     instruction: "Restore clean water to all three homes.",
     learning: "A shared water problem needs a neighbourhood-wide response.",
     difficulty: "Rescuer",
@@ -455,7 +468,8 @@ export const TERRA_CHALLENGES: readonly TerraChallenge[] = [
     stage: 4,
     order: 11,
     title: "Cloudy Blackout",
-    story: "Heavy clouds have interrupted the street's clean power.",
+    story:
+      "Heavy clouds have interrupted the family street's clean power while the rest of Rivergate prepares for night.",
     instruction: "Help every home shine again.",
     learning: "Reliable energy planning considers the whole community.",
     difficulty: "Rescuer",
@@ -485,7 +499,8 @@ export const TERRA_CHALLENGES: readonly TerraChallenge[] = [
     stage: 4,
     order: 12,
     title: "Rainy-Day Cleanup",
-    story: "A downpour scattered materials and strained two gardens.",
+    story:
+      "A downpour swept across the riverfront, scattered materials, and strained two gardens in different ways.",
     instruction: "Diagnose each home and repair every missing system.",
     learning:
       "After an event, inspect each place instead of guessing one solution.",
@@ -516,7 +531,8 @@ export const TERRA_CHALLENGES: readonly TerraChallenge[] = [
     stage: 5,
     order: 13,
     title: "Repair Relay",
-    story: "Each family has a different final job for the city guardian.",
+    story:
+      "Each family has a different final job while Rivergate's buses, clinic, school, and market keep moving around them.",
     instruction: "Complete all three homes in six careful moves.",
     learning:
       "Good planners move between needs and keep the whole system in view.",
@@ -575,7 +591,7 @@ export const TERRA_CHALLENGES: readonly TerraChallenge[] = [
     order: 15,
     title: "The Big Storm Finale",
     story:
-      "A final storm tested every part of Terra World. The families are counting on you.",
+      "A final storm tested the family street inside a much larger, living Rivergate. The neighbours are counting on your careful observations.",
     instruction: "Inspect, plan, and make all three homes healthy again.",
     learning:
       "Resilient towns recover by reconnecting many systems, not by fixing only one.",
