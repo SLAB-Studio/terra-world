@@ -1,11 +1,9 @@
-import {
-  Mesh,
-  MeshBuilder,
-  type Scene,
-  type StandardMaterial,
-  type TransformNode,
-  Vector3,
-} from "@babylonjs/core";
+import type { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { Mesh } from "@babylonjs/core/Meshes/mesh";
+import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
+import type { TransformNode } from "@babylonjs/core/Meshes/transformNode";
+import type { Scene } from "@babylonjs/core/scene";
 
 export function quadraticPoint(
   start: Vector3,

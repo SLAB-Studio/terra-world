@@ -1,10 +1,8 @@
-import {
-  Color3,
-  type Mesh,
-  type Scene,
-  type StandardMaterial,
-  type TransformNode,
-} from "@babylonjs/core";
+import type { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { Color3 } from "@babylonjs/core/Maths/math.color";
+import type { Mesh } from "@babylonjs/core/Meshes/mesh";
+import type { TransformNode } from "@babylonjs/core/Meshes/transformNode";
+import type { Scene } from "@babylonjs/core/scene";
 
 import type { TownAnimationController, TownAnimationListener } from "./types";
 

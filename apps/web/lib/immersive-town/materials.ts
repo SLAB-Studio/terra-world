@@ -1,4 +1,6 @@
-import { Color3, Scene, StandardMaterial } from "@babylonjs/core";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { Color3 } from "@babylonjs/core/Maths/math.color";
+import { Scene } from "@babylonjs/core/scene";
 
 export const TOWN_PALETTE = {
   bark: "#6B452B",

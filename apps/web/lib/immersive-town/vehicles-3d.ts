@@ -1,11 +1,9 @@
-import {
-  Color3,
-  Mesh,
-  MeshBuilder,
-  type Scene,
-  StandardMaterial,
-  TransformNode,
-} from "@babylonjs/core";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { Color3 } from "@babylonjs/core/Maths/math.color";
+import { Mesh } from "@babylonjs/core/Meshes/mesh";
+import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
+import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
+import type { Scene } from "@babylonjs/core/scene";
 
 import { applyVehicleTransform } from "./babylon-adapter";
 import { renderedRoadHeight } from "./road";

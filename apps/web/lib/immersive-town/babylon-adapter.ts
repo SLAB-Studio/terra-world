@@ -1,4 +1,5 @@
-import type { ArcRotateCamera, TransformNode } from "@babylonjs/core";
+import type { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
+import type { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 
 import { CAMERA_LIMITS, type CameraPose, clampCameraPose } from "./camera";
 import type { VehicleTransform } from "./traffic";

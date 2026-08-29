@@ -1,11 +1,9 @@
-import {
-  MeshBuilder,
-  type Scene,
-  type ShadowGenerator,
-  type StandardMaterial,
-  TransformNode,
-  Vector3,
-} from "@babylonjs/core";
+import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
+import type { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
+import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
+import type { Scene } from "@babylonjs/core/scene";
 
 import type { TownMaterials } from "./materials";
 import type {

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ArcRotateCamera } from "@babylonjs/core";
+import type { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 import type { HouseUpgradeVisuals } from "../../lib/immersive-town/house-upgrades-3d";

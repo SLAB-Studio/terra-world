@@ -1,12 +1,10 @@
-import {
-  Mesh,
-  MeshBuilder,
-  PointLight,
-  type Scene,
-  type ShadowGenerator,
-  TransformNode,
-  Vector3,
-} from "@babylonjs/core";
+import { PointLight } from "@babylonjs/core/Lights/pointLight";
+import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { Mesh } from "@babylonjs/core/Meshes/mesh";
+import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
+import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
+import type { Scene } from "@babylonjs/core/scene";
 
 import { createSegmentBox, makeRoute } from "./geometry";
 import type { TownMaterials } from "./materials";
