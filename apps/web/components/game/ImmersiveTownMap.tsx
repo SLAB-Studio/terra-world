@@ -77,7 +77,7 @@ function ImmersiveTownMap({
           upgradeTools,
           adapterTools,
         ] = await Promise.all([
-          import("@babylonjs/core"),
+          import("../../lib/immersive-town/babylon-runtime"),
           import("../../lib/immersive-town"),
           import("../../lib/immersive-town/camera"),
           import("../../lib/immersive-town/traffic"),
@@ -119,6 +119,7 @@ function ImmersiveTownMap({
           world.scene,
           world.houses,
         );
+        upgrades.setReducedMotion(reducedMotionQuery.matches);
         let traffic = trafficTools.createTrafficSimulation();
         const vehicles = vehicleTools.createVehicleFleet(
           world.scene,
@@ -189,12 +190,8 @@ function ImmersiveTownMap({
             event.clientY > bounds.bottom
           )
             return;
-          const x =
-            (event.clientX - bounds.left) *
-            (engine.getRenderWidth() / bounds.width);
-          const y =
-            (event.clientY - bounds.top) *
-            (engine.getRenderHeight() / bounds.height);
+          const x = event.clientX - bounds.left;
+          const y = event.clientY - bounds.top;
           const house = world.getHouseFromMesh(
             world.scene.pick(x, y)?.pickedMesh ?? null,
           );
@@ -284,11 +281,18 @@ function ImmersiveTownMap({
         resizeObserver.observe(canvas);
         let isOnscreen = true;
         let isPageVisible = document.visibilityState === "visible";
+        let isRendering = false;
+        const renderFrame = () => world.render();
         const syncPauseState = () => {
           const paused = !isOnscreen || !isPageVisible;
           world.animation.setPaused(paused);
-          if (paused) engine.stopRenderLoop();
-          else engine.runRenderLoop(() => world.render());
+          if (paused && isRendering) {
+            engine.stopRenderLoop(renderFrame);
+            isRendering = false;
+          } else if (!paused && !isRendering) {
+            engine.runRenderLoop(renderFrame);
+            isRendering = true;
+          }
         };
         const intersectionObserver = new IntersectionObserver(([entry]) => {
           isOnscreen = entry?.isIntersecting === true;
@@ -299,8 +303,11 @@ function ImmersiveTownMap({
           isPageVisible = document.visibilityState === "visible";
           syncPauseState();
         };
-        const updateReducedMotion = () =>
+        const updateReducedMotion = () => {
+          if (reducedMotionQuery.matches) cancelCameraAnimation();
           world.animation.setReducedMotion(reducedMotionQuery.matches);
+          upgrades.setReducedMotion(reducedMotionQuery.matches);
+        };
         document.addEventListener("visibilitychange", updateVisibility);
         reducedMotionQuery.addEventListener("change", updateReducedMotion);
         syncPauseState();

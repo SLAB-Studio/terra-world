@@ -394,7 +394,7 @@ function createBridge(
       { width: 0.2, height: 0.08, depth: 2.8 },
       scene,
     );
-    dash.position.set(0, 2.1, z);
+    dash.position.set(0, 0.47, z);
     dash.material = materials.roadLine;
     dash.parent = bridgeRoot;
     dash.isPickable = false;

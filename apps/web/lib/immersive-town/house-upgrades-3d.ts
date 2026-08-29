@@ -20,6 +20,7 @@ export type HouseUpgradeVisuals = Readonly<{
     houses: Readonly<Record<PlayableHouseId, readonly PlayableUpgradeId[]>>,
     selectedHouseId: PlayableHouseId | null,
   ): void;
+  setReducedMotion(reducedMotion: boolean): void;
   dispose(): void;
 }>;
 
@@ -28,6 +29,8 @@ type HouseRig = Readonly<{
   selection: TransformNode;
   light: PointLight;
   resident: TransformNode;
+  residentArm: Mesh;
+  residentBaseY: number;
   windows: readonly Mesh[];
   darkWindowMaterial: StandardMaterial;
   litWindowMaterial: StandardMaterial;
@@ -38,9 +41,26 @@ export function createHouseUpgradeVisuals(
   houses: readonly TownHouseMetadata[],
 ): HouseUpgradeVisuals {
   const rigs = new Map<PlayableHouseId, HouseRig>();
+  let reducedMotion = false;
+  let elapsedSeconds = 0;
   houses.forEach((house) => {
     if (!isPlayableHouseId(house.id)) return;
     rigs.set(house.id, createHouseRig(scene, house));
+  });
+
+  const animationObserver = scene.onBeforeRenderObservable.add(() => {
+    if (!reducedMotion) {
+      elapsedSeconds += Math.min(scene.getEngine().getDeltaTime() / 1000, 0.05);
+    }
+    rigs.forEach((rig, houseId) => {
+      const phase = houseId === "sunny" ? 0 : houseId === "bluebell" ? 2 : 4;
+      rig.resident.position.y = reducedMotion
+        ? rig.residentBaseY
+        : rig.residentBaseY + Math.sin(elapsedSeconds * 2.2 + phase) * 0.12;
+      rig.residentArm.rotation.z = reducedMotion
+        ? -0.35
+        : -0.35 + Math.sin(elapsedSeconds * 3.4 + phase) * 0.42;
+    });
   });
 
   return {
@@ -63,7 +83,12 @@ export function createHouseUpgradeVisuals(
         rig.selection.setEnabled(selectedHouseId === houseId);
       });
     },
+    setReducedMotion(value) {
+      reducedMotion = value;
+    },
     dispose() {
+      if (animationObserver !== null)
+        scene.onBeforeRenderObservable.remove(animationObserver);
       rigs.forEach((rig) => {
         Object.values(rig.upgrades).forEach((node) => node.dispose(false));
         rig.selection.dispose(false);
@@ -199,13 +224,15 @@ function createHouseRig(scene: Scene, house: TownHouseMetadata): HouseRig {
   pointLight.intensity = 0.72;
   pointLight.range = 13;
 
-  const resident = createResident(scene, house);
+  const { root: resident, arm: residentArm } = createResident(scene, house);
 
   return {
     upgrades: { light: solar, water, garden, recycle },
     selection,
     light: pointLight,
     resident,
+    residentArm,
+    residentBaseY: resident.position.y,
     windows,
     darkWindowMaterial,
     litWindowMaterial,
@@ -247,6 +274,17 @@ function createResident(scene: Scene, house: TownHouseMetadata) {
   head.material = skin;
   head.parent = resident;
   head.isPickable = false;
+
+  const arm = MeshBuilder.CreateCylinder(
+    `${house.id}-resident-wave-arm`,
+    { height: 1.25, diameter: 0.28, tessellation: 10 },
+    scene,
+  );
+  arm.position.set(-0.62, 1.65, 0);
+  arm.rotation.z = -0.35;
+  arm.material = skin;
+  arm.parent = resident;
+  arm.isPickable = false;
 
   const bubbleTexture = new DynamicTexture(
     `${house.id}-help-bubble-texture`,
@@ -292,7 +330,7 @@ function createResident(scene: Scene, house: TownHouseMetadata) {
   bubble.parent = resident;
   bubble.isPickable = false;
 
-  return resident;
+  return { root: resident, arm };
 }
 
 function makeMaterial(
