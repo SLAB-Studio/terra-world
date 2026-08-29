@@ -721,6 +721,7 @@ export default function GameShell() {
             <MissionCard
               feedback={childFeedback}
               mission={currentMission}
+              muted={muted}
               progress={state.campaign.completedMissionKeys.length}
             />
           )}
@@ -942,30 +943,57 @@ function CatalogueItem({
 type MissionCardProps = {
   readonly mission: ReturnType<typeof getCurrentMission>;
   readonly feedback: ReturnType<typeof getChildFeedback>;
+  readonly muted: boolean;
   readonly progress: number;
 };
 
-function MissionCard({ feedback, mission, progress }: MissionCardProps) {
+function MissionCard({ feedback, mission, muted, progress }: MissionCardProps) {
   if (mission === null) return null;
+  const activeMission = mission;
+
+  function readRivergateAloud() {
+    if (
+      muted ||
+      typeof window === "undefined" ||
+      !("speechSynthesis" in window)
+    )
+      return;
+    window.speechSynthesis.cancel();
+    const speech = new SpeechSynthesisUtterance(
+      [
+        activeMission.title,
+        activeMission.briefing,
+        feedback?.explanation,
+        feedback?.question,
+        feedback?.hint,
+      ]
+        .filter((part): part is string => part !== undefined)
+        .join(" "),
+    );
+    speech.rate = 0.92;
+    speech.pitch = 1.04;
+    window.speechSynthesis.speak(speech);
+  }
 
   return (
     <section className="mission-section" aria-labelledby="mission-heading">
       <div className="mission-heading-row">
         <div>
           <p className="mission-position">
-            {chapterLabel(mission.chapterId)} · Mission {progress + 1} of 15
+            {chapterLabel(activeMission.chapterId)} · Mission {progress + 1} of
+            15
           </p>
-          <h2 id="mission-heading">{mission.title}</h2>
+          <h2 id="mission-heading">{activeMission.title}</h2>
         </div>
         <span
           className={
-            mission.requiredComplete ? "mission-ready" : "mission-next"
+            activeMission.requiredComplete ? "mission-ready" : "mission-next"
           }
         >
-          {mission.requiredComplete ? "Ready" : "In progress"}
+          {activeMission.requiredComplete ? "Ready" : "In progress"}
         </span>
       </div>
-      <p className="mission-briefing">{mission.briefing}</p>
+      <p className="mission-briefing">{activeMission.briefing}</p>
       <p
         className="mission-progress"
         aria-label={`${progress} of 15 missions complete`}
@@ -973,7 +1001,7 @@ function MissionCard({ feedback, mission, progress }: MissionCardProps) {
         <strong>{progress}/15</strong> missions complete
       </p>
       <ul className="objective-list" aria-label="Mission objectives">
-        {mission.objectives.map((objective) => (
+        {activeMission.objectives.map((objective) => (
           <li
             className={
               objective.completed ? "objective-complete" : "objective-pending"
@@ -993,6 +1021,20 @@ function MissionCard({ feedback, mission, progress }: MissionCardProps) {
       </ul>
       {feedback !== null && (
         <div className="mission-feedback" aria-label="Rivergate guide">
+          <button
+            className="read-aloud"
+            disabled={muted}
+            onClick={readRivergateAloud}
+            title={
+              muted
+                ? "An adult can turn on sound in the adult controls."
+                : "Hear Rivergate read this mission"
+            }
+            type="button"
+          >
+            <GameIcon name="volume" size={17} />
+            {muted ? "Read-aloud is off" : "Hear Rivergate"}
+          </button>
           <p>
             <strong>What Rivergate noticed</strong>
             {feedback.explanation}

@@ -578,6 +578,26 @@ button:disabled {
   padding-top: 11px;
   border-top: 1px solid #e1d7b7;
 }
+.read-aloud {
+  width: fit-content;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  color: #214f3d;
+  font-size: 0.68rem;
+  font-weight: 850;
+  background: #e4eee4;
+  border: 1px solid #b9cebd;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.read-aloud:disabled {
+  color: #65756d;
+  background: #edf0e9;
+  border-color: #d1d8ce;
+}
 .mission-feedback p,
 .ending-reflection {
   margin: 0;
