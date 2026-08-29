@@ -74,6 +74,14 @@ real 3D change. With reduced motion enabled, traffic, ambient motion, and camera
 flights freeze or snap immediately. Semantic house controls remain available as
 a keyboard and graphics-failure fallback.
 
+Selecting a family home opens a second genuine Babylon.js scene: a bright
+cutaway house with four walk-in rooms. The child chooses Living, Kitchen,
+Garden, or Utility, then the camera moves into that room and reveals one short
+diagnosis. Repairing the room changes the 3D scene itself—for example, a dark
+lamp begins to glow—so the lesson is visible rather than explained only with
+text. Room controls mirror the 3D picking targets for touch, keyboard access,
+and graphics fallback. The home overview never shows technical system data.
+
 Render houses only for actionable family homes. Owner labels and short speech
 bubbles show when a repair is needed; a house's details and diagnostics stay
 hidden until the child clicks or taps it. Keep River persistent beside the map
