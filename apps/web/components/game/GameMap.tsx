@@ -37,13 +37,13 @@ type SceneView = Pick<
 >;
 
 const TERRAIN_COLORS: Readonly<Record<string, number>> = {
-  river: 0x4a96b6,
-  floodplain: 0xaacb9b,
-  meadow: 0x88bc72,
-  forest: 0x4f8657,
-  wetland: 0x67a38b,
-  hillside: 0xaaa06e,
-  rock: 0x888b81,
+  river: 0x4f9be8,
+  floodplain: 0xd8efad,
+  meadow: 0xb9df79,
+  forest: 0x68b96f,
+  wetland: 0x75cdb0,
+  hillside: 0xe9cb7a,
+  rock: 0xc8c3b1,
 };
 const OVERLAY_COLORS = {
   good: 0x4bc276,
@@ -53,13 +53,13 @@ const OVERLAY_COLORS = {
   quiet: 0x52645c,
 } as const;
 const BUILDING_COLORS: Readonly<Record<string, number>> = {
-  housing: 0xf6d391,
-  water: 0x7ac8db,
-  energy: 0xf6c75b,
-  service: 0xe8a5a8,
+  housing: 0xff766d,
+  water: 0x62b9f2,
+  energy: 0xffca32,
+  service: 0xff9fa0,
   transport: 0xc7c4ba,
   waste: 0xb28c72,
-  nature: 0x6fb875,
+  nature: 0x75c96f,
 };
 
 function GameMap(props: GameMapProps) {
@@ -109,7 +109,7 @@ function GameMap(props: GameMapProps) {
               Math.max(
                 ...this.view.city.tiles.map((tile) => tile.coordinate.y + 1),
               ) * TILE_SIZE;
-            this.cameras.main.setBackgroundColor(0x183a31);
+            this.cameras.main.setBackgroundColor(0xfffdf5);
             this.cameras.main.setBounds(0, 0, width, height);
             this.cameras.main.centerOn(width / 2, height / 2);
             this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
@@ -246,7 +246,7 @@ function GameMap(props: GameMapProps) {
                 TILE_SIZE - 2,
                 TILE_SIZE - 2,
               );
-              this.graphics.lineStyle(1, 0xdde9d2, 0.24);
+              this.graphics.lineStyle(1, 0x2b190f, 0.2);
               this.graphics.strokeRect(
                 left + 1.5,
                 top + 1.5,
@@ -254,7 +254,7 @@ function GameMap(props: GameMapProps) {
                 TILE_SIZE - 3,
               );
               if (tile.terrain === "river") {
-                this.graphics.lineStyle(2, 0xc2e7ee, 0.56);
+                this.graphics.lineStyle(2, 0xdff5ff, 0.7);
                 this.graphics.lineBetween(
                   left + 8,
                   top + 18,
@@ -268,7 +268,12 @@ function GameMap(props: GameMapProps) {
                   top + 34,
                 );
               }
-              this.drawOverlay(left, top, this.view.overlay.cells[tile.id]);
+              this.drawOverlay(
+                left,
+                top,
+                this.view.overlay.cells[tile.id],
+                this.view.overlay.id,
+              );
               if (tile.occupantId !== null) {
                 const building = buildingById.get(tile.occupantId);
                 if (building !== undefined)
@@ -282,14 +287,14 @@ function GameMap(props: GameMapProps) {
             }
             const cursorLeft = this.view.cursor.x * TILE_SIZE;
             const cursorTop = this.view.cursor.y * TILE_SIZE;
-            this.graphics.lineStyle(4, 0xffffff, 1);
+            this.graphics.lineStyle(5, 0xffc629, 1);
             this.graphics.strokeRect(
               cursorLeft + 3,
               cursorTop + 3,
               TILE_SIZE - 6,
               TILE_SIZE - 6,
             );
-            this.graphics.lineStyle(2, 0x1b352e, 1);
+            this.graphics.lineStyle(2, 0x2b190f, 1);
             this.graphics.strokeRect(
               cursorLeft + 6,
               cursorTop + 6,
@@ -302,9 +307,32 @@ function GameMap(props: GameMapProps) {
             left: number,
             top: number,
             cell: OverlayView["cells"][string] | undefined,
+            overlayId: OverlayView["id"],
           ) {
             if (cell === undefined || this.graphics === undefined) return;
             const color = OVERLAY_COLORS[cell.tone];
+
+            if (overlayId === "validity") {
+              if (cell.tone === "bad") return;
+              this.graphics.fillStyle(0xffd94a, 0.2);
+              this.graphics.fillRoundedRect(
+                left + 4,
+                top + 4,
+                TILE_SIZE - 8,
+                TILE_SIZE - 8,
+                7,
+              );
+              this.graphics.lineStyle(3, 0x2b190f, 0.72);
+              this.graphics.strokeRoundedRect(
+                left + 5,
+                top + 5,
+                TILE_SIZE - 10,
+                TILE_SIZE - 10,
+                7,
+              );
+              return;
+            }
+
             this.graphics.fillStyle(color, 0.2 + cell.strength * 0.25);
             this.graphics.fillRect(
               left + 3,
@@ -356,7 +384,7 @@ function GameMap(props: GameMapProps) {
             const graphics = this.graphics;
             const category = BUILDING_CATEGORY[definitionId] ?? "housing";
             const color = BUILDING_COLORS[category] ?? 0xf0cc8c;
-            const ink = 0x173b31;
+            const ink = 0x2b190f;
             const cream = 0xfff8df;
             const x = left + 7;
             const y = top + 7;
@@ -563,9 +591,9 @@ function GameMap(props: GameMapProps) {
         const scene = new RivergateScene();
         sceneRef.current = scene;
         gameRef.current = new PhaserLib.Game({
-          type: PhaserLib.AUTO,
+          type: PhaserLib.CANVAS,
           parent: hostRef.current,
-          backgroundColor: "#183a31",
+          backgroundColor: "#fffdf5",
           render: { antialias: true, pixelArt: false },
           scale: {
             mode: PhaserLib.Scale.RESIZE,

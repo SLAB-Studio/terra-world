@@ -20,7 +20,7 @@ import {
   hashCityState,
 } from "@terra/simulation";
 
-import { buildingName, CATEGORY_NAMES } from "../../lib/game/catalogue";
+import { buildingName } from "../../lib/game/catalogue";
 import {
   BUILDING_CATALOGUE,
   OVERLAY_IDS,
@@ -34,7 +34,6 @@ import {
   getPlanningCity,
   getCursorSummary,
   operationCount,
-  provisionalCost,
   restoreGameSession,
   type GameState,
   type OverlayId,
@@ -85,6 +84,11 @@ const ADULT_PIN_STORAGE_KEY = "terra-world-adult-pin-v1";
 type PlayerRole = "water-keeper" | "neighbour-helper" | "nature-planner";
 type SaveState = "loading" | "saving" | "saved" | "temporary";
 type BackupState = "idle" | "backing-up" | "ready" | "restoring" | "error";
+type ExpertMessage = Readonly<{
+  id: string;
+  speaker: "child" | "river";
+  text: string;
+}>;
 
 const PLAYER_ROLES: readonly {
   id: PlayerRole;
@@ -159,6 +163,19 @@ export default function GameShell() {
   const [backupMessage, setBackupMessage] = useState(
     "Create an encrypted recovery point when an adult is ready.",
   );
+  const [expertQuestion, setExpertQuestion] = useState("");
+  const [expertDrawerOpen, setExpertDrawerOpen] = useState(false);
+  const [expertMessages, setExpertMessages] = useState<
+    readonly ExpertMessage[]
+  >([
+    {
+      id: "river-welcome",
+      speaker: "river",
+      text: "Hi! I’m River, your city expert. Ask me what to build or why your city changed.",
+    },
+  ]);
+  const lastExpertFeedbackRef = useRef<string | null>(null);
+  const lastExpertTurnRef = useRef(state.city.turn);
   const [guideController] = useState(() => createCityGuideController());
   const [guideSnapshot, setGuideSnapshot] = useState(() =>
     guideController.getSnapshot(),
@@ -192,13 +209,36 @@ export default function GameShell() {
   const selected = BUILDING_CATALOGUE.find(
     (building) => building.id === state.selectedBuildingId,
   );
-  const costs = provisionalCost(state);
   const changes = operationCount(state);
   const actionLogHash = useMemo(
     () => hashActionLog(state.city.actionLog),
     [state.city.actionLog],
   );
   const cityStateHash = useMemo(() => hashCityState(state.city), [state.city]);
+
+  useEffect(() => {
+    const explanation = displayedFeedback?.explanation;
+    if (
+      explanation === undefined ||
+      state.city.turn === lastExpertTurnRef.current ||
+      explanation === lastExpertFeedbackRef.current
+    )
+      return;
+    lastExpertTurnRef.current = state.city.turn;
+    lastExpertFeedbackRef.current = explanation;
+    setExpertMessages((messages) => {
+      if (messages.some((message) => message.text === explanation))
+        return messages;
+      return [
+        ...messages.slice(-5),
+        {
+          id: `river-change-${state.city.turn}-${messages.length}`,
+          speaker: "river",
+          text: explanation,
+        },
+      ];
+    });
+  }, [displayedFeedback?.explanation, state.city.turn]);
 
   useEffect(() => {
     return guideController.subscribe(() => {
@@ -252,6 +292,15 @@ export default function GameShell() {
       adultEntryRef.current?.focus();
     };
   }, [adultPanelOpen]);
+
+  useEffect(() => {
+    if (!expertDrawerOpen) return;
+    function closeExpertOnEscape(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") setExpertDrawerOpen(false);
+    }
+    document.addEventListener("keydown", closeExpertOnEscape);
+    return () => document.removeEventListener("keydown", closeExpertOnEscape);
+  }, [expertDrawerOpen]);
 
   useEffect(() => {
     return () => guideController.dispose();
@@ -670,6 +719,27 @@ export default function GameShell() {
     }
   }
 
+  function askRiver(suggestedQuestion?: string) {
+    const question = (suggestedQuestion ?? expertQuestion).trim();
+    if (question.length === 0) return;
+    const messageId = `${state.city.turn}-${Date.now()}`;
+    setExpertMessages((messages) => [
+      ...messages.slice(-6),
+      { id: `child-${messageId}`, speaker: "child", text: question },
+      {
+        id: `river-${messageId}`,
+        speaker: "river",
+        text: expertReplyFor(
+          question,
+          state,
+          currentMission,
+          displayedFeedback,
+        ),
+      },
+    ]);
+    setExpertQuestion("");
+  }
+
   if (!persistenceReady) {
     return (
       <main className="game-shell">
@@ -792,7 +862,7 @@ export default function GameShell() {
           </span>
           <div>
             <strong>Terra World</strong>
-            <span>Rivergate discovery table</span>
+            <span>Build a happy, healthy city</span>
           </div>
         </div>
         <div className="header-actions">
@@ -816,30 +886,39 @@ export default function GameShell() {
             type="button"
           >
             <GameIcon name="shield" size={19} />
-            Adults & judges
+            Grown-ups
           </button>
         </div>
         <dl className="city-facts" aria-label="Rivergate status">
-          <div>
-            <dt>Turn</dt>
-            <dd>{state.city.turn}</dd>
+          <div className="fact-energy">
+            <dt>
+              <GameIcon name="energy" size={16} /> Energy
+            </dt>
+            <dd>{Math.round(state.city.indicators.energy)}%</dd>
           </div>
-          <div>
-            <dt>Population</dt>
-            <dd>{state.city.population}</dd>
+          <div className="fact-water">
+            <dt>
+              <GameIcon name="water" size={16} /> Clean water
+            </dt>
+            <dd>{Math.round(state.city.indicators.water)}%</dd>
           </div>
-          <div>
+          <div className="fact-budget">
             <dt>Budget</dt>
             <dd>${state.city.budget.toLocaleString()}</dd>
           </div>
-          <div>
-            <dt>Plan cost</dt>
-            <dd className={costs > 0 ? "fact-cost" : undefined}>
-              −${costs.toLocaleString()}
-            </dd>
-          </div>
         </dl>
       </header>
+
+      <button
+        aria-controls="river-expert-panel"
+        aria-expanded={expertDrawerOpen}
+        className="mobile-expert-jump"
+        onClick={() => setExpertDrawerOpen(true)}
+        type="button"
+      >
+        <GameIcon name="spark" size={19} />
+        Ask River
+      </button>
 
       <section
         aria-hidden={adultPanelOpen || undefined}
@@ -849,86 +928,44 @@ export default function GameShell() {
       >
         <aside className="catalogue-panel" aria-labelledby="catalogue-heading">
           <div className="panel-heading">
-            <h1 id="catalogue-heading">Build Rivergate</h1>
-            <p>Choose an item, then click or drag it onto the map.</p>
+            <h1 id="catalogue-heading">Building blocks</h1>
+            <p>Pick a block. Then tap the city!</p>
           </div>
           <div className="catalogue-scroll">
-            {Object.entries(CATEGORY_NAMES).map(([category, label]) => {
-              const items = BUILDING_CATALOGUE.filter(
-                (item) => item.category === category,
-              );
-              if (items.length === 0) return null;
-              return (
-                <section
-                  className="catalogue-group"
-                  aria-labelledby={`category-${category}`}
-                  key={category}
-                >
-                  <h2 id={`category-${category}`}>{label}</h2>
-                  <div className="catalogue-grid">
-                    {items.map((item) => (
-                      <CatalogueItem
-                        isUnlocked={isBuildingUnlocked(
-                          item,
-                          unlockedChapterIds,
-                        )}
-                        item={item}
-                        key={item.id}
-                        onSelect={() =>
-                          dispatch({ type: "select", buildingId: item.id })
-                        }
-                        onStartDrag={(event) =>
-                          beginCatalogueDrag(event, item.id)
-                        }
-                        selected={state.selectedBuildingId === item.id}
-                      />
-                    ))}
-                  </div>
-                </section>
-              );
-            })}
+            <div className="catalogue-grid">
+              {BUILDING_CATALOGUE.filter((item) =>
+                isBuildingUnlocked(item, unlockedChapterIds),
+              ).map((item) => (
+                <CatalogueItem
+                  isUnlocked
+                  item={item}
+                  key={item.id}
+                  onSelect={() =>
+                    dispatch({ type: "select", buildingId: item.id })
+                  }
+                  onStartDrag={(event) => beginCatalogueDrag(event, item.id)}
+                  selected={state.selectedBuildingId === item.id}
+                />
+              ))}
+            </div>
+            <p className="unlock-note">
+              <GameIcon name="spark" size={17} />
+              New blocks appear as you finish missions.
+            </p>
           </div>
         </aside>
 
         <section className="map-panel" aria-labelledby="map-heading">
           <div className="map-toolbar">
             <div>
-              <h2 id="map-heading">Rivergate valley</h2>
+              <h2 id="map-heading">Rivergate</h2>
               <p>
                 {selected === undefined
-                  ? "Explore the map"
-                  : `${buildingName(selected.id)} · ${state.rotation}° · tile ${state.cursor.x + 1}, ${state.cursor.y + 1}`}
+                  ? "Choose a building block to start"
+                  : `${buildingName(selected.id)} is ready — choose its new home!`}
               </p>
             </div>
-            <div className="map-actions" aria-label="Plan actions">
-              <button
-                disabled={
-                  selected === undefined || selected.allowedRotations.length < 2
-                }
-                onClick={() => dispatch({ type: "rotate" })}
-                type="button"
-              >
-                <GameIcon name="rotate" />
-                <span>Rotate</span>
-              </button>
-              <button
-                disabled={changes === 0}
-                onClick={() => dispatch({ type: "undo" })}
-                type="button"
-              >
-                <GameIcon name="undo" />
-                <span>Undo</span>
-              </button>
-              <button
-                onClick={() =>
-                  dispatch({ type: "remove", coordinate: state.cursor })
-                }
-                type="button"
-              >
-                <GameIcon name="remove" />
-                <span>Remove</span>
-              </button>
-            </div>
+            <span className="turn-badge">Day {state.city.turn + 1}</span>
           </div>
           <div
             aria-describedby="map-help map-cursor-summary map-status"
@@ -975,16 +1012,147 @@ export default function GameShell() {
               {cursorSummary}
             </p>
           </div>
+          <div className="map-command-bar" aria-label="City controls">
+            <button
+              className="run-city-button"
+              disabled={state.campaign.phase === "completed"}
+              onClick={() => dispatch({ type: "commit" })}
+              type="button"
+            >
+              <GameIcon name="play" />
+              <span>
+                {changes === 0
+                  ? "Run the city"
+                  : `Try ${changes} change${changes === 1 ? "" : "s"}`}
+              </span>
+            </button>
+            <button
+              disabled={
+                selected === undefined || selected.allowedRotations.length < 2
+              }
+              onClick={() => dispatch({ type: "rotate" })}
+              type="button"
+            >
+              <GameIcon name="rotate" />
+              <span>Turn block</span>
+            </button>
+            <button
+              disabled={changes === 0}
+              onClick={() => dispatch({ type: "undo" })}
+              type="button"
+            >
+              <GameIcon name="undo" />
+              <span>Undo</span>
+            </button>
+            <button
+              onClick={() =>
+                dispatch({ type: "remove", coordinate: state.cursor })
+              }
+              type="button"
+            >
+              <GameIcon name="remove" />
+              <span>Remove</span>
+            </button>
+          </div>
           <div className="map-statusbar">
             <p aria-live="polite" id="map-status">
               <span className="status-dot" aria-hidden="true" />
               {state.status}
             </p>
-            <span>Drag to pan · scroll to zoom</span>
+            <span>${state.city.budget.toLocaleString()} left to spend</span>
           </div>
         </section>
 
-        <aside className="planning-panel" aria-label="Planning tools">
+        <aside
+          className={`planning-panel${expertDrawerOpen ? " expert-drawer-open" : ""}`}
+          aria-label="Planning tools"
+        >
+          <section
+            className="expert-panel"
+            id="river-expert-panel"
+            aria-labelledby="expert-heading"
+          >
+            <button
+              aria-label="Close River expert"
+              className="expert-drawer-close"
+              onClick={() => setExpertDrawerOpen(false)}
+              type="button"
+            >
+              <GameIcon name="close" size={18} />
+              Close
+            </button>
+            <header className="expert-hero">
+              <div className="expert-face" aria-hidden="true">
+                <span className="expert-eye expert-eye-left" />
+                <span className="expert-eye expert-eye-right" />
+                <span className="expert-smile" />
+              </div>
+              <div>
+                <h2 id="expert-heading">Ask River</h2>
+                <p>Your friendly city expert</p>
+                <span className="expert-online">Ready to help</span>
+              </div>
+            </header>
+            <div className="expert-chat" aria-live="polite">
+              {expertMessages.map((message) => (
+                <p
+                  className={`chat-bubble chat-${message.speaker}`}
+                  key={message.id}
+                >
+                  {message.text}
+                </p>
+              ))}
+              {guideSnapshot.status === "loading" && (
+                <p className="chat-bubble chat-river chat-thinking">
+                  I’m checking what changed…
+                </p>
+              )}
+            </div>
+            <div className="expert-prompts" aria-label="Quick questions">
+              <button
+                onClick={() => askRiver("What should I build next?")}
+                type="button"
+              >
+                What next?
+              </button>
+              <button
+                onClick={() => askRiver("Why did my city change?")}
+                type="button"
+              >
+                Why did it change?
+              </button>
+            </div>
+            <form
+              className="expert-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                askRiver();
+              }}
+            >
+              <label className="sr-only" htmlFor="expert-question">
+                Ask River a question about your city
+              </label>
+              <input
+                autoComplete="off"
+                id="expert-question"
+                maxLength={120}
+                onChange={(event) => setExpertQuestion(event.target.value)}
+                placeholder="Ask about your city…"
+                value={expertQuestion}
+              />
+              <button
+                aria-label="Ask River"
+                disabled={expertQuestion.trim().length === 0}
+                type="submit"
+              >
+                <GameIcon name="arrow" size={20} />
+              </button>
+            </form>
+            <p className="expert-safety">
+              River only talks about your city. Your words stay on this device.
+            </p>
+          </section>
+
           {state.ending !== null ? (
             <EndingCard ending={state.ending} />
           ) : (
@@ -997,87 +1165,77 @@ export default function GameShell() {
             />
           )}
 
-          <section
-            className="overlay-section"
-            aria-labelledby="overlays-heading"
-          >
-            <div className="section-heading">
+          <details className="city-clues">
+            <summary>
               <GameIcon name="layers" />
-              <div>
-                <h2 id="overlays-heading">Planning lens</h2>
-                <p>Switch views to check your plan.</p>
-              </div>
-            </div>
-            <div className="overlay-buttons">
-              {OVERLAY_IDS.map((overlayId) => (
-                <button
-                  aria-pressed={state.overlay === overlayId}
-                  key={overlayId}
-                  onClick={() =>
-                    dispatch({ type: "set-overlay", overlay: overlayId })
-                  }
-                  type="button"
-                >
-                  <span
-                    className={`pattern-swatch pattern-${patternFor(overlayId)}`}
-                    aria-hidden="true"
-                  />
-                  {OVERLAY_SHORT_NAMES[overlayId]}
-                </button>
-              ))}
-            </div>
-            <div className="overlay-legend">
-              <strong>{overlay.name}</strong>
-              <p>{overlay.description}</p>
-            </div>
-          </section>
-
-          <section
-            className="systems-section"
-            aria-labelledby="systems-heading"
-          >
-            <h2 id="systems-heading">City systems</h2>
-            <div className="system-list">
-              {Object.entries(state.city.indicators).map(([name, value]) => (
-                <div className="system-row" key={name}>
-                  <span>{capitalize(name)}</span>
-                  <div
-                    className="meter"
-                    aria-label={`${capitalize(name)} ${Math.round(value)} percent`}
-                  >
-                    <i style={{ width: `${Math.max(3, value)}%` }} />
-                  </div>
-                  <strong>{Math.round(value)}</strong>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <div className="commit-area">
-            {changes === 0 ? (
-              <p className="empty-plan">
-                No new buildings planned. Run the city to let time pass.
-              </p>
-            ) : (
-              <p>
-                <strong>
-                  {changes} provisional {changes === 1 ? "change" : "changes"}
-                </strong>
-                <span>Nothing becomes permanent until you run the city.</span>
-              </p>
-            )}
-            <button
-              className="commit-button"
-              disabled={state.campaign.phase === "completed"}
-              onClick={() => dispatch({ type: "commit" })}
-              type="button"
+              Check city clues
+            </summary>
+            <section
+              className="overlay-section"
+              aria-labelledby="overlays-heading"
             >
-              <GameIcon name="play" />
-              <span>Run the city</span>
-            </button>
-          </div>
+              <div className="section-heading">
+                <div>
+                  <h2 id="overlays-heading">Map views</h2>
+                  <p>See how each city system is doing.</p>
+                </div>
+              </div>
+              <div className="overlay-buttons">
+                {OVERLAY_IDS.map((overlayId) => (
+                  <button
+                    aria-pressed={state.overlay === overlayId}
+                    key={overlayId}
+                    onClick={() =>
+                      dispatch({ type: "set-overlay", overlay: overlayId })
+                    }
+                    type="button"
+                  >
+                    <span
+                      className={`pattern-swatch pattern-${patternFor(overlayId)}`}
+                      aria-hidden="true"
+                    />
+                    {OVERLAY_SHORT_NAMES[overlayId]}
+                  </button>
+                ))}
+              </div>
+              <div className="overlay-legend">
+                <strong>{overlay.name}</strong>
+                <p>{overlay.description}</p>
+              </div>
+            </section>
+
+            <section
+              className="systems-section"
+              aria-labelledby="systems-heading"
+            >
+              <h2 id="systems-heading">City health</h2>
+              <div className="system-list">
+                {Object.entries(state.city.indicators).map(([name, value]) => (
+                  <div className="system-row" key={name}>
+                    <span>{capitalize(name)}</span>
+                    <div
+                      className="meter"
+                      aria-label={`${capitalize(name)} ${Math.round(value)} percent`}
+                    >
+                      <i style={{ width: `${Math.max(3, value)}%` }} />
+                    </div>
+                    <strong>{Math.round(value)}</strong>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </details>
         </aside>
       </section>
+
+      {expertDrawerOpen && (
+        <button
+          aria-label="Close River expert"
+          className="expert-drawer-backdrop"
+          onClick={() => setExpertDrawerOpen(false)}
+          type="button"
+        />
+      )}
 
       {dragGhost !== null && (
         <div
@@ -1196,6 +1354,54 @@ export default function GameShell() {
       )}
     </main>
   );
+}
+
+function expertReplyFor(
+  question: string,
+  state: GameState,
+  mission: ReturnType<typeof getCurrentMission>,
+  feedback: ReturnType<typeof getChildFeedback>,
+): string {
+  const words = question.toLowerCase();
+  const nextObjective = mission?.objectives.find(
+    (objective) => !objective.completed,
+  );
+
+  if (words.includes("water") || words.includes("clean")) {
+    return `Rivergate’s clean-water score is ${Math.round(state.city.indicators.water)}. ${nextObjective?.description ?? "Try connecting homes to a safe water source."}`;
+  }
+  if (
+    words.includes("money") ||
+    words.includes("budget") ||
+    words.includes("cost")
+  ) {
+    return `You have $${state.city.budget.toLocaleString()} to spend. Build what the mission needs first, then save some money for repairs.`;
+  }
+  if (words.includes("power") || words.includes("energy")) {
+    return `Rivergate’s energy score is ${Math.round(state.city.indicators.energy)}. Solar panels make power, and batteries help save it for later.`;
+  }
+  if (
+    words.includes("tree") ||
+    words.includes("park") ||
+    words.includes("nature")
+  ) {
+    return `Rivergate’s nature score is ${Math.round(state.city.indicators.nature)}. Parks and wetlands give animals space and help with heat and floods.`;
+  }
+  if (words.includes("why") && feedback !== null) {
+    return `${feedback.explanation} ${feedback.question}`;
+  }
+  if (
+    words.includes("next") ||
+    words.includes("help") ||
+    words.includes("build")
+  ) {
+    return nextObjective === undefined
+      ? "Great work—your mission goals are ready. Run the city and see what happens!"
+      : `Your next goal is: ${nextObjective.description}`;
+  }
+  return nextObjective === undefined
+    ? "Try running the city, then ask me why one of the scores changed."
+    : `That’s a smart question. For this mission, start here: ${nextObjective.description}`;
 }
 
 type CatalogueItemProps = {
