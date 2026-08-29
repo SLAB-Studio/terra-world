@@ -12,7 +12,11 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { Coordinate } from "@terra/campaign-schema";
-import { RIVERGATE_EN_MESSAGES } from "@terra/simulation";
+import {
+  RIVERGATE_EN_MESSAGES,
+  hashActionLog,
+  hashCityState,
+} from "@terra/simulation";
 
 import { buildingName, CATEGORY_NAMES } from "../../lib/game/catalogue";
 import {
@@ -57,6 +61,36 @@ type DragGhost = {
 };
 
 const RIVERGATE_CITY_ID = "rivergate-city";
+const LOCAL_PROFILE_ID = "local-builder";
+
+type PlayerRole = "water-keeper" | "neighbour-helper" | "nature-planner";
+type SaveState = "loading" | "saving" | "saved" | "temporary";
+
+const PLAYER_ROLES: readonly {
+  id: PlayerRole;
+  label: string;
+  description: string;
+  icon: Parameters<typeof GameIcon>[0]["name"];
+}[] = [
+  {
+    id: "water-keeper",
+    label: "Water keeper",
+    description: "Help clean water reach every home.",
+    icon: "water",
+  },
+  {
+    id: "neighbour-helper",
+    label: "Neighbour helper",
+    description: "Plan a city where everyone can thrive.",
+    icon: "home",
+  },
+  {
+    id: "nature-planner",
+    label: "Nature planner",
+    description: "Make room for people, wetlands, and wildlife.",
+    icon: "nature",
+  },
+];
 
 const OVERLAY_SHORT_NAMES: Readonly<Record<OverlayId, string>> = {
   validity: "Build",
@@ -80,6 +114,20 @@ export default function GameShell() {
   const persistenceRef = useRef<OfflinePersistence | null>(null);
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [persistenceReady, setPersistenceReady] = useState(false);
+  const [onboardingComplete, setOnboardingComplete] = useState(false);
+  const [playerRole, setPlayerRole] = useState<PlayerRole>("water-keeper");
+  const [colourTheme, setColourTheme] = useState<
+    "sunrise" | "river" | "forest"
+  >("river");
+  const [saveState, setSaveState] = useState<SaveState>("loading");
+  const [online, setOnline] = useState(true);
+  const [adultPanelOpen, setAdultPanelOpen] = useState(false);
+  const [adultUnlocked, setAdultUnlocked] = useState(false);
+  const [adultAnswer, setAdultAnswer] = useState("");
+  const [adultGateError, setAdultGateError] = useState(false);
+  const [textScale, setTextScale] = useState(1);
+  const [highContrast, setHighContrast] = useState(false);
+  const [muted, setMuted] = useState(true);
   const planningCity = useMemo(() => getPlanningCity(state), [state]);
   const overlay = useMemo(() => getOverlayView(state), [state]);
   const cursorSummary = useMemo(() => getCursorSummary(state), [state]);
@@ -94,6 +142,11 @@ export default function GameShell() {
   );
   const costs = provisionalCost(state);
   const changes = operationCount(state);
+  const actionLogHash = useMemo(
+    () => hashActionLog(state.city.actionLog),
+    [state.city.actionLog],
+  );
+  const cityStateHash = useMemo(() => hashCityState(state.city), [state.city]);
 
   useEffect(() => {
     let disposed = false;
@@ -104,10 +157,28 @@ export default function GameShell() {
           return;
         }
         persistenceRef.current = persistence;
-        const saved = await persistence.getCampaignSession(RIVERGATE_CITY_ID);
+        const [saved, profile, settings] = await Promise.all([
+          persistence.getCampaignSession(RIVERGATE_CITY_ID),
+          persistence.getProfile(LOCAL_PROFILE_ID),
+          persistence.getSettings(LOCAL_PROFILE_ID),
+        ]);
+        if (profile?.avatarId !== undefined) {
+          const role = PLAYER_ROLES.find(
+            (candidate) => candidate.id === profile.avatarId,
+          );
+          if (role !== undefined) setPlayerRole(role.id);
+        }
+        if (profile?.colourTheme !== undefined)
+          setColourTheme(profile.colourTheme);
+        if (settings !== null) {
+          setTextScale(settings.textScale);
+          setHighContrast(settings.highContrast);
+          setMuted(settings.muted);
+        }
         if (saved !== null) {
           try {
             dispatch({ type: "restore", state: restoreGameSession(saved) });
+            setOnboardingComplete(true);
           } catch {
             await persistence.deleteCampaignSession(RIVERGATE_CITY_ID);
             dispatch({
@@ -120,10 +191,16 @@ export default function GameShell() {
             });
           }
         }
-        if (!disposed) setPersistenceReady(true);
+        if (!disposed) {
+          setSaveState(persistence.kind === "memory" ? "temporary" : "saved");
+          setPersistenceReady(true);
+        }
       })
       .catch(() => {
-        if (!disposed) setPersistenceReady(true);
+        if (!disposed) {
+          setSaveState("temporary");
+          setPersistenceReady(true);
+        }
       });
     return () => {
       disposed = true;
@@ -134,7 +211,9 @@ export default function GameShell() {
 
   useEffect(() => {
     const persistence = persistenceRef.current;
-    if (!persistenceReady || persistence === null) return;
+    if (!persistenceReady || !onboardingComplete || persistence === null)
+      return;
+    setSaveState(persistence.kind === "memory" ? "temporary" : "saving");
     const savedAt = Date.now();
     const session = createGameSessionSave(state, savedAt);
     writeQueueRef.current = writeQueueRef.current
@@ -154,8 +233,100 @@ export default function GameShell() {
           }),
         ]);
       })
-      .catch(() => undefined);
-  }, [persistenceReady, state]);
+      .then(() =>
+        setSaveState(persistence.kind === "memory" ? "temporary" : "saved"),
+      )
+      .catch(() => setSaveState("temporary"));
+  }, [onboardingComplete, persistenceReady, state]);
+
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      "--player-text-scale",
+      String(textScale),
+    );
+  }, [textScale]);
+
+  function beginRivergate() {
+    const persistence = persistenceRef.current;
+    const now = Date.now();
+    if (persistence !== null) {
+      void Promise.all([
+        persistence.saveProfile({
+          profileId: LOCAL_PROFILE_ID,
+          avatarId: playerRole,
+          colourTheme,
+          createdAt: now,
+          updatedAt: now,
+        }),
+        persistence.saveSettings({
+          profileId: LOCAL_PROFILE_ID,
+          reducedMotion: false,
+          highContrast,
+          textScale,
+          muted,
+          locale: "en",
+          updatedAt: now,
+        }),
+      ]).catch(() => setSaveState("temporary"));
+    }
+    setOnboardingComplete(true);
+  }
+
+  function saveAccessibilitySettings(next: {
+    highContrast?: boolean;
+    textScale?: number;
+    muted?: boolean;
+  }) {
+    const nextContrast = next.highContrast ?? highContrast;
+    const nextTextScale = next.textScale ?? textScale;
+    const nextMuted = next.muted ?? muted;
+    setHighContrast(nextContrast);
+    setTextScale(nextTextScale);
+    setMuted(nextMuted);
+    void persistenceRef.current
+      ?.saveSettings({
+        profileId: LOCAL_PROFILE_ID,
+        reducedMotion: false,
+        highContrast: nextContrast,
+        textScale: nextTextScale,
+        muted: nextMuted,
+        locale: "en",
+        updatedAt: Date.now(),
+      })
+      .catch(() => setSaveState("temporary"));
+  }
+
+  function unlockAdultPanel() {
+    if (adultAnswer.trim() === "7") {
+      setAdultUnlocked(true);
+      setAdultGateError(false);
+      return;
+    }
+    setAdultGateError(true);
+  }
+
+  async function resetRivergate() {
+    const fresh = createDeveloperGame();
+    dispatch({ type: "restore", state: fresh });
+    await Promise.all([
+      persistenceRef.current?.deleteCampaignSession(RIVERGATE_CITY_ID),
+      persistenceRef.current?.deleteCity(RIVERGATE_CITY_ID),
+    ]);
+    setAdultPanelOpen(false);
+    setAdultUnlocked(false);
+    setAdultAnswer("");
+  }
 
   const handleTileActivate = useCallback(
     (coordinate: Coordinate) => {
@@ -248,8 +419,105 @@ export default function GameShell() {
     );
   }
 
+  if (!onboardingComplete) {
+    return (
+      <main
+        className={`welcome-shell theme-${colourTheme}${highContrast ? " high-contrast" : ""}`}
+      >
+        <section className="welcome-landscape" aria-hidden="true">
+          <span className="welcome-sun" />
+          <span className="welcome-hill welcome-hill-far" />
+          <span className="welcome-hill welcome-hill-near" />
+          <span className="welcome-river" />
+          <span className="welcome-town welcome-town-one" />
+          <span className="welcome-town welcome-town-two" />
+          <span className="welcome-town welcome-town-three" />
+        </section>
+        <section className="welcome-card" aria-labelledby="welcome-heading">
+          <div className="welcome-brand">
+            <span className="brand-mark" aria-hidden="true">
+              <span />
+            </span>
+            <strong>Terra World</strong>
+          </div>
+          <h1 id="welcome-heading">A city is waiting for your ideas.</h1>
+          <p className="welcome-lead">
+            Grow Rivergate from an empty valley. Bring clean water, power,
+            homes, care, and nature together—then watch how every choice changes
+            the city.
+          </p>
+
+          <fieldset className="role-picker">
+            <legend>Choose your planner badge</legend>
+            <div>
+              {PLAYER_ROLES.map((role) => (
+                <label key={role.id}>
+                  <input
+                    checked={playerRole === role.id}
+                    name="planner-role"
+                    onChange={() => setPlayerRole(role.id)}
+                    type="radio"
+                    value={role.id}
+                  />
+                  <span className="role-icon">
+                    <GameIcon name={role.icon} size={26} />
+                  </span>
+                  <strong>{role.label}</strong>
+                  <small>{role.description}</small>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset className="theme-picker">
+            <legend>Pick a city-colour flag</legend>
+            <div>
+              {(["river", "forest", "sunrise"] as const).map((theme) => (
+                <label key={theme}>
+                  <input
+                    checked={colourTheme === theme}
+                    name="colour-theme"
+                    onChange={() => setColourTheme(theme)}
+                    type="radio"
+                    value={theme}
+                  />
+                  <span className={`theme-flag flag-${theme}`} />
+                  {capitalize(theme)}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <div className="computer-guide-note">
+            <GameIcon name="spark" size={22} />
+            <p>
+              <strong>Meet Rivergate, your computer guide.</strong>
+              It can explain verified city changes, but it never controls your
+              city. The game and its local explanations work offline.
+            </p>
+          </div>
+
+          <button
+            className="welcome-start"
+            onClick={beginRivergate}
+            type="button"
+          >
+            Start the water mission
+            <GameIcon name="arrow" />
+          </button>
+          <p className="welcome-privacy">
+            No account, wallet, real name, public score, or purchase needed.
+            Your city starts saved on this device.
+          </p>
+        </section>
+      </main>
+    );
+  }
+
   return (
-    <main className="game-shell">
+    <main
+      className={`game-shell theme-${colourTheme}${highContrast ? " high-contrast" : ""}`}
+    >
       <header className="game-header">
         <div className="brand-lockup">
           <span className="brand-mark" aria-hidden="true">
@@ -257,8 +525,31 @@ export default function GameShell() {
           </span>
           <div>
             <strong>Terra World</strong>
-            <span>Rivergate · build a city that cares</span>
+            <span>Rivergate discovery table</span>
           </div>
+        </div>
+        <div className="header-actions">
+          <div
+            className={`save-chip save-${saveState}${online ? "" : " is-offline"}`}
+            role="status"
+          >
+            <span aria-hidden="true" />
+            {online
+              ? saveState === "saving"
+                ? "Saving…"
+                : saveState === "temporary"
+                  ? "Playing on this device"
+                  : "Saved on this device"
+              : "Offline · progress stays here"}
+          </div>
+          <button
+            className="adult-entry"
+            onClick={() => setAdultPanelOpen(true)}
+            type="button"
+          >
+            <GameIcon name="shield" size={19} />
+            Adults & judges
+          </button>
         </div>
         <dl className="city-facts" aria-label="Rivergate status">
           <div>
@@ -274,7 +565,7 @@ export default function GameShell() {
             <dd>${state.city.budget.toLocaleString()}</dd>
           </div>
           <div>
-            <dt>Plan</dt>
+            <dt>Plan cost</dt>
             <dd className={costs > 0 ? "fact-cost" : undefined}>
               −${costs.toLocaleString()}
             </dd>
@@ -525,6 +816,76 @@ export default function GameShell() {
           <span>{buildingName(dragGhost.buildingId)}</span>
         </div>
       )}
+
+      {adultPanelOpen && (
+        <div
+          className="adult-dialog-backdrop"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) setAdultPanelOpen(false);
+          }}
+        >
+          <section
+            aria-labelledby="adult-dialog-heading"
+            aria-modal="true"
+            className="adult-dialog"
+            role="dialog"
+          >
+            <button
+              aria-label="Close adult controls"
+              className="dialog-close"
+              onClick={() => setAdultPanelOpen(false)}
+              type="button"
+            >
+              <GameIcon name="close" />
+            </button>
+            {!adultUnlocked ? (
+              <div className="adult-gate">
+                <span className="adult-gate-icon" aria-hidden="true">
+                  <GameIcon name="shield" size={34} />
+                </span>
+                <h2 id="adult-dialog-heading">Adult space</h2>
+                <p>
+                  Backup, reset, learning notes, and technical proof live here
+                  so children can focus on building.
+                </p>
+                <label htmlFor="adult-check">What is 4 + 3?</label>
+                <div className="adult-check-row">
+                  <input
+                    autoFocus
+                    id="adult-check"
+                    inputMode="numeric"
+                    onChange={(event) => setAdultAnswer(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") unlockAdultPanel();
+                    }}
+                    value={adultAnswer}
+                  />
+                  <button onClick={unlockAdultPanel} type="button">
+                    Continue
+                  </button>
+                </div>
+                {adultGateError && (
+                  <p className="adult-gate-error" role="alert">
+                    That answer did not match. Try once more.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <AdultControls
+                actionLogHash={actionLogHash}
+                cityStateHash={cityStateHash}
+                highContrast={highContrast}
+                muted={muted}
+                onAccessibilityChange={saveAccessibilitySettings}
+                onReset={() => void resetRivergate()}
+                saveState={saveState}
+                state={state}
+                textScale={textScale}
+              />
+            )}
+          </section>
+        </div>
+      )}
     </main>
   );
 }
@@ -687,6 +1048,198 @@ function EndingCard({ ending }: EndingCardProps) {
         {messageFor(ending.adultLearningSummary.reflectionKey)}
       </p>
     </section>
+  );
+}
+
+type AdultControlsProps = {
+  readonly state: ReturnType<typeof createDeveloperGame>;
+  readonly saveState: SaveState;
+  readonly actionLogHash: string;
+  readonly cityStateHash: string;
+  readonly highContrast: boolean;
+  readonly textScale: number;
+  readonly muted: boolean;
+  readonly onAccessibilityChange: (next: {
+    highContrast?: boolean;
+    textScale?: number;
+    muted?: boolean;
+  }) => void;
+  readonly onReset: () => void;
+};
+
+function AdultControls({
+  actionLogHash,
+  cityStateHash,
+  highContrast,
+  muted,
+  onAccessibilityChange,
+  onReset,
+  saveState,
+  state,
+  textScale,
+}: AdultControlsProps) {
+  const [resetArmed, setResetArmed] = useState(false);
+
+  return (
+    <div className="adult-controls">
+      <header>
+        <h2 id="adult-dialog-heading">Adult controls & judge proof</h2>
+        <p>
+          Rivergate keeps child play free of wallets and technical prompts. This
+          view separates family controls from verifiable project evidence.
+        </p>
+      </header>
+
+      <section className="adult-section" aria-labelledby="access-heading">
+        <h3 id="access-heading">Comfort and access</h3>
+        <div className="adult-toggle-list">
+          <label>
+            <GameIcon name="contrast" />
+            <span>
+              <strong>High contrast</strong>
+              <small>Strengthen text, map edges, and controls.</small>
+            </span>
+            <input
+              checked={highContrast}
+              onChange={(event) =>
+                onAccessibilityChange({ highContrast: event.target.checked })
+              }
+              type="checkbox"
+            />
+          </label>
+          <label>
+            <GameIcon name="volume" />
+            <span>
+              <strong>Sound</strong>
+              <small>The MVP begins muted; no essential clue uses sound.</small>
+            </span>
+            <input
+              checked={!muted}
+              onChange={(event) =>
+                onAccessibilityChange({ muted: !event.target.checked })
+              }
+              type="checkbox"
+            />
+          </label>
+          <label className="text-scale-control">
+            <GameIcon name="text" />
+            <span>
+              <strong>Text size</strong>
+              <small>{Math.round(textScale * 100)}% on this device</small>
+            </span>
+            <input
+              aria-label="Text size"
+              max="1.25"
+              min="0.9"
+              onChange={(event) =>
+                onAccessibilityChange({
+                  textScale: Number(event.target.value),
+                })
+              }
+              step="0.05"
+              type="range"
+              value={textScale}
+            />
+          </label>
+        </div>
+      </section>
+
+      <section className="adult-section" aria-labelledby="learning-heading">
+        <h3 id="learning-heading">Learning snapshot</h3>
+        <dl className="learning-snapshot">
+          <div>
+            <dt>Current chapter</dt>
+            <dd>{chapterLabel(state.campaign.chapterId)}</dd>
+          </div>
+          <div>
+            <dt>Missions finished</dt>
+            <dd>{state.campaign.completedMissionKeys.length} of 15</dd>
+          </div>
+          <div>
+            <dt>Planning turns</dt>
+            <dd>{state.city.turn}</dd>
+          </div>
+          <div>
+            <dt>Local save</dt>
+            <dd>{saveState === "temporary" ? "Device session" : "Verified"}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section
+        className="adult-section proof-section"
+        aria-labelledby="proof-heading"
+      >
+        <h3 id="proof-heading">Judge proof mode</h3>
+        <p>
+          These values come from the running deterministic game. Network proof
+          appears only when adult-sponsored 0G services are configured.
+        </p>
+        <dl className="proof-list">
+          <div>
+            <dt>Rivergate package</dt>
+            <dd>
+              <code>0ca0cf041460eb3c</code>
+              <span>Local trust anchor</span>
+            </dd>
+          </div>
+          <div>
+            <dt>City state</dt>
+            <dd>
+              <code>{cityStateHash}</code>
+              <span>Replayable</span>
+            </dd>
+          </div>
+          <div>
+            <dt>Action history</dt>
+            <dd>
+              <code>{actionLogHash}</code>
+              <span>{state.city.actionLog.length} actions</span>
+            </dd>
+          </div>
+          <div>
+            <dt>Private city guide</dt>
+            <dd>
+              <span>0G Compute route ready</span>
+              <span>Local fallback always available</span>
+            </dd>
+          </div>
+          <div>
+            <dt>Encrypted backup</dt>
+            <dd>
+              <span>Adult-sponsored route</span>
+              <span>No child wallet</span>
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <section
+        className="adult-section danger-section"
+        aria-labelledby="reset-heading"
+      >
+        <h3 id="reset-heading">Start Rivergate again</h3>
+        <p>This removes the city saved on this device. It cannot be undone.</p>
+        {resetArmed ? (
+          <div className="reset-confirm">
+            <button onClick={onReset} type="button">
+              Yes, reset Rivergate
+            </button>
+            <button onClick={() => setResetArmed(false)} type="button">
+              Keep this city
+            </button>
+          </div>
+        ) : (
+          <button
+            className="reset-button"
+            onClick={() => setResetArmed(true)}
+            type="button"
+          >
+            Reset local city
+          </button>
+        )}
+      </section>
+    </div>
   );
 }
 

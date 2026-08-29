@@ -13,7 +13,14 @@ type GameIconProps = {
     | "undo"
     | "remove"
     | "play"
-    | "layers";
+    | "layers"
+    | "spark"
+    | "arrow"
+    | "shield"
+    | "close"
+    | "volume"
+    | "contrast"
+    | "text";
   readonly size?: number;
 };
 
@@ -101,6 +108,37 @@ export function GameIcon({ name, size = 22 }: GameIconProps) {
         <>
           <path d="m12 2 9 5-9 5-9-5 9-5Z" />
           <path d="m3 12 9 5 9-5M3 17l9 5 9-5" />
+        </>
+      )}
+      {name === "spark" && (
+        <>
+          <path d="M12 2c.7 4.1 2.9 6.3 7 7-4.1.7-6.3 2.9-7 7-.7-4.1-2.9-6.3-7-7 4.1-.7 6.3-2.9 7-7Z" />
+          <path d="M19 16c.3 1.7 1.3 2.7 3 3-1.7.3-2.7 1.3-3 3-.3-1.7-1.3-2.7-3-3 1.7-.3 2.7-1.3 3-3Z" />
+        </>
+      )}
+      {name === "arrow" && <path d="M5 12h14m-5-5 5 5-5 5" />}
+      {name === "shield" && (
+        <>
+          <path d="M12 3 5 6v5c0 4.6 2.8 8.2 7 10 4.2-1.8 7-5.4 7-10V6l-7-3Z" />
+          <path d="m9 12 2 2 4-5" />
+        </>
+      )}
+      {name === "close" && <path d="m6 6 12 12M18 6 6 18" />}
+      {name === "volume" && (
+        <>
+          <path d="M5 10v4h3l4 4V6L8 10H5Z" />
+          <path d="M16 9c1.5 1.5 1.5 4.5 0 6M19 6c3.5 3.5 3.5 8.5 0 12" />
+        </>
+      )}
+      {name === "contrast" && (
+        <>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 3v18M12 7a5 5 0 0 1 0 10" />
+        </>
+      )}
+      {name === "text" && (
+        <>
+          <path d="M4 5h11M9.5 5v14M6 19h7M15 10h5m-2.5 0v9M15 19h5" />
         </>
       )}
     </svg>
