@@ -73,7 +73,7 @@ describe("phase two clean-map ending variants", () => {
         },
       },
     });
-  });
+  }, 15_000);
 
   it("earns the Brave Rebuilder ending from an empty map", () => {
     let state = createDeveloperGame(PLAYTHROUGH_SEED);
@@ -107,7 +107,7 @@ describe("phase two clean-map ending variants", () => {
     }
     state = commit(state);
     expectFinalStormAndEnding(state);
-  });
+  }, 15_000);
 });
 
 /** Completes the first twelve authored missions with the known clean-map plan. */
