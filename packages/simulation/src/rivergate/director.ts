@@ -51,11 +51,23 @@ export const RIVERGATE_CHAPTER_IDS = [
 
 export type RivergateChapterId = (typeof RIVERGATE_CHAPTER_IDS)[number];
 
+export type RivergateEventHistoryEntry = {
+  /** TurnResult.state.turn for the result that supplied firedEventIds. */
+  readonly turn: number;
+  /** Exact IDs returned by that turn's TurnResult. */
+  readonly firedEventIds: readonly string[];
+};
+
 export type RivergateDirectorEvidence = {
   /** TurnResult.state.turn for the same result that supplied firedEventIds. */
   readonly turn: number;
   /** IDs returned by the TurnResult that is being evaluated. */
   readonly firedEventIds: readonly string[];
+  /**
+   * Optional ordered evidence from earlier completed turns. The current turn
+   * may also be present, but must exactly match turn/firedEventIds above.
+   */
+  readonly eventHistory?: readonly RivergateEventHistoryEntry[];
 };
 
 type ScenarioGateResult = {
@@ -101,6 +113,7 @@ export type AdvanceRivergateCampaignResult =
     });
 
 export const FINAL_STORM_EVENT_ID = "chapter-5-river-storm" as const;
+const FINAL_STORM_TURN = 15;
 
 /**
  * A final storm is acceptable at a readiness score of 45 or above: the
@@ -160,15 +173,10 @@ export function evaluateRivergateChapterGate(
     case "chapter-5-storm": {
       const snapshot = adaptCityToStormEvaluation(city);
       const evaluation = evaluateFinalStorm(snapshot);
-      const eventEvidenceSatisfied =
-        evidence.turn === city.turn &&
-        city.turn === 15 &&
-        evidence.firedEventIds.some(
-          (eventId) => eventId === FINAL_STORM_EVENT_ID,
-        ) &&
-        city.actionLog.some(
-          (action) => action.type === "advance-turn" && action.turn === 15,
-        );
+      const eventEvidenceSatisfied = hasVerifiedFinalStormEvidence(
+        city,
+        evidence,
+      );
       const acceptableOutcome =
         evaluation.readinessScore >= MINIMUM_ACCEPTABLE_STORM_READINESS &&
         evaluation.outcomeBand !== "hard-hit";
@@ -748,6 +756,87 @@ function assertEvidence(
       "Rivergate director evidence must include its turn and firedEventIds",
     );
   }
+  assertEventIds(evidence.firedEventIds);
+
+  if (evidence.eventHistory === undefined) return;
+  if (!Array.isArray(evidence.eventHistory)) {
+    throw new Error("Rivergate director event history must be an array");
+  }
+  let previousTurn = -1;
+  for (const entry of evidence.eventHistory) {
+    if (
+      typeof entry !== "object" ||
+      entry === null ||
+      !Number.isInteger(entry.turn) ||
+      entry.turn < 0 ||
+      entry.turn > evidence.turn ||
+      entry.turn <= previousTurn ||
+      !Array.isArray(entry.firedEventIds)
+    ) {
+      throw new Error(
+        "Rivergate director event history must contain ordered completed turns",
+      );
+    }
+    assertEventIds(entry.firedEventIds);
+    if (
+      entry.turn === evidence.turn &&
+      !sameStrings(entry.firedEventIds, evidence.firedEventIds)
+    ) {
+      throw new Error(
+        "Rivergate director current event history does not match its turn evidence",
+      );
+    }
+    previousTurn = entry.turn;
+  }
+}
+
+function hasVerifiedFinalStormEvidence(
+  city: CityState,
+  evidence: RivergateDirectorEvidence,
+): boolean {
+  if (evidence.turn !== city.turn) return false;
+
+  const eventsByTurn = new Map<number, readonly string[]>();
+  for (const entry of evidence.eventHistory ?? []) {
+    eventsByTurn.set(entry.turn, entry.firedEventIds);
+  }
+  if (!eventsByTurn.has(evidence.turn)) {
+    eventsByTurn.set(evidence.turn, evidence.firedEventIds);
+  }
+
+  const stormTurns = [...eventsByTurn]
+    .filter(([, eventIds]) => eventIds.includes(FINAL_STORM_EVENT_ID))
+    .map(([turn]) => turn);
+  const authoredTurnAdvanced = city.actionLog.filter(
+    (action) =>
+      action.type === "advance-turn" && action.turn === FINAL_STORM_TURN,
+  );
+  return (
+    stormTurns.length === 1 &&
+    stormTurns[0] === FINAL_STORM_TURN &&
+    authoredTurnAdvanced.length === 1
+  );
+}
+
+function assertEventIds(eventIds: readonly string[]): void {
+  if (
+    eventIds.some((id) => typeof id !== "string" || id.length === 0) ||
+    new Set(eventIds).size !== eventIds.length
+  ) {
+    throw new Error(
+      "Rivergate director firedEventIds must be unique non-empty strings",
+    );
+  }
+}
+
+function sameStrings(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
 }
 
 function round(value: number): number {

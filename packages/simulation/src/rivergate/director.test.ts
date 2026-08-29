@@ -159,6 +159,80 @@ describe("Rivergate campaign director", () => {
     });
   });
 
+  it("completes the delayed repair mission from exact turn-15 event history", () => {
+    const city = delayedStormCity();
+    const result = advanceRivergateCampaignState(
+      RIVERGATE_FOUNDATIONS_CAMPAIGN,
+      city,
+      progressAt("chapter-5-storm", "repair-together"),
+      {
+        turn: 16,
+        firedEventIds: [],
+        eventHistory: [
+          { turn: 15, firedEventIds: [FINAL_STORM_EVENT_ID] },
+          { turn: 16, firedEventIds: [] },
+        ],
+      },
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      transition: { type: "campaign-completed" },
+      state: { phase: "completed" },
+      gate: { complete: true, eventEvidenceSatisfied: true },
+    });
+  });
+
+  it.each([
+    {
+      name: "missing historical event",
+      eventHistory: [{ turn: 16, firedEventIds: [] }],
+    },
+    {
+      name: "wrong historical event",
+      eventHistory: [
+        { turn: 15, firedEventIds: ["not-the-river-storm"] },
+        { turn: 16, firedEventIds: [] },
+      ],
+    },
+  ])("rejects $name after the authored turn", ({ eventHistory }) => {
+    const result = advanceRivergateCampaignState(
+      RIVERGATE_FOUNDATIONS_CAMPAIGN,
+      delayedStormCity(),
+      progressAt("chapter-5-storm", "repair-together"),
+      { turn: 16, firedEventIds: [], eventHistory },
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      transition: { type: "none" },
+      state: { phase: "active", missionId: "repair-together" },
+      gate: { complete: false, eventEvidenceSatisfied: false },
+    });
+  });
+
+  it("rejects storm evidence duplicated on a later turn", () => {
+    const result = advanceRivergateCampaignState(
+      RIVERGATE_FOUNDATIONS_CAMPAIGN,
+      delayedStormCity(),
+      progressAt("chapter-5-storm", "repair-together"),
+      {
+        turn: 16,
+        firedEventIds: [FINAL_STORM_EVENT_ID],
+        eventHistory: [
+          { turn: 15, firedEventIds: [FINAL_STORM_EVENT_ID] },
+          { turn: 16, firedEventIds: [FINAL_STORM_EVENT_ID] },
+        ],
+      },
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      transition: { type: "none" },
+      gate: { complete: false, eventEvidenceSatisfied: false },
+    });
+  });
+
   it("rejects a forged storm ID without matching turn history", () => {
     const city = stormCity({ actionLog: [] });
     const result = advanceRivergateCampaignState(
@@ -377,6 +451,26 @@ function stormCity(patch: Partial<CityState> = {}): CityState {
       ...patch,
     },
   );
+}
+
+function delayedStormCity(): CityState {
+  return stormCity({
+    turn: 16,
+    actionLog: [
+      {
+        type: "advance-turn",
+        actionId: "verified-final-storm-turn",
+        turn: 15,
+        sequence: 0,
+      },
+      {
+        type: "advance-turn",
+        actionId: "verified-repair-turn",
+        turn: 16,
+        sequence: 1,
+      },
+    ],
+  });
 }
 
 function cityWithBuildings(

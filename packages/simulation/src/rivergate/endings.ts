@@ -377,6 +377,20 @@ function validateInput(input: RivergateEndingInput): RivergateEndingInput {
       "Rivergate ending evidence is stale for the supplied city turn",
     );
   }
+  const eventHistory = input.evidence.eventHistory;
+  if (
+    eventHistory !== undefined &&
+    (!Array.isArray(eventHistory) ||
+      eventHistory.some(
+        (entry) =>
+          typeof entry !== "object" ||
+          entry === null ||
+          !Number.isInteger(entry.turn) ||
+          !Array.isArray(entry.firedEventIds),
+      ))
+  ) {
+    throw new Error("Rivergate ending requires valid event history");
+  }
   if (!Array.isArray(input.causes)) {
     throw new Error("Rivergate ending requires a cause/effect history");
   }
@@ -413,6 +427,14 @@ function validateInput(input: RivergateEndingInput): RivergateEndingInput {
     evidence: {
       turn: input.evidence.turn,
       firedEventIds: [...input.evidence.firedEventIds],
+      ...(eventHistory === undefined
+        ? {}
+        : {
+            eventHistory: eventHistory.map((entry) => ({
+              turn: entry.turn,
+              firedEventIds: [...entry.firedEventIds],
+            })),
+          }),
     },
     causes: parsedCauses,
   };
