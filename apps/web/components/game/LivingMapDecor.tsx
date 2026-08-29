@@ -22,17 +22,14 @@ const HOMES: readonly Home[] = [
     wall: "#ff7d4d",
     roof: "#fff7d9",
   },
-  { x: 424, y: 98, wall: "#62aef0", roof: "#fff7d9" },
   {
     x: 754,
     y: 218,
     wall: "#ffb842",
     roof: "#fff7d9",
   },
-  { x: 1080, y: 112, wall: "#8ad060", roof: "#fff7d9" },
   { x: 1450, y: 245, wall: "#be8de2", roof: "#fff7d9" },
   { x: 270, y: 588, wall: "#ef86a7", roof: "#fff7d9" },
-  { x: 865, y: 548, wall: "#66bfa1", roof: "#fff7d9" },
   {
     x: 1330,
     y: 626,

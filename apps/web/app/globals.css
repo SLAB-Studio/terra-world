@@ -5225,3 +5225,355 @@ body {
     animation: none;
   }
 }
+
+/* Living neighborhood: the map stays simple until a child opens a home. */
+.neighborhood-world {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #286d48;
+}
+
+.neighborhood-world::before,
+.neighborhood-world::after {
+  content: none;
+}
+
+.world-scroll-region {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: #ffd24a #174d36;
+  scrollbar-width: auto;
+  touch-action: pan-x pan-y;
+}
+
+.world-scroll-region::-webkit-scrollbar {
+  width: 15px;
+  height: 15px;
+}
+
+.world-scroll-region::-webkit-scrollbar-track {
+  background: #174d36;
+}
+
+.world-scroll-region::-webkit-scrollbar-thumb {
+  border: 3px solid #174d36;
+  border-radius: 999px;
+  background: #ffd24a;
+}
+
+.world-scroll-region:focus-visible {
+  outline: 5px solid #ffd24a;
+  outline-offset: -8px;
+}
+
+.world-canvas {
+  position: relative;
+  width: 1800px;
+  height: 900px;
+  min-width: 100%;
+  min-height: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle at 18% 22%,
+      rgba(120, 190, 96, 0.2),
+      transparent 18%
+    ),
+    radial-gradient(circle at 78% 70%, rgba(17, 77, 54, 0.22), transparent 24%),
+    repeating-linear-gradient(
+      30deg,
+      transparent 0 38px,
+      rgba(229, 255, 224, 0.15) 39px 40px
+    ),
+    repeating-linear-gradient(
+      150deg,
+      transparent 0 38px,
+      rgba(229, 255, 224, 0.15) 39px 40px
+    ),
+    #286d48;
+}
+
+.world-canvas::after {
+  content: "";
+  position: absolute;
+  z-index: 9;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 80px rgba(18, 55, 39, 0.26);
+}
+
+.world-canvas .world-river {
+  z-index: 4;
+  top: 365px;
+  left: -120px;
+  width: 2050px;
+  height: 112px;
+  transform: rotate(-8deg);
+}
+
+.world-canvas .compound-grid {
+  position: absolute;
+  z-index: 12;
+  inset: 0;
+  width: 1800px;
+  height: 900px;
+  padding: 0;
+  overflow: visible;
+}
+
+.world-canvas .compound {
+  width: 190px;
+  height: 188px;
+}
+
+.world-canvas .compound-sunny {
+  top: 98px;
+  left: 424px;
+}
+
+.world-canvas .compound-bluebell {
+  top: 112px;
+  right: auto;
+  left: 1080px;
+}
+
+.world-canvas .compound-mango {
+  top: 548px;
+  bottom: auto;
+  left: 865px;
+}
+
+.world-canvas .compound-name,
+.world-canvas .compound-drop-prompt,
+.map-guide-bubble {
+  display: none;
+}
+
+.world-canvas .compound:hover,
+.world-canvas .compound:focus-visible,
+.world-canvas .compound.is-drop-target {
+  z-index: 24;
+  transform: translateY(-5px) scale(1.025);
+}
+
+.world-canvas .compound:focus-visible .compound-scene {
+  border-color: #ffd24a;
+  background: rgba(255, 232, 107, 0.16);
+  box-shadow: 0 0 0 8px rgba(255, 210, 74, 0.25);
+}
+
+.world-canvas .compound-scene {
+  min-height: 156px;
+}
+
+.home-owner-alert {
+  position: absolute;
+  z-index: 19;
+  right: -5px;
+  bottom: -23px;
+  width: 70px;
+  height: 99px;
+  display: block;
+  pointer-events: none;
+  animation: owner-bob 3.8s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  transform-origin: bottom center;
+}
+
+.home-owner-bubble {
+  position: absolute;
+  right: -7px;
+  bottom: 74px;
+  width: max-content;
+  max-width: 132px;
+  padding: 7px 9px;
+  border: 3px solid #2b190f;
+  border-radius: 13px 13px 4px 13px;
+  color: #2b190f;
+  background: #fff9e8;
+  box-shadow: 3px 4px 0 rgba(43, 25, 15, 0.18);
+  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 850;
+  line-height: 1.08;
+  text-align: center;
+  white-space: normal;
+}
+
+.home-owner-bubble::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  bottom: -9px;
+  width: 10px;
+  height: 10px;
+  border-right: 3px solid #2b190f;
+  border-bottom: 3px solid #2b190f;
+  background: #fff9e8;
+  transform: skewY(35deg);
+}
+
+.home-owner-person,
+.home-owner-person i {
+  position: absolute;
+  display: block;
+  box-sizing: border-box;
+}
+
+.home-owner-person {
+  right: 6px;
+  bottom: 0;
+  width: 35px;
+  height: 70px;
+}
+
+.owner-head {
+  z-index: 3;
+  top: 0;
+  left: 7px;
+  width: 21px;
+  height: 22px;
+  border: 3px solid #2b190f;
+  border-radius: 50%;
+  background: #9d6547;
+}
+
+.owner-body {
+  z-index: 2;
+  top: 19px;
+  left: 5px;
+  width: 25px;
+  height: 31px;
+  border: 3px solid #2b190f;
+  border-radius: 9px 9px 6px 6px;
+  background: #ffd24a;
+}
+
+.compound-bluebell .owner-body {
+  background: #be8de2;
+}
+
+.compound-mango .owner-body {
+  background: #62aef0;
+}
+
+.owner-arm {
+  z-index: 1;
+  top: 23px;
+  left: -1px;
+  width: 8px;
+  height: 26px;
+  border: 3px solid #2b190f;
+  border-radius: 6px;
+  background: #9d6547;
+  animation: owner-wave 1.8s ease-in-out infinite;
+  transform: rotate(35deg);
+  transform-origin: top center;
+}
+
+.owner-leg {
+  top: 46px;
+  width: 8px;
+  height: 24px;
+  border: 3px solid #2b190f;
+  border-radius: 5px;
+  background: #75465e;
+}
+
+.owner-leg-left {
+  left: 7px;
+  transform: rotate(5deg);
+}
+
+.owner-leg-right {
+  right: 7px;
+  transform: rotate(-5deg);
+}
+
+.is-healthy .home-owner-alert {
+  display: none;
+}
+
+.neighborhood-quest {
+  z-index: 40;
+}
+
+.neighborhood-actions {
+  z-index: 40;
+}
+
+.town-awake .world-canvas {
+  animation: map-life-breathe 900ms ease-in-out 2;
+}
+
+@keyframes owner-wave {
+  0%,
+  100% {
+    transform: rotate(35deg);
+  }
+  50% {
+    transform: rotate(82deg);
+  }
+}
+
+@keyframes owner-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes map-life-breathe {
+  0%,
+  100% {
+    filter: saturate(1);
+  }
+  50% {
+    filter: saturate(1.16) brightness(1.05);
+  }
+}
+
+@media (max-width: 760px) {
+  .neighborhood-panel {
+    min-height: 720px;
+  }
+
+  .world-canvas .compound {
+    width: 176px;
+    height: 176px;
+  }
+
+  .world-canvas .compound-sunny {
+    top: 98px;
+    left: 424px;
+  }
+
+  .world-canvas .compound-bluebell {
+    top: 112px;
+    left: 1080px;
+  }
+
+  .world-canvas .compound-mango {
+    top: 548px;
+    left: 865px;
+  }
+
+  .neighborhood-actions {
+    right: 18px;
+    bottom: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-owner-alert,
+  .owner-arm,
+  .town-awake .world-canvas {
+    animation: none;
+  }
+}
