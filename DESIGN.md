@@ -74,6 +74,14 @@ real 3D change. With reduced motion enabled, traffic, ambient motion, and camera
 flights freeze or snap immediately. Semantic house controls remain available as
 a keyboard and graphics-failure fallback.
 
+Rivergate should read as a real small town rather than three isolated lots. Ten
+non-playable neighborhood homes surround the three lesson homes, while a school,
+clinic, market, playground, bus stops, crosswalks, river benches, recycling
+points, hydrants, townspeople, and dogs make the wider map feel inhabited. These
+details stay visually secondary and never compete for clicks. The whole-town
+camera shows the broader community; the closer camera returns attention to the
+current family and lesson.
+
 Selecting a family home opens a second genuine Babylon.js scene: a bright
 cutaway house with four walk-in rooms. The child chooses Living, Kitchen,
 Garden, or Utility, then the camera moves into that room and reveals one short
@@ -82,10 +90,12 @@ lamp begins to glow—so the lesson is visible rather than explained only with
 text. Room controls mirror the 3D picking targets for touch, keyboard access,
 and graphics fallback. The home overview never shows technical system data.
 
-Render houses only for actionable family homes. Owner labels and short speech
-bubbles show when a repair is needed; a house's details and diagnostics stay
-hidden until the child clicks or taps it. Keep River persistent beside the map
-on desktop and available from the sticky expert control on small screens.
+Only actionable family homes may highlight, accept upgrades, or open a room
+tour. Decorative homes remain unlabelled and non-pickable. Owner labels and
+short speech bubbles show when a repair is needed; a house's details and
+diagnostics stay hidden until the child clicks or taps it. Keep River persistent
+beside the map on desktop and available from the sticky expert control on small
+screens.
 
 ### Adventure Trail
 

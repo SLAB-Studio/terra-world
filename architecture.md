@@ -741,7 +741,7 @@ terra-world/
       app/                         Next.js pages and API routes
       components/                  Shared interface components
       game/                        Babylon.js town/interior scenes and React game controls
-      lib/immersive-town/          3D environment, traffic, upgrades, cameras, and room diagnostics
+      lib/immersive-town/          3D environment, civic scenery, traffic, upgrades, cameras, and room diagnostics
       features/city-builder/       Drag, placement, overlays, catalogue
       features/city-guide/         City dialogue and hint interface
       features/adult-controls/     Consent, reports, and proof mode
