@@ -174,7 +174,7 @@ Phase 2 is complete only when:
 
 - [x] All twelve building types work in the functional shell.
 - [x] All five chapters and the final storm are playable offline.
-- [ ] At least three different full runs reach three different endings.
+- [x] At least three different full runs reach three different endings.
 - [x] Every outcome has a non-AI explanation and hint fallback.
 - [x] Save, close, resume, undo, and replay work throughout the campaign.
 - [ ] A clean 20–30 minute MVP playthrough is recorded in testing notes.
@@ -247,7 +247,7 @@ Connect the complete offline game to 0G Compute and 0G Storage without making ei
   - Acceptance: Names, precise ages, school, location, raw child chat, and behavioural profiles cannot enter Compute requests or city memory.
   - Verify: Static schema review plus automated sensitive-field and log tests.
 
-- [ ] **P3.11 Implement Compute fallback and caching**
+- [x] **P3.11 Implement Compute fallback and caching**
   - Build: Fall back to campaign-authored content on timeout, no private provider, invalid output, quota, or network failure. Cache only safe, generic explanations keyed by deterministic cause code.
   - Acceptance: No 0G Compute failure blocks a turn or exposes a technical error to the child.
   - Verify: Fault-injection tests for every documented failure mode.

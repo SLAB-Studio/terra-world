@@ -429,6 +429,14 @@ instead.
 - Never silently downgrade privacy to obtain an answer.
 - Do not block simulation or saving on an inference failure.
 
+The guide orchestrator accepts only responses explicitly marked as private,
+enforces a bounded timeout, and validates authored fallback content through the
+same output boundary. Its bounded TTL/LRU cache stores only generic
+explanations with no city-state grounding, digits, memories, or adaptive task
+content. Persistent keys contain only age band, task, verified cause codes, and
+fact keys; exact-request coalescing uses a separate ephemeral key so two city
+snapshots cannot share an in-flight response.
+
 ## 9. 0G Storage
 
 ### 9.1 Public campaign packs
@@ -451,7 +459,7 @@ campaigns/rivergate-v1/
 
 The published 0G Storage root and ruleset hash are registered on 0G Chain. Downloads use proof verification and are cached locally for offline play.
 
-The local Rivergate v1 build assembles this content from the same typed campaign, map, catalogue, evaluator, learning-fact, and localisation sources used by the simulation. Its canonical package trust anchor is `1929be31c58172ed`. This local deterministic hash detects accidental or forged package changes before publication; the cryptographic 0G Storage root remains the network proof after upload.
+The local Rivergate v1 build assembles this content from the same typed campaign, map, catalogue, evaluator, learning-fact, and localisation sources used by the simulation. Its canonical package trust anchor is `0ca0cf041460eb3c`. This local deterministic hash detects accidental or forged package changes before publication; the cryptographic 0G Storage root remains the network proof after upload.
 
 The server-side Storage adapter uses the adult sponsor signer and the official
 0G TypeScript SDK. It computes the Merkle tree before upload, accepts only one
@@ -473,6 +481,14 @@ At the end of a chapter or milestone:
 Local saves occur immediately. Cloud backup runs asynchronously.
 
 Checkpoint ciphertext uses a versioned AES-256-GCM envelope with a fresh 96-bit IV. City ID, campaign/version, checkpoint schema version, creation time, key ID, algorithm, and envelope version are authenticated as additional data. Keys are non-extractable in normal browser use; wrong keys, modified ciphertext, modified IVs, altered metadata, and unsupported versions fail before any restored state is accepted.
+
+The local-first backup coordinator derives a deterministic SHA-256 idempotency
+key from canonical ciphertext, returns after the local write, and processes
+remote uploads through leased `pending`, `uploading`, `retry-wait`, `synced`,
+and `failed` states. Only retryable failures are retried, and stale workers
+cannot overwrite a newer successful attempt. Adult-controlled restore
+references must match the remote root, content hash, byte length, key ID, and
+authenticated campaign/city metadata before decryption or local acceptance.
 
 ## 10. 0G Chain contracts
 
