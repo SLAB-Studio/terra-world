@@ -446,6 +446,8 @@ campaigns/rivergate-v1/
 
 The published 0G Storage root and ruleset hash are registered on 0G Chain. Downloads use proof verification and are cached locally for offline play.
 
+The local Rivergate v1 build assembles this content from the same typed campaign, map, catalogue, evaluator, learning-fact, and localisation sources used by the simulation. Its canonical package trust anchor is `1929be31c58172ed`. This local deterministic hash detects accidental or forged package changes before publication; the cryptographic 0G Storage root remains the network proof after upload.
+
 ### 9.2 Encrypted city checkpoints
 
 At the end of a chapter or milestone:
@@ -456,6 +458,8 @@ At the end of a chapter or milestone:
 4. Store the returned root in the adult-controlled session and the encrypted Agentic ID metadata.
 
 Local saves occur immediately. Cloud backup runs asynchronously.
+
+Checkpoint ciphertext uses a versioned AES-256-GCM envelope with a fresh 96-bit IV. City ID, campaign/version, checkpoint schema version, creation time, key ID, algorithm, and envelope version are authenticated as additional data. Keys are non-extractable in normal browser use; wrong keys, modified ciphertext, modified IVs, altered metadata, and unsupported versions fail before any restored state is accepted.
 
 ## 10. 0G Chain contracts
 
@@ -652,6 +656,7 @@ terra-world/
       features/city-guide/         City dialogue and hint interface
       features/adult-controls/     Consent, reports, and proof mode
       lib/offline/                 IndexedDB and synchronisation
+      lib/checkpoints/             Versioned browser AES-GCM envelopes
   packages/
     simulation/
       src/state.ts                 CityState schemas
@@ -664,12 +669,15 @@ terra-world/
     campaign-schema/
       src/                         Campaign validation and types
     zero-g/
+      src/network.ts               Public testnet/mainnet boundaries
+      src/server/config.ts         Server-only credentials and policy
+      src/server/compute.ts        Private 0G Compute Router adapter
+      src/server/storage.ts        Upload, download, and proof checks
       src/agentic-id.ts            City identity and memory updates
-      src/compute.ts               0G Compute Router adapter
-      src/storage.ts               Upload, download, and proof checks
       src/chain.ts                 Campaign and milestone operations
     safety/
-      src/guide-input.ts           Input minimisation
+      src/city-guide.ts            Input minimisation and request schema
+      src/prohibited-data.ts       Child-data boundary scanner
       src/guide-output.ts          Output validation
       src/memory.ts                Structured memory policy
   contracts/

@@ -6,7 +6,11 @@ This is a repeatable 20–30 minute manual test script, not a record of a comple
 
 The automated clean-profile run completes all 15 missions from an empty deterministic map using only public production APIs. It validates real placement and utility propagation, exact turn-3 rain, exact turn-9 growth, exact turn-15 storm, all five chapter directors, a real **Steady Shaper** ending, full campaign-session save/close/reopen, completed-ending restore, and deterministic replay with matching city and action-log hashes.
 
-The strategy deliberately reserves the school and clinic footprints from turn 1, balances homes across both neighbourhoods, removes excess treatment capacity instead of inventing a refund, and uses honest empty-plan turns for battery charging and scheduled time. The executable evidence is `apps/web/lib/integration/phase-two-campaign.integration.test.ts`.
+A second clean-map automated run reaches **Brave Rebuilder** through the same public placement, removal, and turn APIs. It completes all 15 missions and records the real turn-15 storm; it does not patch city state, campaign state, evidence, or ending inputs.
+
+The **River Guardian** balance gate remains open. The best reproducible legal full run found during the bounded validation scored **57.13**, which is **17.87** below the protected threshold of 75. Its final storm inputs were water 61.69, energy 90.08, nature 83.25, transport 66.38, budget 0, and resilience 68.5. The run ended with 226 maintenance due and no post-storm reserve. A full budget-readiness score would require 826 after the storm (226 maintenance plus the 600 reserve target). This is evidence of a campaign economy/readiness balancing gap, not a formal proof that no higher legal route exists; the three-ending gate must remain unchecked until a real River Guardian run is executable.
+
+The strategies deliberately reserve the school and clinic footprints from turn 1, balance homes across both neighbourhoods, remove excess treatment capacity instead of inventing a refund, and use honest empty-plan turns for battery charging and scheduled time. The executable evidence is `apps/web/lib/integration/phase-two-campaign.integration.test.ts` and `apps/web/lib/integration/phase-two-ending-variants.integration.test.ts`.
 
 Automation does not establish the 20–30 minute usability target or substitute for touch, keyboard, and comprehension testing by a person. Those results must be recorded with the script below before claiming a completed human playtest.
 

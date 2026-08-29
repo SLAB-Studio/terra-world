@@ -172,11 +172,11 @@ Turn the simulation foundation into the complete playable MVP. By the end of thi
 
 Phase 2 is complete only when:
 
-- [ ] All twelve building types work in the functional shell.
-- [ ] All five chapters and the final storm are playable offline.
+- [x] All twelve building types work in the functional shell.
+- [x] All five chapters and the final storm are playable offline.
 - [ ] At least three different full runs reach three different endings.
-- [ ] Every outcome has a non-AI explanation and hint fallback.
-- [ ] Save, close, resume, undo, and replay work throughout the campaign.
+- [x] Every outcome has a non-AI explanation and hint fallback.
+- [x] Save, close, resume, undo, and replay work throughout the campaign.
 - [ ] A clean 20–30 minute MVP playthrough is recorded in testing notes.
 
 ---
@@ -196,7 +196,7 @@ Connect the complete offline game to 0G Compute and 0G Storage without making ei
   - Acceptance: Missing or invalid secrets fail at server startup; no secret is included in browser bundles.
   - Verify: Configuration tests and production-bundle secret scan.
 
-- [ ] **P3.2 Package and validate Rivergate campaign v1**
+- [x] **P3.2 Package and validate Rivergate campaign v1**
   - Build: Produce the manifest, map, chapters, missions, buildings, ruleset, learning facts, localisation, and asset manifest as a versioned package.
   - Acceptance: The package is complete, schema-valid, deterministically hashed, and playable from packaged data alone.
   - Verify: Campaign-validation command and clean-cache playthrough.
@@ -208,7 +208,7 @@ Connect the complete offline game to 0G Compute and 0G Storage without making ei
 
 ### Encrypted checkpoints
 
-- [ ] **P3.4 Implement checkpoint encryption**
+- [x] **P3.4 Implement checkpoint encryption**
   - Build: Serialize verified checkpoint data and encrypt/decrypt in the browser using versioned AES-GCM envelopes.
   - Acceptance: 0G Storage and the application server receive ciphertext only; incorrect keys or modified ciphertext fail authentication.
   - Verify: Encryption round-trip, wrong-key, tamper, and version-migration tests.
@@ -225,7 +225,7 @@ Connect the complete offline game to 0G Compute and 0G Storage without making ei
   - Acceptance: A structured test request produces a valid response; API credentials never reach the browser.
   - Verify: Integration test plus browser network/bundle inspection.
 
-- [ ] **P3.7 Implement structured guide prompts**
+- [x] **P3.7 Implement structured guide prompts**
   - Build: Convert mission, before-state, action, after-state, causes, allowed facts, relevant city memories, and age band into constrained requests.
   - Acceptance: Requests contain no arbitrary database records or child profile fields.
   - Verify: Snapshot tests and a prohibited-field scanner.
