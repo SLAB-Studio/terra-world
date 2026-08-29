@@ -244,6 +244,32 @@ describe("Rivergate endings and learning summary", () => {
     );
   });
 
+  it("creates an ending later from exact historical storm evidence", () => {
+    const storm = simulateFinalStorm(protectedPreStormCity());
+    const repair = simulateTurn({
+      city: storm.state,
+      network: FULL_COVERAGE,
+      progression: { events: RIVERGATE_FOUNDATIONS_CAMPAIGN.events },
+    });
+
+    expect(repair.state.turn).toBe(16);
+    expect(repair.firedEventIds).toEqual([]);
+    const ending = createRivergateEnding({
+      city: repair.state,
+      evidence: {
+        turn: 16,
+        firedEventIds: repair.firedEventIds,
+        eventHistory: [
+          { turn: 15, firedEventIds: storm.firedEventIds },
+          { turn: 16, firedEventIds: repair.firedEventIds },
+        ],
+      },
+      causes: [...storm.causes, ...repair.causes],
+    });
+
+    expect(ending.stormOutcomeBand).toBe("protected");
+  });
+
   it.each([
     {
       name: "missing fired-event evidence",
