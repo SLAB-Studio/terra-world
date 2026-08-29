@@ -9,7 +9,9 @@ import {
 } from "./backup";
 import {
   backUpCampaignSession,
+  parseAdultBackupKit,
   restoreCampaignSession,
+  serializeAdultBackupKit,
 } from "./browser-backup";
 
 describe("adult browser backup kit", () => {
@@ -34,6 +36,10 @@ describe("adult browser backup kit", () => {
     expect(remote.plaintext).not.toContain('"budget"');
     expect(remote.plaintext).not.toContain('"tiles"');
 
+    const recoveryPack = serializeAdultBackupKit(kit);
+    expect(recoveryPack).toMatch(/^terra1\.[A-Za-z0-9_-]+$/u);
+    expect(parseAdultBackupKit(recoveryPack)).toEqual(kit);
+
     await expect(
       restoreCampaignSession({
         kit,
@@ -41,6 +47,26 @@ describe("adult browser backup kit", () => {
         remote,
       }),
     ).resolves.toEqual(session);
+  });
+
+  it("rejects malformed or expanded recovery packs", () => {
+    expect(() => parseAdultBackupKit("terra1.not-json")).toThrow(
+      "Invalid recovery pack",
+    );
+    const kit = {
+      recoveryCode: "A".repeat(42),
+      reference: {
+        root: "demo:root",
+        contentHash: `sha256:${"a".repeat(64)}`,
+        byteLength: 10,
+        keyId: "adult-rivergate-1",
+        checkpointSchemaVersion: 1,
+        cityId: "rivergate-city",
+        campaignId: "rivergate-foundations",
+        campaignVersion: 1,
+      },
+    };
+    expect(() => serializeAdultBackupKit(kit)).toThrow("Invalid recovery pack");
   });
 
   it("rejects a changed adult recovery code", async () => {

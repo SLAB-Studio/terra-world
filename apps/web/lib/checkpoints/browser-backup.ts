@@ -11,11 +11,52 @@ import { encryptCheckpoint, importCheckpointKey } from "./encryption";
 const KEY_BYTES = 32;
 const KEY_ID_PREFIX = "adult-rivergate";
 const BASE64URL = /^[A-Za-z0-9_-]{43}$/u;
+const RECOVERY_PACK_PREFIX = "terra1.";
+const SAFE_TEXT = /^[A-Za-z0-9._:-]+$/u;
+const CONTENT_HASH = /^sha256:[a-f0-9]{64}$/u;
 
 export type AdultBackupKit = Readonly<{
   reference: AdultCheckpointReference;
   recoveryCode: string;
 }>;
+
+export function serializeAdultBackupKit(kit: AdultBackupKit): string {
+  assertAdultBackupKit(kit);
+  const bytes = new TextEncoder().encode(JSON.stringify(kit));
+  return `${RECOVERY_PACK_PREFIX}${encodeBase64Url(bytes)}`;
+}
+
+export function parseAdultBackupKit(value: string): AdultBackupKit {
+  if (!value.startsWith(RECOVERY_PACK_PREFIX) || value.length > 2_048) {
+    throw new TypeError("Invalid recovery pack");
+  }
+  const encoded = value.slice(RECOVERY_PACK_PREFIX.length);
+  if (!/^[A-Za-z0-9_-]+$/u.test(encoded)) {
+    throw new TypeError("Invalid recovery pack");
+  }
+  let parsed: unknown;
+  try {
+    const padding = "=".repeat((4 - (encoded.length % 4)) % 4);
+    const padded = encoded.replace(/-/gu, "+").replace(/_/gu, "/") + padding;
+    const binary = atob(padded);
+    const bytes = Uint8Array.from(binary, (character) =>
+      character.charCodeAt(0),
+    );
+    if (encodeBase64Url(bytes) !== encoded) {
+      throw new TypeError("Invalid recovery pack");
+    }
+    parsed = JSON.parse(
+      new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+    ) as unknown;
+  } catch {
+    throw new TypeError("Invalid recovery pack");
+  }
+  assertAdultBackupKit(parsed);
+  return Object.freeze({
+    recoveryCode: parsed.recoveryCode,
+    reference: Object.freeze({ ...parsed.reference }),
+  });
+}
 
 export async function backUpCampaignSession(input: {
   readonly session: CampaignSessionSave;
@@ -138,4 +179,54 @@ function validTimestamp(value: number): number {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function assertAdultBackupKit(value: unknown): asserts value is AdultBackupKit {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, ["reference", "recoveryCode"]) ||
+    typeof value.recoveryCode !== "string" ||
+    !BASE64URL.test(value.recoveryCode) ||
+    !isRecord(value.reference) ||
+    !hasExactKeys(value.reference, [
+      "root",
+      "contentHash",
+      "byteLength",
+      "keyId",
+      "checkpointSchemaVersion",
+      "cityId",
+      "campaignId",
+      "campaignVersion",
+    ]) ||
+    typeof value.reference.root !== "string" ||
+    !SAFE_TEXT.test(value.reference.root) ||
+    typeof value.reference.contentHash !== "string" ||
+    !CONTENT_HASH.test(value.reference.contentHash) ||
+    !Number.isSafeInteger(value.reference.byteLength) ||
+    Number(value.reference.byteLength) < 1 ||
+    typeof value.reference.keyId !== "string" ||
+    !SAFE_TEXT.test(value.reference.keyId) ||
+    !Number.isSafeInteger(value.reference.checkpointSchemaVersion) ||
+    Number(value.reference.checkpointSchemaVersion) < 1 ||
+    typeof value.reference.cityId !== "string" ||
+    !SAFE_TEXT.test(value.reference.cityId) ||
+    typeof value.reference.campaignId !== "string" ||
+    !SAFE_TEXT.test(value.reference.campaignId) ||
+    !Number.isSafeInteger(value.reference.campaignVersion) ||
+    Number(value.reference.campaignVersion) < 1
+  ) {
+    throw new TypeError("Invalid recovery pack");
+  }
+  decodeBase64Url(value.recoveryCode);
+}
+
+function hasExactKeys(
+  value: Record<string, unknown>,
+  expected: readonly string[],
+): boolean {
+  const actual = Object.keys(value);
+  return (
+    actual.length === expected.length &&
+    expected.every((key) => Object.hasOwn(value, key))
+  );
 }
