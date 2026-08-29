@@ -4,6 +4,7 @@ import {
   challengeStars,
   CHALLENGE_STAGES,
   copyChallengeSetup,
+  isChallengeGoalComplete,
   isChallengeComplete,
   isChallengeUnlocked,
   nextChallengeId,
@@ -59,5 +60,23 @@ describe("Terra World challenge catalogue", () => {
     expect(challengeStars({ challenge, moves: 1, hintsUsed: 0 })).toBe(3);
     expect(challengeStars({ challenge, moves: 2, hintsUsed: 1 })).toBe(2);
     expect(challengeStars({ challenge, moves: 8, hintsUsed: 3 })).toBe(1);
+  });
+
+  it("does not mistake optional town helpers for core challenge systems", () => {
+    expect(
+      isChallengeGoalComplete(
+        {
+          id: "three-core-systems",
+          type: "each-house-upgrade-count",
+          label: "Give every home three healthy systems",
+          count: 3,
+        },
+        {
+          sunny: ["light", "rain-tank", "bird-home"],
+          bluebell: ["water", "compost", "bike-rack"],
+          mango: ["garden", "shade-tree", "repair-kit"],
+        },
+      ),
+    ).toBe(false);
   });
 });

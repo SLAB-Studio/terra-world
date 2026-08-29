@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   INTERIOR_ROOMS,
+  type InteriorUpgradeId,
   type InteriorRoomId,
 } from "../../lib/immersive-town/house-interior-world";
 
@@ -12,7 +13,25 @@ import HouseInterior3D from "./HouseInterior3D";
 import styles from "./HouseDiagnostics.module.css";
 
 export type HouseId = "sunny" | "bluebell" | "mango";
-export type HouseUpgradeId = "light" | "water" | "garden" | "recycle";
+export const CORE_HOUSE_UPGRADE_IDS = [
+  "light",
+  "water",
+  "garden",
+  "recycle",
+] as const;
+export const HOUSE_UPGRADE_IDS = [
+  ...CORE_HOUSE_UPGRADE_IDS,
+  "rain-tank",
+  "compost",
+  "shade-tree",
+  "bike-rack",
+  "insulation",
+  "bird-home",
+  "first-aid",
+  "repair-kit",
+] as const;
+export type CoreHouseUpgradeId = (typeof CORE_HOUSE_UPGRADE_IDS)[number];
+export type HouseUpgradeId = (typeof HOUSE_UPGRADE_IDS)[number];
 export type HouseDiagnosticId = "power" | "water" | "garden" | "clean-yard";
 export type HouseDiagnosticStatus = "healthy" | "needs-fixing";
 
@@ -22,8 +41,8 @@ export type HouseProfile = Readonly<{
   ownerName: string;
   gardenName: string;
   hello: string;
-  defaultUpgrades: readonly HouseUpgradeId[];
-  recommendedOrder: readonly HouseUpgradeId[];
+  defaultUpgrades: readonly CoreHouseUpgradeId[];
+  recommendedOrder: readonly CoreHouseUpgradeId[];
 }>;
 
 export type HouseDiagnostic = Readonly<{
@@ -31,7 +50,7 @@ export type HouseDiagnostic = Readonly<{
   label: string;
   status: HouseDiagnosticStatus;
   message: string;
-  fixUpgrade: HouseUpgradeId;
+  fixUpgrade: CoreHouseUpgradeId;
 }>;
 
 export type HouseHealth = Readonly<{
@@ -39,7 +58,7 @@ export type HouseHealth = Readonly<{
   healthyCount: number;
   totalCount: number;
   allHealthy: boolean;
-  recommendedUpgrade: HouseUpgradeId | null;
+  recommendedUpgrade: CoreHouseUpgradeId | null;
 }>;
 
 export type HouseDiagnosticsProps = Readonly<{
@@ -86,7 +105,7 @@ export const HOUSE_PROFILES: Readonly<Record<HouseId, HouseProfile>> = {
 
 const UPGRADE_DETAILS: Readonly<
   Record<
-    HouseUpgradeId,
+    CoreHouseUpgradeId,
     Readonly<{
       label: string;
       action: string;
@@ -124,7 +143,7 @@ const UPGRADE_DETAILS: Readonly<
 const DIAGNOSTIC_DETAILS: readonly Readonly<{
   id: HouseDiagnosticId;
   label: string;
-  upgrade: HouseUpgradeId;
+  upgrade: CoreHouseUpgradeId;
   healthyMessage: string;
   fixingMessage: string;
 }>[] = [
@@ -198,10 +217,15 @@ export default function HouseDiagnostics({
 }: HouseDiagnosticsProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const [selectedRoomId, setSelectedRoomId] =
-    useState<InteriorRoomId | null>(null);
+  const [selectedRoomId, setSelectedRoomId] = useState<InteriorRoomId | null>(
+    null,
+  );
   const profile = HOUSE_PROFILES[houseId];
   const activeUpgrades = upgrades ?? profile.defaultUpgrades;
+  const interiorUpgrades = activeUpgrades.filter(
+    (upgrade): upgrade is InteriorUpgradeId =>
+      CORE_HOUSE_UPGRADE_IDS.some((core) => core === upgrade),
+  );
   const health = useMemo(
     () => getHouseHealth(houseId, activeUpgrades),
     [activeUpgrades, houseId],
@@ -292,7 +316,7 @@ export default function HouseDiagnostics({
               houseId={houseId}
               onRoomSelect={setSelectedRoomId}
               selectedRoomId={selectedRoomId}
-              upgrades={activeUpgrades}
+              upgrades={interiorUpgrades}
             />
             <div className={styles.interiorStory}>
               <div className={styles.ownerRow}>
@@ -353,36 +377,36 @@ export default function HouseDiagnostics({
               {selectedRoom !== null ? (
                 <ul className={styles.diagnosticList}>
                   {visibleDiagnostics.map((diagnostic) => {
-                  const upgrade = UPGRADE_DETAILS[diagnostic.fixUpgrade];
-                  const healthy = diagnostic.status === "healthy";
-                  return (
-                    <li
-                      className={`${styles.diagnosticItem} ${
-                        healthy ? styles.healthy : styles.needsFixing
-                      }`}
-                      key={diagnostic.id}
-                    >
-                      <span
-                        className={styles.diagnosticIcon}
-                        aria-hidden="true"
+                    const upgrade = UPGRADE_DETAILS[diagnostic.fixUpgrade];
+                    const healthy = diagnostic.status === "healthy";
+                    return (
+                      <li
+                        className={`${styles.diagnosticItem} ${
+                          healthy ? styles.healthy : styles.needsFixing
+                        }`}
+                        key={diagnostic.id}
                       >
-                        <GameIcon
-                          name={healthy ? "shield" : upgrade.icon}
-                          size={27}
-                        />
-                      </span>
-                      <span className={styles.diagnosticCopy}>
-                        <span className={styles.diagnosticTitleRow}>
-                          <strong>{diagnostic.label}</strong>
-                          <span>{healthy ? "Healthy" : "Needs a hand"}</span>
+                        <span
+                          className={styles.diagnosticIcon}
+                          aria-hidden="true"
+                        >
+                          <GameIcon
+                            name={healthy ? "shield" : upgrade.icon}
+                            size={27}
+                          />
                         </span>
-                        <span>{diagnostic.message}</span>
-                        {!healthy && (
-                          <small>Fix it with: {upgrade.label}</small>
-                        )}
-                      </span>
-                    </li>
-                  );
+                        <span className={styles.diagnosticCopy}>
+                          <span className={styles.diagnosticTitleRow}>
+                            <strong>{diagnostic.label}</strong>
+                            <span>{healthy ? "Healthy" : "Needs a hand"}</span>
+                          </span>
+                          <span>{diagnostic.message}</span>
+                          {!healthy && (
+                            <small>Fix it with: {upgrade.label}</small>
+                          )}
+                        </span>
+                      </li>
+                    );
                   })}
                 </ul>
               ) : null}

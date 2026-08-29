@@ -604,7 +604,7 @@ export const TERRA_CHALLENGES: readonly TerraChallenge[] = [
 ] as const;
 
 export type ChallengeTownState = Readonly<
-  Record<ChallengeHouseId, readonly ChallengeUpgradeId[]>
+  Record<ChallengeHouseId, readonly string[]>
 >;
 
 export function challengeById(id: string): TerraChallenge | null {
@@ -640,7 +640,10 @@ export function isChallengeGoalComplete(
       );
     case "each-house-upgrade-count":
       return CHALLENGE_HOUSE_IDS.every(
-        (houseId) => town[houseId].length >= goal.count,
+        (houseId) =>
+          CHALLENGE_UPGRADE_IDS.filter((upgrade) =>
+            town[houseId].includes(upgrade),
+          ).length >= goal.count,
       );
   }
 }

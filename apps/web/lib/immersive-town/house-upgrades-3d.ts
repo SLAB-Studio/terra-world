@@ -11,7 +11,26 @@ import type { Scene } from "@babylonjs/core/scene";
 import type { TownHouseMetadata } from "./types";
 
 export type PlayableHouseId = "sunny" | "bluebell" | "mango";
-export type PlayableUpgradeId = "light" | "water" | "garden" | "recycle";
+export type PlayableUpgradeId =
+  | "light"
+  | "water"
+  | "garden"
+  | "recycle"
+  | "rain-tank"
+  | "compost"
+  | "shade-tree"
+  | "bike-rack"
+  | "insulation"
+  | "bird-home"
+  | "first-aid"
+  | "repair-kit";
+
+const CORE_UPGRADES: readonly PlayableUpgradeId[] = [
+  "light",
+  "water",
+  "garden",
+  "recycle",
+];
 
 export type HouseUpgradeVisuals = Readonly<{
   sync(
@@ -77,7 +96,9 @@ export function createHouseUpgradeVisuals(
             ? rig.litWindowMaterial
             : rig.darkWindowMaterial;
         });
-        rig.resident.setEnabled(installed.size < 4);
+        rig.resident.setEnabled(
+          CORE_UPGRADES.some((upgrade) => !installed.has(upgrade)),
+        );
         rig.selection.setEnabled(selectedHouseId === houseId);
       });
     },
@@ -196,6 +217,15 @@ function createHouseRig(scene: Scene, house: TownHouseMetadata): HouseRig {
   lid.parent = recycle;
   lid.isPickable = false;
 
+  const rainTank = createRainTank(scene, house);
+  const compost = createCompostBox(scene, house);
+  const shadeTree = createShadeTree(scene, house);
+  const bikeRack = createBikeRack(scene, house);
+  const insulation = createCozyWalls(scene, house);
+  const birdHome = createBirdHome(scene, house);
+  const firstAid = createSafetyKit(scene, house);
+  const repairKit = createRepairKit(scene, house);
+
   const selection = new TransformNode(`${house.id}-selection`, scene);
   selection.parent = house.root;
   const ring = MeshBuilder.CreateTorus(
@@ -225,7 +255,20 @@ function createHouseRig(scene: Scene, house: TownHouseMetadata): HouseRig {
   const { root: resident, arm: residentArm } = createResident(scene, house);
 
   return {
-    upgrades: { light: solar, water, garden, recycle },
+    upgrades: {
+      light: solar,
+      water,
+      garden,
+      recycle,
+      "rain-tank": rainTank,
+      compost,
+      "shade-tree": shadeTree,
+      "bike-rack": bikeRack,
+      insulation,
+      "bird-home": birdHome,
+      "first-aid": firstAid,
+      "repair-kit": repairKit,
+    },
     selection,
     light: pointLight,
     resident,
@@ -235,6 +278,235 @@ function createHouseRig(scene: Scene, house: TownHouseMetadata): HouseRig {
     darkWindowMaterial,
     litWindowMaterial,
   };
+}
+
+function createRainTank(scene: Scene, house: TownHouseMetadata) {
+  const root = new TransformNode(`${house.id}-rain-tank-upgrade`, scene);
+  root.parent = house.root;
+  const blue = makeMaterial(scene, `${house.id}-rain-tank-blue`, "#3D91C9");
+  const barrel = MeshBuilder.CreateCylinder(
+    `${house.id}-rain-barrel`,
+    { height: 2.1, diameter: 1.55, tessellation: 20 },
+    scene,
+  );
+  barrel.position.set(-5.3, 1.72, -1.1);
+  barrel.material = blue;
+  barrel.parent = root;
+  barrel.isPickable = false;
+  const pipe = MeshBuilder.CreateCylinder(
+    `${house.id}-rain-pipe`,
+    { height: 4.2, diameter: 0.22, tessellation: 10 },
+    scene,
+  );
+  pipe.position.set(-5.3, 3.1, -1.1);
+  pipe.material = makeMaterial(scene, `${house.id}-rain-pipe-mat`, "#E8EFF0");
+  pipe.parent = root;
+  pipe.isPickable = false;
+  return root;
+}
+
+function createCompostBox(scene: Scene, house: TownHouseMetadata) {
+  const root = new TransformNode(`${house.id}-compost-upgrade`, scene);
+  root.parent = house.root;
+  const box = MeshBuilder.CreateBox(
+    `${house.id}-compost-box`,
+    { width: 1.8, height: 1.45, depth: 1.6 },
+    scene,
+  );
+  box.position.set(2.3, 1.42, 4.2);
+  box.material = makeMaterial(scene, `${house.id}-compost-brown`, "#79553A");
+  box.parent = root;
+  box.isPickable = false;
+  const lid = MeshBuilder.CreateBox(
+    `${house.id}-compost-lid`,
+    { width: 2, height: 0.22, depth: 1.8 },
+    scene,
+  );
+  lid.position.set(2.3, 2.28, 4.2);
+  lid.material = makeMaterial(scene, `${house.id}-compost-green`, "#6AAE58");
+  lid.parent = root;
+  lid.isPickable = false;
+  return root;
+}
+
+function createShadeTree(scene: Scene, house: TownHouseMetadata) {
+  const root = new TransformNode(`${house.id}-shade-tree-upgrade`, scene);
+  root.parent = house.root;
+  const trunk = MeshBuilder.CreateCylinder(
+    `${house.id}-shade-tree-trunk`,
+    { height: 4.2, diameterTop: 0.65, diameterBottom: 0.95, tessellation: 12 },
+    scene,
+  );
+  trunk.position.set(-6.2, 2.85, 4.1);
+  trunk.material = makeMaterial(scene, `${house.id}-tree-trunk-mat`, "#70472D");
+  trunk.parent = root;
+  trunk.isPickable = false;
+  const leaves = makeMaterial(scene, `${house.id}-tree-leaves`, "#4D9B52");
+  for (const [index, x, y, z, size] of [
+    [0, -6.2, 5.5, 4.1, 2.9],
+    [1, -7.2, 5.15, 4.2, 2.25],
+    [2, -5.25, 5.2, 4.25, 2.2],
+  ] as const) {
+    const crown = MeshBuilder.CreateSphere(
+      `${house.id}-shade-crown-${index}`,
+      { diameter: size, segments: 12 },
+      scene,
+    );
+    crown.position.set(x, y, z);
+    crown.material = leaves;
+    crown.parent = root;
+    crown.isPickable = false;
+  }
+  return root;
+}
+
+function createBikeRack(scene: Scene, house: TownHouseMetadata) {
+  const root = new TransformNode(`${house.id}-bike-rack-upgrade`, scene);
+  root.parent = house.root;
+  const metal = makeMaterial(
+    scene,
+    `${house.id}-bike-rack-metal`,
+    "#D7E1E2",
+    true,
+  );
+  for (const [index, x] of [-1.2, 0, 1.2].entries()) {
+    const hoop = MeshBuilder.CreateTorus(
+      `${house.id}-bike-rack-hoop-${index}`,
+      { diameter: 1.4, thickness: 0.16, tessellation: 24 },
+      scene,
+    );
+    hoop.position.set(3.5 + x, 1.55, -4.7);
+    hoop.rotation.x = Math.PI / 2;
+    hoop.scaling.y = 1.25;
+    hoop.material = metal;
+    hoop.parent = root;
+    hoop.isPickable = false;
+  }
+  return root;
+}
+
+function createCozyWalls(scene: Scene, house: TownHouseMetadata) {
+  const root = new TransformNode(`${house.id}-insulation-upgrade`, scene);
+  root.parent = house.root;
+  const trim = makeMaterial(
+    scene,
+    `${house.id}-cozy-wall-mat`,
+    "#F3A84B",
+    true,
+  );
+  for (const x of [-2.35, 2.35]) {
+    const panel = MeshBuilder.CreateBox(
+      `${house.id}-cozy-wall-panel-${x}`,
+      { width: 1.4, height: 2.65, depth: 0.18 },
+      scene,
+    );
+    panel.position.set(x, 3.25, -3.08);
+    panel.material = trim;
+    panel.parent = root;
+    panel.isPickable = false;
+  }
+  return root;
+}
+
+function createBirdHome(scene: Scene, house: TownHouseMetadata) {
+  const root = new TransformNode(`${house.id}-bird-home-upgrade`, scene);
+  root.parent = house.root;
+  const wood = makeMaterial(scene, `${house.id}-bird-home-wood`, "#F0A454");
+  const post = MeshBuilder.CreateCylinder(
+    `${house.id}-bird-home-post`,
+    { height: 3.4, diameter: 0.2, tessellation: 10 },
+    scene,
+  );
+  post.position.set(6.15, 2.55, 4.1);
+  post.material = wood;
+  post.parent = root;
+  post.isPickable = false;
+  const home = MeshBuilder.CreateBox(
+    `${house.id}-bird-home-box`,
+    { size: 1.15 },
+    scene,
+  );
+  home.position.set(6.15, 4.2, 4.1);
+  home.material = wood;
+  home.parent = root;
+  home.isPickable = false;
+  const opening = MeshBuilder.CreateDisc(
+    `${house.id}-bird-home-opening`,
+    { radius: 0.22, tessellation: 20 },
+    scene,
+  );
+  opening.position.set(6.15, 4.28, 3.51);
+  opening.rotation.x = Math.PI / 2;
+  opening.material = makeMaterial(
+    scene,
+    `${house.id}-bird-opening-mat`,
+    "#2B190F",
+  );
+  opening.parent = root;
+  opening.isPickable = false;
+  return root;
+}
+
+function createSafetyKit(scene: Scene, house: TownHouseMetadata) {
+  const root = new TransformNode(`${house.id}-first-aid-upgrade`, scene);
+  root.parent = house.root;
+  const white = makeMaterial(scene, `${house.id}-safety-white`, "#FFF8E8");
+  const red = makeMaterial(scene, `${house.id}-safety-red`, "#E94F45", true);
+  const caseMesh = MeshBuilder.CreateBox(
+    `${house.id}-safety-case`,
+    { width: 1.45, height: 1.1, depth: 0.35 },
+    scene,
+  );
+  caseMesh.position.set(-1.15, 2.05, -3.38);
+  caseMesh.material = white;
+  caseMesh.parent = root;
+  caseMesh.isPickable = false;
+  for (const [width, height] of [
+    [0.72, 0.18],
+    [0.18, 0.72],
+  ] as const) {
+    const cross = MeshBuilder.CreateBox(
+      `${house.id}-safety-cross-${width}`,
+      { width, height, depth: 0.12 },
+      scene,
+    );
+    cross.position.set(-1.15, 2.05, -3.61);
+    cross.material = red;
+    cross.parent = root;
+    cross.isPickable = false;
+  }
+  return root;
+}
+
+function createRepairKit(scene: Scene, house: TownHouseMetadata) {
+  const root = new TransformNode(`${house.id}-repair-kit-upgrade`, scene);
+  root.parent = house.root;
+  const red = makeMaterial(scene, `${house.id}-toolbox-red`, "#D95A45");
+  const box = MeshBuilder.CreateBox(
+    `${house.id}-repair-toolbox`,
+    { width: 1.7, height: 0.9, depth: 0.9 },
+    scene,
+  );
+  box.position.set(1.4, 1.35, -4.3);
+  box.material = red;
+  box.parent = root;
+  box.isPickable = false;
+  const handle = MeshBuilder.CreateTorus(
+    `${house.id}-repair-handle`,
+    { diameter: 0.8, thickness: 0.14, tessellation: 20 },
+    scene,
+  );
+  handle.position.set(1.4, 2.05, -4.3);
+  handle.rotation.x = Math.PI / 2;
+  handle.scaling.y = 0.7;
+  handle.material = makeMaterial(
+    scene,
+    `${house.id}-toolbox-handle`,
+    "#2B190F",
+  );
+  handle.parent = root;
+  handle.isPickable = false;
+  return root;
 }
 
 function createResident(scene: Scene, house: TownHouseMetadata) {
