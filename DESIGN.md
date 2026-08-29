@@ -53,6 +53,32 @@ mission/system panel. The map owns the largest visual area. Tablet and mobile
 stack the map first, then the horizontal building tray and planning tools. No
 essential control may be clipped or depend on hover.
 
+### Central town board
+
+The middle play area is one continuous isometric green town board, rather than
+a collection of cards or separated plots. A broad diagonal river crosses the
+land and gives the valley an immediate spatial reading. Trees and subtle
+diagonal grid texture can support the board, but never divide it into boxed
+sections.
+
+Place the three family compounds directly on this shared land at distinct
+positions. Each is a small, labelled scene—not a container card—and retains
+its own house and garden character. On hover, focus, or drag-over, indicate
+the target with a warm sunflower outline and lift; do not add a panel behind
+the compound.
+
+Keep River's compact coaching bubble inside the board, alongside the immediate
+action, so it reads as contextual help rather than a competing side panel.
+Upgrades must produce visible local reactions (for example lit windows, water,
+garden growth, or recycling) and the town may briefly animate its river when
+run. Preserve reduced-motion support by removing that nonessential animation.
+
+The left toy shelf and right River panel remain stable companions to the board;
+the board itself carries the place, targets, coaching, and visual consequence.
+On narrow screens, retain the continuous board, scale and reposition the three
+compounds, widen the river's diagonal sweep, and keep the guide bubble and
+primary action visible without horizontal page overflow.
+
 ## Interaction
 
 - Pointer: select or drag a building, snap to a tile, review cost, then run the
