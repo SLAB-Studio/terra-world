@@ -4,8 +4,8 @@
 
 Terra World should feel like a **community science museum discovery table**:
 warm, tactile, optimistic, and information-rich without resembling a school
-worksheet or a crypto dashboard. The child is the city planner; Rivergate is a
-bounded computer guide that explains verified consequences.
+worksheet or a crypto dashboard. The child is the city planner; Leo is the
+bounded in-world companion who helps them notice verified consequences.
 
 Direction seed: `514fbb03`.
 
@@ -74,13 +74,13 @@ real 3D change. With reduced motion enabled, traffic, ambient motion, and camera
 flights freeze or snap immediately. Semantic house controls remain available as
 a keyboard and graphics-failure fallback.
 
-Rivergate should read as a real small town rather than three isolated lots. Ten
-non-playable neighborhood homes surround the three lesson homes, while a school,
-clinic, market, playground, bus stops, crosswalks, river benches, recycling
-points, hydrants, townspeople, and dogs make the wider map feel inhabited. These
-details stay visually secondary and never compete for clicks. The whole-town
-camera shows the broader community; the closer camera returns attention to the
-current family and lesson.
+Rivergate is already populous at first load rather than growing from a sparse
+prototype. Twenty to thirty visible homes across several neighbourhoods surround
+the initial lesson homes, while a school, clinic, market, playground, bus stops,
+crosswalks, river benches, recycling points, hydrants, townspeople, cyclists,
+children, birds, and dogs make the wider map feel inhabited. These details stay
+visually secondary and never compete for clicks. The opening camera first shows
+the living community, then moves toward the current family and lesson.
 
 Selecting a family home opens a second genuine Babylon.js scene: a bright
 cutaway house with four walk-in rooms. The child chooses Living, Kitchen,
@@ -93,8 +93,8 @@ and graphics fallback. The home overview never shows technical system data.
 Only actionable family homes may highlight, accept upgrades, or open a room
 tour. Decorative homes remain unlabelled and non-pickable. Owner labels and
 short speech bubbles show when a repair is needed; a house's details and
-diagnostics stay hidden until the child clicks or taps it. Keep River persistent
-beside the map on desktop and available from the sticky expert control on small
+diagnostics stay hidden until the child clicks or taps it. Keep Leo persistent
+beside the map on desktop and available from the sticky companion control on small
 screens.
 
 ### Adventure Trail
@@ -110,8 +110,8 @@ Only the next mission is unlocked. Completed missions remain replayable, and
 the current town, moves, clues used, unlocked missions, and best leaf results
 resume locally without an account or wallet. The Trail is a focused panel with
 clear stage labels, a short story, one instruction, the learning idea, and an
-optional three-step River clue ladder. On small screens it owns the viewport and
-must sit above the persistent River shortcut.
+optional three-step Leo clue ladder. On small screens it owns the viewport and
+must sit above the persistent Leo shortcut.
 
 On desktop, drag an item to an actionable home; click selects a home and opens
 its details. On touch, tap a home to select it, then choose the available

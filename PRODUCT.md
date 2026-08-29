@@ -12,7 +12,7 @@ The primary users are children roughly 8–13 who learn by building and maintain
 
 ## Product Purpose
 
-Terra World is a city-building learning game. A child grows Rivergate from empty land, makes trade-offs across water, energy, nature, transport, public services, and money, then sees clear consequences and improves the city over time. Success means the child can explain why their city changed—not merely achieve a high score.
+Terra World is a city-building learning game. A child joins the already-busy town of Rivergate, experiments with its environment, observes consequences, and helps it grow more thoughtfully across water, energy, nature, transport, public services, and money. Success means the child can explain why their city changed—not merely achieve a high score.
 
 ## Positioning
 
@@ -25,6 +25,7 @@ The MVP is a responsive browser game designed for short, resumable play sessions
 ## Capabilities and Constraints
 
 - Children place and revise twelve kinds of buildings on a seeded river-valley map.
+- Rivergate begins visibly populated, while only three to five story locations are actionable at first.
 - Five chapters teach water, energy, community care, responsible growth, and climate resilience.
 - City state, action history, events, progression, and endings are deterministic and replayable.
 - Local IndexedDB saves are authoritative for offline play.
@@ -34,7 +35,7 @@ The MVP is a responsive browser game designed for short, resumable play sessions
 
 ## Brand Commitments
 
-The product name is **Terra World**. The playable city is **Rivergate**. Language should feel encouraging, concrete, curious, and respectful—never babyish, shaming, technical, or manipulative.
+The product name is **Terra World**. The playable city is **Rivergate**. The in-world companion is **Leo**. Language should feel encouraging, concrete, curious, and respectful—never babyish, shaming, technical, or manipulative.
 
 ## Evidence on Hand
 
@@ -50,6 +51,7 @@ The product name is **Terra World**. The playable city is **Rivergate**. Languag
 3. Treat revision as learning: undoing, rebuilding, and trying another plan are positive actions.
 4. Hide blockchain complexity and minimize child data by design.
 5. Reward balanced, resilient communities rather than accumulation or speed.
+6. Let Leo notice and ask before he explains a verified consequence.
 
 ## Accessibility & Inclusion
 

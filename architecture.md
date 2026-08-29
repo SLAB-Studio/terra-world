@@ -2,15 +2,15 @@
 
 ## 1. Product summary
 
-Terra City is a browser-based learning game for children aged approximately 8–13. Children begin with an empty river-valley landscape and build a functioning city by dragging homes, utilities, public services, transport, waste systems, and natural infrastructure onto the map.
+Terra World is a browser-based learning game for children aged approximately 8–13. Children join the populated river-valley town of Rivergate and help it grow by moving and placing homes, utilities, public services, transport, waste systems, and natural infrastructure.
 
-The city itself is a persistent AI character. It observes its condition, explains the consequences of the child's decisions, remembers verified milestones, and develops from empty land into a resilient city.
+Rivergate is the persistent agentic entity. It remembers verified milestones and evolves over time. Leo is its bounded child-facing companion: he observes deterministic city outcomes, asks discovery questions, and explains consequences without changing the simulation.
 
 The child never connects a wallet, approves a transaction, handles tokens, or sees blockchain terminology.
 
 ### MVP promise
 
-> Build a living city from scratch, discover how its systems affect one another, and help it survive the final storm.
+> Join a living town, discover how its systems affect one another, shape its future, and help it survive the final storm.
 
 ### Learning method
 
@@ -21,13 +21,13 @@ Terra City does not teach through conventional quizzes. Its learning loop is:
 3. Drag and place infrastructure.
 4. Run the city simulation.
 5. Observe visible consequences.
-6. Hear the city explain what happened.
+6. Hear Leo notice the change, ask a question, and explain only after observation.
 7. Revise the design.
 
 ## 2. Architectural principles
 
 1. **The simulation is authoritative.** AI explains outcomes but never calculates or changes them.
-2. **The city is the agent.** There is no separate generic chatbot character.
+2. **The city is the agent.** Rivergate owns the Agentic ID; Leo is its bounded in-world interface, never a separate child identity or generic chatbot.
 3. **0G is invisible to children.** The application sponsors all storage, compute, identity, and chain operations.
 4. **Local-first interaction.** Dragging, placement, simulation, and ordinary saves work without waiting for a network transaction.
 5. **Milestones, not clicks, go on-chain.** Only meaningful city evolution is committed to the Agentic ID.
