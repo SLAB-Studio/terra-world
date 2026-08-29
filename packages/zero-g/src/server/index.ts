@@ -4,6 +4,13 @@ export {
   type ZeroGServerConfig,
 } from "./config";
 export {
+  createZeroGComputeClient,
+  type ZeroGChatCompletionInput,
+  type ZeroGChatMessage,
+  type ZeroGComputeClient,
+  type ZeroGComputeResult,
+} from "./compute";
+export {
   ZeroGConfigError,
   ZeroGServiceError,
   type ZeroGConfigErrorCode,
