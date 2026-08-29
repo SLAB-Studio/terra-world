@@ -520,8 +520,10 @@ binds the deterministic idempotency key to the ciphertext hash, validates the
 upload receipt, requests proof-verified retrieval with the expected root and
 content hash, and independently rechecks downloaded hash and length. Unknown or
 integrity failures fail closed; only typed retryable Storage failures re-enter
-the bounded queue. The remaining MVP integration is the authenticated
-browser-to-server checkpoint route and adult-session restore controls.
+the bounded queue. The browser route now uses a short-lived, HttpOnly,
+same-origin adult session; the adult panel can create and test-restore an
+encrypted recovery point without exposing a wallet or sponsor credential. A
+real 0G Storage rehearsal still requires deployment credentials and funding.
 
 ## 10. 0G Chain contracts
 
@@ -830,7 +832,8 @@ Replace the developer shell with the finished visual system, Rivergate assets, o
 
 ## 19. Hackathon demonstration path
 
-1. Create Rivergate from an empty map; its Agentic ID is minted invisibly.
+1. Create Rivergate from an empty map; when the deployed sponsor and contracts
+   are configured, its Agentic ID is minted invisibly.
 2. Drag homes and a water pump onto the map.
 3. Place the pump downstream from pollution and run the city.
 4. Rivergate explains why its water quality is falling through 0G Compute.
