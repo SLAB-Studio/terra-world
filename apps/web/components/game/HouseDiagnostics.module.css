@@ -8,7 +8,7 @@
   --green: #69bd67;
   --deep-green: #276f50;
   --focus: #075fc7;
-  width: min(1060px, calc(100vw - 32px));
+  width: min(1380px, calc(100vw - 32px));
   max-width: none;
   max-height: min(870px, calc(100dvh - 32px));
   margin: auto;
@@ -140,12 +140,22 @@
   min-height: 0;
   flex: 1 1 auto;
   display: grid;
-  grid-template-columns: minmax(275px, 0.72fr) minmax(0, 1.62fr);
+  grid-template-columns: minmax(520px, 1.45fr) minmax(340px, 0.9fr);
   gap: 4px;
-  overflow: auto;
+  overflow: hidden;
   background: var(--ink);
   scrollbar-color: var(--blue) var(--cream);
   scrollbar-width: auto;
+}
+
+.interiorColumn {
+  min-width: 0;
+  overflow: auto;
+  background: #68b973;
+}
+
+.interiorStory {
+  padding: 18px 20px 20px;
 }
 
 .ownerPanel {
@@ -310,7 +320,18 @@
 .diagnosticsPanel {
   min-width: 0;
   padding: 25px 25px 28px;
+  overflow: auto;
   background: var(--paper);
+}
+
+.roomInstruction {
+  max-width: 58ch;
+  margin: 10px 0 0;
+  color: #594235;
+  font-family: ui-rounded, "Trebuchet MS", sans-serif;
+  font-size: 0.76rem;
+  font-weight: 750;
+  line-height: 1.4;
 }
 
 .sectionHeading,
@@ -353,7 +374,7 @@
   margin: 15px 0 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 3px;
   background: var(--ink);
   border: 3px solid var(--ink);
@@ -568,13 +589,12 @@
 
   .content {
     grid-template-columns: 1fr;
+    overflow: auto;
   }
 
-  .ownerPanel {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(180px, 0.7fr);
-    align-items: center;
-    gap: 16px;
+  .interiorColumn,
+  .diagnosticsPanel {
+    overflow: visible;
   }
 
   .ownerRow {
@@ -633,13 +653,9 @@
     height: 46px;
   }
 
-  .ownerPanel,
+  .interiorStory,
   .diagnosticsPanel {
     padding: 17px 14px 20px;
-  }
-
-  .ownerPanel {
-    grid-template-columns: 1fr;
   }
 
   .homeSnapshot {

@@ -1,8 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import {
+  INTERIOR_ROOMS,
+  type InteriorRoomId,
+} from "../../lib/immersive-town/house-interior-world";
 
 import { GameIcon } from "./GameIcon";
+import HouseInterior3D from "./HouseInterior3D";
 import styles from "./HouseDiagnostics.module.css";
 
 export type HouseId = "sunny" | "bluebell" | "mango";
@@ -192,6 +198,8 @@ export default function HouseDiagnostics({
 }: HouseDiagnosticsProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const [selectedRoomId, setSelectedRoomId] =
+    useState<InteriorRoomId | null>(null);
   const profile = HOUSE_PROFILES[houseId];
   const activeUpgrades = upgrades ?? profile.defaultUpgrades;
   const health = useMemo(
@@ -205,6 +213,18 @@ export default function HouseDiagnostics({
     health.recommendedUpgrade === null
       ? null
       : UPGRADE_DETAILS[health.recommendedUpgrade];
+  const selectedRoom =
+    selectedRoomId === null
+      ? null
+      : (INTERIOR_ROOMS.find((room) => room.id === selectedRoomId) ?? null);
+  const visibleDiagnostics =
+    selectedRoom === null
+      ? health.diagnostics
+      : health.diagnostics.filter(
+          (diagnostic) => diagnostic.fixUpgrade === selectedRoom.upgradeId,
+        );
+  const selectedRoomHealthy =
+    selectedRoom !== null && activeUpgrades.includes(selectedRoom.upgradeId);
   const ownerMessage = health.allHealthy
     ? "Everything feels happy and healthy now. Thank you for caring for our home!"
     : `Could you help us with ${recommended?.label.toLowerCase() ?? "one small fix"} next?`;
@@ -222,6 +242,10 @@ export default function HouseDiagnostics({
       dialog.close();
     }
   }, [open]);
+
+  useEffect(() => {
+    if (open) setSelectedRoomId(null);
+  }, [houseId, open]);
 
   return (
     <dialog
@@ -248,8 +272,7 @@ export default function HouseDiagnostics({
               {profile.ownerName}&apos;s {profile.homeName}
             </h2>
             <p id={descriptionId}>
-              A friendly home check-up: see what feels good and what could use a
-              hand.
+              Walk through the rooms, find what is wrong, and repair it in 3D.
             </p>
           </div>
           <button
@@ -264,49 +287,71 @@ export default function HouseDiagnostics({
         </header>
 
         <div className={styles.content}>
-          <aside className={styles.ownerPanel} aria-label="Message from home">
-            <div className={styles.ownerRow}>
-              <span className={styles.ownerAvatar} aria-hidden="true">
-                {profile.ownerName.slice(0, 1)}
-              </span>
-              <p className={styles.ownerBubble}>
-                <strong>{profile.ownerName} says:</strong>
-                {ownerMessage}
-              </p>
-            </div>
-
-            <div className={styles.homeSnapshot} aria-hidden="true">
-              <span className={styles.snapshotSun} />
-              <GameIcon name="home" size={86} />
-              <span className={styles.snapshotGarden} />
-            </div>
-            <p className={styles.gardenLabel}>{profile.gardenName}</p>
-
-            <div className={styles.progressBlock} aria-live="polite">
-              <div className={styles.progressLabel}>
-                <strong>Home check-up</strong>
-                <span>
-                  {health.healthyCount} of {health.totalCount} feeling good
+          <section className={styles.interiorColumn} aria-label="3D home tour">
+            <HouseInterior3D
+              houseId={houseId}
+              onRoomSelect={setSelectedRoomId}
+              selectedRoomId={selectedRoomId}
+              upgrades={activeUpgrades}
+            />
+            <div className={styles.interiorStory}>
+              <div className={styles.ownerRow}>
+                <span className={styles.ownerAvatar} aria-hidden="true">
+                  {profile.ownerName.slice(0, 1)}
                 </span>
+                <p className={styles.ownerBubble}>
+                  <strong>{profile.ownerName} says:</strong>
+                  {selectedRoom === null
+                    ? ownerMessage
+                    : selectedRoomHealthy
+                      ? selectedRoom.healthy
+                      : selectedRoom.problem}
+                </p>
               </div>
-              <progress
-                aria-label={`${health.healthyCount} of ${health.totalCount} parts of the home feel good`}
-                max={health.totalCount}
-                value={health.healthyCount}
-              />
+
+              <div className={styles.progressBlock} aria-live="polite">
+                <div className={styles.progressLabel}>
+                  <strong>Rooms repaired</strong>
+                  <span>
+                    {health.healthyCount} of {health.totalCount} feeling good
+                  </span>
+                </div>
+                <progress
+                  aria-label={`${health.healthyCount} of ${health.totalCount} rooms feel good`}
+                  max={health.totalCount}
+                  value={health.healthyCount}
+                />
+              </div>
             </div>
-          </aside>
+          </section>
 
           <div className={styles.diagnosticsPanel}>
             <section aria-labelledby={`${titleId}-status`}>
               <div className={styles.sectionHeading}>
-                <h3 id={`${titleId}-status`}>How this home is doing</h3>
+                <h3 id={`${titleId}-status`}>
+                  {selectedRoom === null
+                    ? "Choose a room to explore"
+                    : selectedRoom.label}
+                </h3>
                 <span className={styles.statusKey}>
-                  {health.allHealthy ? "Everything feels good" : "Let’s help"}
+                  {selectedRoom === null
+                    ? health.allHealthy
+                      ? "Everything feels good"
+                      : "Walk in and help"
+                    : selectedRoomHealthy
+                      ? "Room repaired"
+                      : "Problem found"}
                 </span>
               </div>
+              <p className={styles.roomInstruction}>
+                {selectedRoom === null
+                  ? "Tap a room in the 3D house. The camera will walk inside and show its problem."
+                  : selectedRoomHealthy
+                    ? selectedRoom.healthy
+                    : selectedRoom.problem}
+              </p>
               <ul className={styles.diagnosticList}>
-                {health.diagnostics.map((diagnostic) => {
+                {visibleDiagnostics.map((diagnostic) => {
                   const upgrade = UPGRADE_DETAILS[diagnostic.fixUpgrade];
                   const healthy = diagnostic.status === "healthy";
                   return (
@@ -348,22 +393,66 @@ export default function HouseDiagnostics({
               <div className={styles.nextStepHeading}>
                 <div>
                   <h3 id={`${titleId}-next`}>
-                    {health.allHealthy ? "This home is happy" : "Choose a fix"}
+                    {selectedRoom === null
+                      ? health.allHealthy
+                        ? "This home is happy"
+                        : "Pick where to start"
+                      : selectedRoomHealthy
+                        ? "This room is working!"
+                        : "Fix this room"}
                   </h3>
                   <p>
-                    {health.allHealthy
-                      ? "Every part of this home is working well. Nice caring!"
-                      : "Pick one helpful change. You can come back for the others."}
+                    {selectedRoom === null
+                      ? health.allHealthy
+                        ? "Every room is working well. Nice caring!"
+                        : "Walk into any room that needs help."
+                      : selectedRoomHealthy
+                        ? "Look around, then return to the whole house to choose another room."
+                        : "Apply the right improvement and watch the 3D room change."}
                   </p>
                 </div>
-                {recommended !== null && (
+                {selectedRoom === null && recommended !== null && (
                   <span className={styles.recommendedNote}>
                     River&apos;s next idea: {recommended.label}
                   </span>
                 )}
               </div>
 
-              {missingUpgrades.length > 0 ? (
+              {selectedRoom !== null && !selectedRoomHealthy ? (
+                <div className={styles.upgradeChoices}>
+                  {(() => {
+                    const upgrade = UPGRADE_DETAILS[selectedRoom.upgradeId];
+                    return (
+                      <button
+                        aria-label={`${upgrade.action} in the ${selectedRoom.label} at ${profile.homeName}. ${upgrade.benefit}`}
+                        className={`${styles.upgradeButton} ${styles.recommendedUpgrade}`}
+                        onClick={() =>
+                          onChooseUpgrade(houseId, selectedRoom.upgradeId)
+                        }
+                        type="button"
+                      >
+                        <span className={styles.upgradeIcon} aria-hidden="true">
+                          <GameIcon name={upgrade.icon} size={31} />
+                        </span>
+                        <span className={styles.upgradeCopy}>
+                          <strong>{upgrade.action}</strong>
+                          <span>{upgrade.benefit}</span>
+                        </span>
+                        <GameIcon name="arrow" size={23} />
+                      </button>
+                    );
+                  })()}
+                </div>
+              ) : selectedRoom !== null ? (
+                <button
+                  className={styles.doneButton}
+                  onClick={() => setSelectedRoomId(null)}
+                  type="button"
+                >
+                  Explore another room
+                  <GameIcon name="arrow" size={23} />
+                </button>
+              ) : missingUpgrades.length > 0 ? (
                 <div className={styles.upgradeChoices}>
                   {missingUpgrades.map((upgradeId) => {
                     const upgrade = UPGRADE_DETAILS[upgradeId];
