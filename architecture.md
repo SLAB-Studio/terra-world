@@ -740,7 +740,8 @@ terra-world/
     web/
       app/                         Next.js pages and API routes
       components/                  Shared interface components
-      game/                        Phaser scenes and map rendering
+      game/                        Babylon.js 3D world and React game controls
+      lib/immersive-town/          3D environment, traffic, upgrades, and camera
       features/city-builder/       Drag, placement, overlays, catalogue
       features/city-guide/         City dialogue and hint interface
       features/adult-controls/     Consent, reports, and proof mode

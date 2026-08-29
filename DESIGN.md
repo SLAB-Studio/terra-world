@@ -63,15 +63,16 @@ the valley warmth without competing with its purpose; reduced-motion removes
 all nonessential movement. People chat, children play, and birds cross the sky
 so the town feels inhabited without becoming a traffic simulation.
 
-The landscape uses a transparent Phaser 2.5D simulation layer beneath the
-semantic house controls. One continuous Rivergate Boulevard is the only motor
-road: the visible asphalt, both opposing lanes, and every moving car share the
-same sampled centreline, so traffic cannot drift onto lawns or through homes.
-Road shoulders, crossings, lamps, cloud shadows, and vehicle depth add
-immersion without adding child-facing controls. With reduced motion enabled,
-traffic and cloud movement freeze. No essential action or information lives
-inside the canvas, and the CSS landscape remains a usable fallback if the game
-engine cannot start.
+The landscape is a genuine Babylon.js 3D world rendered with WebGL/WebGPU:
+perspective camera, lit procedural meshes, real shadows, animated residents,
+water, gardens, houses, and toy-like vehicles. One continuous Rivergate
+Boulevard is the only motor road: visible asphalt, both opposing lanes, bridges,
+and every moving car share the same sampled centreline and presentation height,
+so traffic cannot drift onto lawns or pass through scenery. The child can orbit
+and zoom the camera, select a house in-world, and see every upgrade appear as a
+real 3D change. With reduced motion enabled, traffic, ambient motion, and camera
+flights freeze or snap immediately. Semantic house controls remain available as
+a keyboard and graphics-failure fallback.
 
 Render houses only for actionable family homes. Owner labels and short speech
 bubbles show when a repair is needed; a house's details and diagnostics stay
