@@ -140,6 +140,7 @@ export function createResidentRoutines(
     created: boolean;
   };
   const portals = new Map<string, Portal>();
+  const playerDoors = new Set<string>();
   const doorwayMaterial = new StandardMaterial(
     "resident-doorway-shadow",
     scene,
@@ -200,7 +201,7 @@ export function createResidentRoutines(
   let disposed = false;
   const baseYaw = new Map<string, number>();
   function sync(dt: number, reduced: boolean) {
-    const open = new Set<string>();
+    const open = new Set<string>(playerDoors);
     for (const state of life.states) {
       const actor = byId.get(state.id)!;
       actor.root.setEnabled(
@@ -242,7 +243,9 @@ export function createResidentRoutines(
     }
     for (const [id, p] of portals) {
       const target = open.has(id) ? 1.25 : 0;
-      p.angle += Math.max(-dt * 2.7, Math.min(dt * 2.7, target - p.angle));
+      p.angle = reduced
+        ? target
+        : p.angle + Math.max(-dt * 2.7, Math.min(dt * 2.7, target - p.angle));
       p.hinge.rotation.y = (baseYaw.get(id) ?? 0) + p.angle;
     }
   }
@@ -250,6 +253,11 @@ export function createResidentRoutines(
   return {
     life,
     navigation: nav,
+    /** Player and residents share one hinge; neither can close it on the other. */
+    setPlayerDoor(id: string, open: boolean) {
+      if (open) playerDoors.add(id);
+      else playerDoors.delete(id);
+    },
     get trafficStops() {
       return life.trafficStops;
     },

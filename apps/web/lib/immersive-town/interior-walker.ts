@@ -14,6 +14,7 @@ import type { WalkBounds, WalkInput, WalkPoint, WalkPose } from "./walking";
 export type InteriorCommand = "forward" | "back" | "left" | "right";
 export type InteriorWalker = ReturnType<typeof createInteriorWalker>;
 export type IndoorCallbacks<Area extends string> = {
+  isBlocked?(): boolean;
   onRoomChange?(room: Area): void;
   onNearbyChange?(room: Area | null): void;
   onInteract?(room: Area): void;
@@ -79,11 +80,17 @@ export function createIndoorWalker<Area extends string>(
     holds.clear();
     look = null;
   };
-  const blocked = () =>
-    canvas !== null &&
-    (document.visibilityState !== "visible" ||
+  const blocked = () => {
+    if (callbacks.isBlocked?.()) return true;
+    if (!canvas) return false;
+    const ownDialog = canvas.closest("dialog");
+    return (
+      document.visibilityState !== "visible" ||
       canvas.closest("[inert]") !== null ||
-      canvas.closest("dialog")?.open === false);
+      ownDialog?.open === false ||
+      (ownDialog === null && Boolean(document.querySelector?.("dialog[open]")))
+    );
+  };
   const publish = () => {
     const next = navigation.roomAt(camera.position);
     if (next !== currentRoom) {
@@ -224,6 +231,15 @@ export function createIndoorWalker<Area extends string>(
       const start = navigation.starts[room];
       camera.position.set(start.x, INTERIOR_EYE_HEIGHT, start.z);
       camera.rotation.set(0.12, start.yaw, 0);
+      active = true;
+      scene.activeCamera = camera;
+      canvas?.focus({ preventScroll: true });
+      publish();
+    },
+    startAt(pose: WalkPose) {
+      clearInput();
+      camera.position.set(pose.x, INTERIOR_EYE_HEIGHT, pose.z);
+      camera.rotation.set(0, pose.yaw, 0);
       active = true;
       scene.activeCamera = camera;
       canvas?.focus({ preventScroll: true });

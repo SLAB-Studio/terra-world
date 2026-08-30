@@ -39,7 +39,9 @@ export default function BuildingVisit3D({
   const callbacksRef = useRef({ onClose });
   callbacksRef.current = { onClose };
   const [floorIndex, setFloorIndex] = useState(0);
-  const [nearby, setNearby] = useState<"floor" | "exit" | "lift" | null>(null);
+  const [nearby, setNearby] = useState<
+    "floor" | "exit" | "lift" | "repair" | null
+  >(null);
   const [status, setStatus] = useState<"loading" | "ready" | "failed">(
     "loading",
   );

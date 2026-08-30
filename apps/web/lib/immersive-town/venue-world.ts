@@ -19,11 +19,11 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 export const VENUE_LIMITS: WalkBounds = {
   minX: -10.8,
   maxX: 10.8,
-  minZ: -8.3,
+  minZ: -9.85,
   maxZ: 8.3,
 };
 export const VENUE_START = { x: 0, z: -5.8, yaw: 0 };
-type Zone = "floor" | "exit" | "lift";
+type Zone = "floor" | "exit" | "lift" | "repair";
 
 /** A furnished, full-height first-person floor. Only the visited floor is allocated. */
 export function createVenueWorld(
@@ -32,9 +32,11 @@ export function createVenueWorld(
   floorIndex: number,
   time: TownTimeOfDay,
   callbacks: {
+    isBlocked?(): boolean;
     onNearby?(zone: Zone | null): void;
     onExit?(): void;
     onLift?(): void;
+    onRepair?(): void;
   } = {},
 ) {
   const floor = venue.floors[floorIndex];
@@ -241,7 +243,9 @@ export function createVenueWorld(
   );
   if (!outdoor) {
     box("back-wall", 0, 2.5, 9.3, 23, 5, 0.3, cream);
-    box("front-wall", 0, 2.5, -9.3, 23, 5, 0.3, cream);
+    box("front-wall-left", -6.4, 2.5, -9.3, 10.2, 5, 0.3, cream, true);
+    box("front-wall-right", 6.4, 2.5, -9.3, 10.2, 5, 0.3, cream, true);
+    box("front-wall-lintel", 0, 4.25, -9.3, 2.6, 1.5, 0.3, cream);
     for (const x of [-11.4, 11.4]) {
       box("side-wall", x, 2.5, 0, 0.3, 5, 19, cream);
       for (const z of [-5, 0, 5]) {
@@ -279,13 +283,19 @@ export function createVenueWorld(
       joineryRoot,
       scene,
     );
-    box("exit-door", 0, 1.6, -9.06, 2.2, 3.2, 0.12, teal);
+    const hinge = new TransformNode("venue-entry-hinge", scene);
+    hinge.position.set(-1.3, 1.7, -9.3);
+    const door = box("exit-door", 1.3, 0, 0, 2.6, 3.4, 0.12, teal);
+    door.parent = hinge;
+    const handle = box("exit-handle", 2.2, 0, 0.13, 0.3, 0.1, 0.15, gold);
+    handle.parent = hinge;
     sign("EXIT · BACK TO TOWN", 0, 3.65, -8.97, 3.5);
   } else {
     for (const x of [-11.2, 11.2])
       box("safety-rail", x, 0.7, 0, 0.2, 1.4, 18.5, dark);
-    for (const z of [-9, 9])
-      box("safety-rail", 0, 0.7, z, 22.4, 1.4, 0.2, dark);
+    box("safety-rail-back", 0, 0.7, 9, 22.4, 1.4, 0.2, dark);
+    for (const x of [-6.3, 6.3])
+      box("safety-rail-entry", x, 0.7, -9, 9.8, 1.4, 0.2, dark, true);
     // A distant silhouette, not extra inaccessible gameplay buildings.
     for (let i = 0; i < 12; i++)
       box(
@@ -543,27 +553,44 @@ export function createVenueWorld(
     }
     sign("KEEP OUR RIVER CLEAN", 0, 3.5, 8.7, 5);
   }
+  const apartmentReception = venue.kind === "apartments" && floorIndex === 0;
+  const repairStatus = apartmentReception
+    ? material("resident-repair-status", "#DDA665", 0.3)
+    : null;
+  if (apartmentReception && repairStatus) {
+    sign("RESIDENT SERVICES · REPAIRS", -6, 2.6, 1.65, 5.5);
+    sphere("resident-repair-indicator", -3.5, 1.9, 1.65, 0.28, repairStatus);
+  }
   const walker = createIndoorWalker<Zone>(
     scene,
     engine.getRenderingCanvas() ?? null,
     () => obstacles,
     {
-      starts: { floor: VENUE_START, exit: VENUE_START, lift: VENUE_START },
+      starts: {
+        floor: VENUE_START,
+        exit: VENUE_START,
+        lift: VENUE_START,
+        repair: VENUE_START,
+      },
       roomAt: () => "floor",
       nearbyAt: (p) =>
         Math.abs(p.x) < 2 && p.z < -6.7
           ? "exit"
           : Math.abs(p.x) < 2 && p.z > 6.5 && venue.floors.length > 1
             ? "lift"
-            : null,
+            : apartmentReception && Math.hypot(p.x + 6, p.z - 0.6) < 1.7
+              ? "repair"
+              : null,
       step: (pose, input, seconds, bounds) =>
         stepInterior(pose, input, seconds, bounds, VENUE_LIMITS),
     },
     {
+      isBlocked: () => callbacks.isBlocked?.() ?? false,
       onNearbyChange: (zone) => callbacks.onNearby?.(zone),
       onInteract: (zone) => {
         if (zone === "exit") callbacks.onExit?.();
         else if (zone === "lift") callbacks.onLift?.();
+        else if (zone === "repair") callbacks.onRepair?.();
       },
     },
   );
@@ -573,6 +600,21 @@ export function createVenueWorld(
     walker,
     obstacles,
     floor,
+    setApartmentHealthy(healthy: boolean) {
+      if (repairStatus) {
+        repairStatus.diffuseColor = Color3.FromHexString(
+          healthy ? "#8EB69A" : "#DDA665",
+        );
+        repairStatus.emissiveColor = repairStatus.diffuseColor.scale(0.3);
+      }
+    },
+    enterDoor() {
+      walker.startAt({ x: 0, z: -9.65, yaw: 0 });
+    },
+    setDoorOpen(amount: number) {
+      const hinge = scene.getTransformNodeByName("venue-entry-hinge");
+      if (hinge) hinge.rotation.y = -Math.max(0, Math.min(1, amount)) * 1.4;
+    },
     dispose() {
       walker.dispose();
       scene.dispose();

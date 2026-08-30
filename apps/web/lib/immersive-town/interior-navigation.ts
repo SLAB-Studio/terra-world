@@ -6,7 +6,7 @@ export const INTERIOR_RADIUS = 0.28;
 export const INTERIOR_LIMITS = {
   minX: -7.95,
   maxX: 7.95,
-  minZ: -5.8,
+  minZ: -6.8,
   maxZ: 5.55,
 };
 export const ROOM_STARTS: Record<InteriorRoomId, WalkPose> = {

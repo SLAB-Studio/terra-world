@@ -352,6 +352,7 @@ export function createTownWalker(
   return {
     camera,
     obstacles,
+    groundHeight,
     doors,
     venueDoors,
     setActive,

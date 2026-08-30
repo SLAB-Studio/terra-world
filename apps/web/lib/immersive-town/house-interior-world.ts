@@ -89,6 +89,8 @@ export type HouseInteriorWorld = Readonly<{
   getRoomFromMesh(mesh: AbstractMesh | null): InteriorRoomId | null;
   focusRoom(roomId: InteriorRoomId | null, reducedMotion?: boolean): void;
   setInstalled(upgrades: readonly InteriorUpgradeId[]): void;
+  enterDoor(): void;
+  setDoorOpen(amount: number): void;
   dispose(): void;
 }>;
 
@@ -224,6 +226,15 @@ export function createHouseInteriorWorld(
     camera,
     rooms: roomRigs,
     walker,
+    enterDoor() {
+      camera.detachControl();
+      enclosure.forEach((mesh) => mesh.setEnabled(true));
+      walker.startAt({ x: -1.4, z: -6.4, yaw: 0 });
+    },
+    setDoorOpen(amount) {
+      const hinge = scene.getTransformNodeByName("interior-entry-hinge");
+      if (hinge) hinge.rotation.y = -Math.max(0, Math.min(1, amount)) * 1.4;
+    },
     getRoomFromMesh(mesh) {
       if (mesh === null) return null;
       let current: AbstractMesh | null = mesh;
@@ -336,13 +347,30 @@ function createHouseShell(
     shadows.addShadowCaster(wall);
   }
   // The cutaway stays open from above; walking reveals a complete enclosed house.
-  const front = box(
-    scene,
-    "interior-wall-front",
-    [17.4, 6.6, 0.45],
-    [0, 3.2, -6.05],
-  );
-  front.material = materials.wall;
+  // A genuine opening, rather than a door painted over a solid wall.
+  const front = [
+    box(
+      scene,
+      "interior-wall-front-left",
+      [6.15, 6.6, 0.45],
+      [-5.625, 3.2, -6.05],
+    ),
+    box(
+      scene,
+      "interior-wall-front-right",
+      [8.95, 6.6, 0.45],
+      [4.225, 3.2, -6.05],
+    ),
+    box(
+      scene,
+      "interior-wall-front-lintel",
+      [2.3, 2.6, 0.45],
+      [-1.4, 5.2, -6.05],
+    ),
+  ];
+  front.forEach((wall) => {
+    wall.material = materials.wall;
+  });
   const ceiling = box(
     scene,
     "interior-ceiling",
@@ -354,15 +382,19 @@ function createHouseShell(
     scene,
     "interior-front-door",
     [2.3, 3.7, 0.12],
-    [-1.4, 2.12, -5.79],
+    [1.15, 0, 0],
   );
+  const hinge = new TransformNode("interior-entry-hinge", scene);
+  hinge.position.set(-2.55, 2.12, -6.05);
+  entrance.parent = hinge;
   entrance.material = materials.accent;
   const knob = MeshBuilder.CreateSphere(
     "interior-door-handle",
     { diameter: 0.16 },
     scene,
   );
-  knob.position.set(-0.65, 1.95, -5.67);
+  knob.parent = hinge;
+  knob.position.set(1.9, -0.17, 0.12);
   knob.material = materials.metal;
   for (const side of [-1, 1]) {
     for (const z of [-2.7, 2.7]) {
@@ -389,10 +421,10 @@ function createHouseShell(
       mullion.material = materials.paper;
     }
   }
-  [front, ceiling].forEach((mesh) => {
+  [...front, ceiling].forEach((mesh) => {
     mesh.receiveShadows = true;
   });
-  return [front, ceiling, entrance, knob];
+  return [...front, ceiling, entrance, knob];
 }
 
 function createLivingRoom(
