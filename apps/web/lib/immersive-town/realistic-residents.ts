@@ -14,6 +14,8 @@ import {
   residentDetailFor,
   residentModelFor,
   residentPoseRate,
+  residentTalkWeight,
+  residentTransitionBlend,
   type ResidentClip,
   type ResidentDetail,
 } from "./resident-models";
@@ -61,19 +63,36 @@ function disposeInstance(
 }
 
 /** Sample authored channels directly: no thousands of paused Animatable objects. */
-function samplePose(group: AnimationGroup, frame: number) {
+function samplePose(
+  group: AnimationGroup,
+  frame: number,
+  conversation = false,
+) {
   for (const { animation, target } of group.targetedAnimations) {
     const node = target as TransformNode;
+    const weight = conversation ? residentTalkWeight(node.name) : 1;
+    if (weight === 0) continue;
     const value = animation.evaluate(frame);
     if (animation.targetProperty === "rotationQuaternion") {
       if (!node.rotationQuaternion)
         node.rotationQuaternion = Quaternion.Identity();
-      node.rotationQuaternion.copyFrom(value);
+      if (weight === 1) node.rotationQuaternion.copyFrom(value);
+      else
+        Quaternion.SlerpToRef(
+          node.rotationQuaternion,
+          value,
+          weight,
+          node.rotationQuaternion,
+        );
     } else if (animation.targetProperty === "position")
-      node.position.copyFrom(value);
+      Vector3.LerpToRef(node.position, value, weight, node.position);
     else if (animation.targetProperty === "scaling")
       node.scaling.copyFrom(value);
   }
+}
+
+function poseName(node: TransformNode) {
+  return node.name.slice(node.name.lastIndexOf(":") + 1);
 }
 
 function syncBones(instance: ResidentInstance) {
@@ -148,6 +167,8 @@ async function requestDetail(state: ResidentState, detail: ResidentDetail) {
         if (target.target instanceof TransformNode) nodes.add(target.target);
       }
     }
+    const idle = clips.get("idle")!;
+    samplePose(idle, idle.from);
     const poses = [...nodes].map((node) => ({
       node,
       rotation: node.rotationQuaternion?.clone() ?? Quaternion.Identity(),
@@ -169,12 +190,27 @@ async function requestDetail(state: ResidentState, detail: ResidentDetail) {
     const previous = state.instance;
     state.instance = next;
     state.detail = detail;
-    state.clip = "idle";
-    state.lastPose = -Infinity;
-    state.reducedPoseApplied = false;
-    state.transition = [];
-    const idle = clips.get("idle")!;
-    samplePose(idle, idle.from);
+    if (previous) {
+      // Near/far share one skeleton and motion set. Preserve the displayed pose
+      // and any in-flight transition instead of visibly flashing idle at LOD.
+      const oldNodes = new Map(
+        previous.poses.map(({ node }) => [poseName(node), node]),
+      );
+      const newNodes = new Map(poses.map(({ node }) => [poseName(node), node]));
+      for (const { node } of poses) {
+        const old = oldNodes.get(poseName(node));
+        if (old?.rotationQuaternion)
+          node.rotationQuaternion!.copyFrom(old.rotationQuaternion);
+        if (old) node.position.copyFrom(old.position);
+      }
+      state.transition = state.transition.flatMap((pose) => {
+        const node = newNodes.get(poseName(pose.node));
+        return node ? [{ ...pose, node }] : [];
+      });
+    } else {
+      state.lastPose = -Infinity;
+      state.reducedPoseApplied = false;
+    }
     syncBones(next);
     if (previous) disposeInstance(previous, state.shadows);
     // Release the primitive meshes only after a complete replacement is ready.
@@ -273,14 +309,21 @@ export function updateRealisticResident(
   state.lastPose = seconds;
   state.reducedPoseApplied = reducedMotion;
   const instance = state.instance;
-  if (rig.profile.activity !== "walk") rig.root.position.y = rig.baseY;
+  // The route/routine owns the world transform, including doors and boarding.
+  const routine = rig.root.metadata?.routineMotion as
+    | { activity: "walk" | "idle" | "chat"; speed: number; travelled: number }
+    | undefined;
+  speed = routine?.speed ?? speed;
+  travelled = routine?.travelled ?? travelled;
   const conversation = rig.root.metadata?.conversationPose;
-  const activity = conversation
-    ? conversation.speaking
-      ? "chat"
-      : "idle"
-    : rig.profile.activity;
-  const clip = residentClipFor(activity, speed, reducedMotion);
+  const activity =
+    routine?.activity ??
+    (conversation
+      ? conversation.speaking
+        ? "chat"
+        : "idle"
+      : rig.profile.activity);
+  const clip = residentClipFor(activity, speed, reducedMotion, state.clip);
   if (clip !== state.clip) {
     state.transition = instance.poses.map(({ node }) => ({
       node,
@@ -305,11 +348,25 @@ export function updateRealisticResident(
         model.walkDistance * stature,
         duration,
       );
-  samplePose(group, group.from + progress * (group.to - group.from));
-  const blend = Math.min(
-    1,
-    Math.max(0, (seconds - state.clipChangedAt) / 0.22),
+  if (clip === "talk") {
+    const idle = instance.clips.get("idle")!;
+    const idleDuration = (idle.to - idle.from) / frameRate;
+    const idleProgress = residentClipProgress(
+      "idle",
+      seconds,
+      travelled,
+      rig.profile.phase,
+      1,
+      idleDuration,
+    );
+    samplePose(idle, idle.from + idleProgress * (idle.to - idle.from));
+  }
+  samplePose(
+    group,
+    group.from + progress * (group.to - group.from),
+    clip === "talk",
   );
+  const blend = residentTransitionBlend(seconds - state.clipChangedAt);
   if (blend < 1 && !reducedMotion) {
     for (const pose of state.transition) {
       if (pose.node.rotationQuaternion)

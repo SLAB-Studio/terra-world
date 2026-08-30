@@ -4,8 +4,9 @@ import "@babylonjs/loaders/glTF/2.0/glTFLoader";
 import "@babylonjs/loaders/glTF/glTFFileLoader";
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine";
+import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Scene } from "@babylonjs/core/scene";
 import { AssetContainer } from "@babylonjs/core/assetContainer";
 import {
@@ -13,9 +14,13 @@ import {
   applyTownCharacterMotion,
   RIVERGATE_CHARACTER_PROFILES,
 } from "./characters-3d";
-import { hasRealisticResident } from "./realistic-residents";
+import {
+  hasRealisticResident,
+  updateRealisticResident,
+} from "./realistic-residents";
 import {
   residentAsset,
+  residentModelFor,
   type ResidentDetail,
   type ResidentModelId,
 } from "./resident-models";
@@ -47,7 +52,187 @@ function testWorld(profileId = "south-walker-kai") {
   return { engine, scene, parent, profile };
 }
 
+function localAssets(containers: AssetContainer[]) {
+  loader.mockImplementation(
+    async (scene: Scene, id: ResidentModelId, detail: ResidentDetail) => {
+      const bytes = readFileSync(
+        new URL(
+          `../../public${residentAsset(id, detail).url}`,
+          import.meta.url,
+        ),
+      );
+      const container = await LoadAssetContainerAsync(
+        new Uint8Array(bytes),
+        scene,
+        {
+          pluginExtension: ".glb",
+          pluginOptions: {
+            gltf: { skipMaterials: true, animationStartMode: 0 },
+          },
+        },
+      );
+      containers.push(container);
+      return container;
+    },
+  );
+}
+
+function currentPose(root: TransformNode) {
+  return new Map(
+    root
+      .getChildTransformNodes()
+      .filter((node) => /:Bip\d+/.test(node.name))
+      .map((node) => [
+        node.name.slice(node.name.lastIndexOf(":") + 1),
+        {
+          rotation: node.rotationQuaternion?.clone() ?? Quaternion.Identity(),
+          position: node.position.clone(),
+        },
+      ]),
+  );
+}
+
+function rotationDifference(a: Quaternion, b: Quaternion) {
+  return (
+    2 *
+    Math.acos(
+      Math.min(1, Math.abs(Quaternion.Dot(a, b)) / (a.length() * b.length())),
+    )
+  );
+}
+
 describe("realistic resident lifecycle", () => {
+  it.each([
+    "man-denim",
+    "man-casual",
+    "woman-casual",
+    "woman-knit",
+    "boy",
+    "girl",
+  ] as ResidentModelId[])(
+    "keeps actual %s poses continuous through idle, walking, stopping and conversation",
+    async (model) => {
+      const profile = RIVERGATE_CHARACTER_PROFILES.find(
+        (profile) => residentModelFor(profile) === model,
+      )!;
+      const { engine, scene, parent } = testWorld(profile.id);
+      const containers: AssetContainer[] = [];
+      localAssets(containers);
+      try {
+        const rig = createTownCharacter(scene, parent, null, {
+          ...profile,
+          activity: "idle",
+        });
+        await vi.waitFor(() => expect(hasRealisticResident(rig)).toBe(true));
+        rig.root.position.set(7, 0.65, 3);
+        rig.root.rotation.y = 0.8;
+        new FreeCamera("nearby", new Vector3(7, 2, 7), scene);
+        scene.activeCamera!.getViewMatrix(true);
+        updateRealisticResident(rig, 0, false, 0, 0);
+        await vi.waitFor(() =>
+          expect(rig.root.metadata.modelDetail).toBe("near"),
+        );
+        let travelled = 0;
+        let previous = currentPose(rig.root);
+        let walkRange = 0;
+        const restingThigh = previous.get(
+          [...previous.keys()].find((name) => name.endsWith("L Thigh"))!,
+        )!.rotation;
+        for (let frame = 0; frame < 280; frame++) {
+          const seconds = frame * 0.04;
+          const activity =
+            (seconds >= 1 && seconds < 3.5) || seconds >= 9
+              ? "walk"
+              : seconds >= 4.5
+                ? "chat"
+                : "idle";
+          const speed = activity === "walk" ? 0.95 : 0;
+          travelled += speed * 0.04;
+          rig.root.metadata.routineMotion = { activity, speed, travelled };
+          updateRealisticResident(rig, seconds, false, 0, 0);
+          const pose = currentPose(rig.root);
+          for (const [name, value] of pose) {
+            const before = previous.get(name)!;
+            expect(
+              rotationDifference(before.rotation, value.rotation),
+              `${model}/${activity}/${name} adjacent pose`,
+            ).toBeLessThan(0.65);
+            expect(
+              Vector3.Distance(before.position, value.position),
+              `${model}/${name} local position`,
+            ).toBeLessThan(0.04);
+            if (activity === "walk" && name.endsWith("L Thigh"))
+              walkRange = Math.max(
+                walkRange,
+                rotationDifference(restingThigh, value.rotation),
+              );
+          }
+          expect(rig.root.position.asArray()).toEqual([7, 0.65, 3]);
+          expect(rig.root.rotation.y).toBe(0.8);
+          previous = pose;
+        }
+        expect(
+          walkRange,
+          "an originally idle profile really walks when its routine moves",
+        ).toBeGreaterThan(0.2);
+        updateRealisticResident(rig, 12, true, 0, travelled);
+        const frozen = currentPose(rig.root);
+        updateRealisticResident(rig, 20, true, 2, travelled + 16);
+        for (const [name, pose] of currentPose(rig.root))
+          expect(
+            rotationDifference(frozen.get(name)!.rotation, pose.rotation),
+          ).toBeLessThan(0.0001);
+      } finally {
+        scene.dispose();
+        containers.forEach((container) => container.dispose());
+        engine.dispose();
+      }
+    },
+  );
+
+  it("copies the exact displayed pose and in-flight blend when near/far geometry swaps", async () => {
+    const { engine, scene, parent, profile } = testWorld();
+    const containers: AssetContainer[] = [];
+    localAssets(containers);
+    try {
+      const rig = createTownCharacter(scene, parent, null, profile);
+      await vi.waitFor(() => expect(hasRealisticResident(rig)).toBe(true));
+      updateRealisticResident(rig, 1, false, 1, 1);
+      updateRealisticResident(rig, 1.4, false, 1, 1.4);
+      const camera = new FreeCamera(
+        "moving-camera",
+        rig.root.position.add(new Vector3(0, 2, 4)),
+        scene,
+      );
+      camera.getViewMatrix(true);
+      updateRealisticResident(rig, 1.6, false, 0, 1);
+      const before = currentPose(rig.root);
+      await vi.waitFor(() =>
+        expect(rig.root.metadata.modelDetail).toBe("near"),
+      );
+      for (const [name, pose] of currentPose(rig.root)) {
+        expect(
+          rotationDifference(before.get(name)!.rotation, pose.rotation),
+          name,
+        ).toBeLessThan(0.0001);
+        expect(
+          Vector3.Distance(before.get(name)!.position, pose.position),
+          name,
+        ).toBeLessThan(0.0001);
+      }
+      updateRealisticResident(rig, 1.64, false, 0, 1);
+      for (const [name, pose] of currentPose(rig.root))
+        expect(
+          rotationDifference(before.get(name)!.rotation, pose.rotation),
+          `${name} continuing transition`,
+        ).toBeLessThan(0.12);
+    } finally {
+      scene.dispose();
+      containers.forEach((container) => container.dispose());
+      engine.dispose();
+    }
+  });
+
   it.each(["south-walker-kai", "resident-malik"])(
     "swaps complete models, preserves anatomical facing and grounding: %s",
     async (profileId) => {

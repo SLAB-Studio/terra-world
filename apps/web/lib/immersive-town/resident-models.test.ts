@@ -12,6 +12,8 @@ import {
   residentDetailFor,
   residentModelFor,
   residentPoseRate,
+  residentTalkWeight,
+  residentTransitionBlend,
   type ResidentModelId,
 } from "./resident-models";
 import { RIVERGATE_CHARACTER_PROFILES } from "./characters-3d";
@@ -165,6 +167,89 @@ describe("realistic Rivergate resident assets", () => {
     }
   });
 
+  it("ships continuous joint curves, closed loops and restrained breathing in every actual GLB", () => {
+    for (const id of models) {
+      for (const detail of ["near", "far"] as const) {
+        const bytes = readModel(id, detail);
+        const jsonLength = bytes.readUInt32LE(12);
+        const gltf = JSON.parse(
+          bytes.subarray(20, 20 + jsonLength).toString("utf8"),
+        );
+        const read = (index: number) => {
+          const accessor = gltf.accessors[index];
+          const view = gltf.bufferViews[accessor.bufferView];
+          const components =
+            accessor.type === "VEC4" ? 4 : accessor.type === "VEC3" ? 3 : 1;
+          return new Float32Array(
+            bytes.buffer,
+            bytes.byteOffset +
+              28 +
+              jsonLength +
+              (view.byteOffset ?? 0) +
+              (accessor.byteOffset ?? 0),
+            accessor.count * components,
+          );
+        };
+        for (const clip of gltf.animations) {
+          for (const channel of clip.channels) {
+            const sampler = clip.samplers[channel.sampler];
+            const values = read(sampler.output);
+            const times = read(sampler.input);
+            const node = gltf.nodes[channel.target.node].name;
+            const label = `${id}/${detail}/${clip.name}/${node}`;
+            if (channel.target.path === "rotation") {
+              const angle = (a: number, b: number) => {
+                const left = values.slice(a * 4, a * 4 + 4);
+                const right = values.slice(b * 4, b * 4 + 4);
+                const dot = left.reduce(
+                  (sum, value, i) => sum + value * right[i]!,
+                  0,
+                );
+                return (
+                  2 *
+                  Math.acos(
+                    Math.min(
+                      1,
+                      Math.abs(dot) /
+                        (Math.hypot(...left) * Math.hypot(...right)),
+                    ),
+                  )
+                );
+              };
+              for (let index = 1; index < times.length; index++) {
+                // Real knee flexion may be fast. The broken bake exceeded
+                // 170 degrees per 66ms in hands, fingers and even facial bones.
+                expect(
+                  angle(index - 1, index) / (times[index]! - times[index - 1]!),
+                  label,
+                ).toBeLessThan(13);
+                if (clip.name === "idle")
+                  expect(
+                    angle(0, index),
+                    `${label} breathing range`,
+                  ).toBeLessThan(0.2);
+              }
+              expect(
+                angle(0, times.length - 1),
+                `${label} loop seam`,
+              ).toBeLessThan(0.001);
+            } else if (channel.target.path === "translation") {
+              const last = values.length - 3;
+              expect(
+                Math.hypot(
+                  values[0]! - values[last]!,
+                  values[1]! - values[last + 1]!,
+                  values[2]! - values[last + 2]!,
+                ),
+                `${label} position seam`,
+              ).toBeLessThan(0.0001);
+            }
+          }
+        }
+      }
+    }
+  });
+
   it("uses distance hysteresis and lower pose frequency without deleting distant people", () => {
     expect(residentDetailFor(21, "far", false)).toBe("far");
     expect(residentDetailFor(21, "near", false)).toBe("near");
@@ -178,9 +263,29 @@ describe("realistic Rivergate resident assets", () => {
   it("ties footsteps to travelled metres and settles into idle at route stops", () => {
     expect(residentClipFor("walk", 0, false)).toBe("idle");
     expect(residentClipFor("walk", 1, false)).toBe("walk");
+    expect(residentClipFor("idle", 1, false)).toBe("walk");
+    expect(residentClipFor("chat", 1, false)).toBe("walk");
+    expect(residentClipFor("walk", 0.09, false, "walk")).toBe("walk");
+    expect(residentClipFor("walk", 0.09, false, "idle")).toBe("idle");
     expect(residentClipFor("chat", 0, false)).toBe("talk");
     expect(residentClipFor("walk", 1, true)).toBe("idle");
     expect(residentClipProgress("walk", 1, 0.6, 0, 1.2, 1)).toBeCloseTo(0.5);
     expect(residentClipProgress("walk", 999, 0.6, 5, 1.2, 1)).toBeCloseTo(0.5);
+  });
+
+  it("layers small conversational gestures above planted legs and eases starts/stops", () => {
+    expect(residentTalkWeight("person:near:Bip01 L UpperArm")).toBe(0.24);
+    expect(residentTalkWeight("person:near:Bip02 Spine1")).toBe(0.1);
+    for (const bone of [
+      "Bip01",
+      "Bip01 Pelvis",
+      "Bip01 L Thigh",
+      "Bip01 R Foot",
+    ])
+      expect(residentTalkWeight(bone)).toBe(0);
+    expect(residentTransitionBlend(-1)).toBe(0);
+    expect(residentTransitionBlend(0.18)).toBeCloseTo(0.5);
+    expect(residentTransitionBlend(1)).toBe(1);
+    expect(residentTransitionBlend(0.01)).toBeLessThan(0.01 / 0.36);
   });
 });

@@ -79,18 +79,39 @@ def bake_clip(arm, meshes, gender, clip):
                   b.parent.bone.matrix_local.inverted() @ b.bone.matrix_local.translation for b in arm.pose.bones}
     base = arm.location.copy()
     rotations = arm.matrix_world.to_quaternion().inverted()
+    samples = []
     for frame in range(start, end + 1):
         bpy.context.scene.frame_set(frame)
         src_rotation = rotations @ src.matrix_world.to_quaternion()
+        # PoseBone.matrix assignment derives a local transform from the
+        # evaluated parent. That parent is stale until the depsgraph updates:
+        # assigning an entire hierarchy before one update corrupts descendants
+        # (the old export had ~170-degree hand/finger jumps in its first 0.2s).
+        # Build parent-before-child desired matrices explicitly, then derive
+        # each basis against the SAME frame's parent. Never read a partially
+        # evaluated target pose while retargeting.
+        desired_matrices = {}
         for pb in arm.pose.bones:
             source_bone = src.pose.bones.get(re.sub(r'^Bip\d+', 'Bip01', pb.name))
             if source_bone is None:
+                desired_matrices[pb.name] = (
+                    desired_matrices[pb.parent.name] @
+                    pb.parent.bone.matrix_local.inverted() @ pb.bone.matrix_local
+                    if pb.parent else pb.bone.matrix_local.copy())
+                pb.matrix_basis = Matrix.Identity(4)
                 continue
             # Copy anatomical world rotation, not raw local curves: source FBX
             # bind poses differ. Keep the target's limb lengths and proportions.
-            position = (pb.parent.matrix @ local_head[pb.name]) if pb.parent else local_head[pb.name]
+            parent_matrix = desired_matrices[pb.parent.name] if pb.parent else Matrix.Identity(4)
+            position = (parent_matrix @ local_head[pb.name]) if pb.parent else local_head[pb.name]
             rotation = src_rotation @ source_bone.matrix.to_quaternion()
-            pb.matrix = Matrix.LocRotScale(position, rotation, Vector((1, 1, 1)))
+            desired = Matrix.LocRotScale(position, rotation, Vector((1, 1, 1)))
+            desired_matrices[pb.name] = desired
+            pb.matrix_basis = pb.bone.convert_local_to_pose(
+                desired, pb.bone.matrix_local,
+                parent_matrix=parent_matrix,
+                parent_matrix_local=pb.parent.bone.matrix_local if pb.parent else Matrix.Identity(4),
+                invert=True)
         bpy.context.view_layer.update()
         arm.location = base
         bpy.context.view_layer.update()
@@ -100,6 +121,29 @@ def bake_clip(arm, meshes, gender, clip):
             pb.keyframe_insert(data_path='rotation_quaternion', frame=frame-start)
             pb.keyframe_insert(data_path='location', frame=frame-start)
         arm.keyframe_insert(data_path='location', frame=frame-start)
+        samples.append((arm.location.copy(), {
+            pb.name: (pb.rotation_quaternion.copy(), pb.location.copy())
+            for pb in arm.pose.bones}))
+    # The source talk take is cropped to the crowd's six-second budget, not an
+    # authored loop. Return gently to its opening pose before wrapping. Walk
+    # and breath are authored cycles: only reconcile their tiny final drift.
+    closing_frames = min(24 if clip == 'talk' else 1, len(samples) - 1)
+    for index in range(len(samples) - closing_frames, len(samples)):
+        t = (index - (len(samples) - closing_frames - 1)) / closing_frames
+        blend = t * t * (3 - 2 * t)
+        root, bones = samples[index]
+        arm.location = root.lerp(samples[0][0], blend)
+        arm.keyframe_insert(data_path='location', frame=index)
+        for pb in arm.pose.bones:
+            rotation, location = bones[pb.name]
+            first_rotation, first_location = samples[0][1][pb.name]
+            pb.rotation_quaternion = rotation.slerp(first_rotation, blend)
+            pb.location = location.lerp(first_location, blend)
+            pb.keyframe_insert(data_path='rotation_quaternion', frame=index)
+            pb.keyframe_insert(data_path='location', frame=index)
+    for curve in action.fcurves:
+        for key in curve.keyframe_points:
+            key.interpolation = 'LINEAR'
     for obj in imported:
         bpy.data.objects.remove(obj, do_unlink=True)
     return action, max(0.7, travel)
@@ -152,7 +196,7 @@ for key, group, name, gender in PEOPLE:
         destination = OUT / (key + '-' + quality + '.glb')
         bpy.ops.export_scene.gltf(filepath=str(destination), export_format='GLB',
             export_animations=True, export_animation_mode='NLA_TRACKS', export_skins=True,
-            export_force_sampling=True, export_frame_step=2, export_apply=True,
+            export_force_sampling=True, export_frame_step=1, export_apply=True,
             export_image_format='AUTO', export_jpeg_quality=78,
             export_morph=False, export_cameras=False, export_lights=False)
         for obj, mod in modifiers:

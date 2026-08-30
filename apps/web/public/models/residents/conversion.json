@@ -2,43 +2,43 @@
   {
     "id": "man-denim",
     "source": "Assets/Avatars/Adults/Male_Adult_12",
-    "height": 1.8134454488754272,
+    "height": 1.8025871515274048,
     "walkDistance": 1.2140404108853617,
     "license": "MIT"
   },
   {
     "id": "man-casual",
     "source": "Assets/Avatars/Adults/Male_Adult_06",
-    "height": 1.8371952772140503,
+    "height": 1.8272111415863037,
     "walkDistance": 1.2140404108853617,
     "license": "MIT"
   },
   {
     "id": "woman-casual",
     "source": "Assets/Avatars/Adults/Female_Adult_01",
-    "height": 1.7451614141464233,
+    "height": 1.7421993017196655,
     "walkDistance": 1.456520788859578,
     "license": "MIT"
   },
   {
     "id": "woman-knit",
     "source": "Assets/Avatars/Adults/Female_Adult_11",
-    "height": 1.757927656173706,
+    "height": 1.7367781400680542,
     "walkDistance": 1.456520788859578,
     "license": "MIT"
   },
   {
     "id": "boy",
     "source": "Assets/Avatars/Children/Male_Child_01",
-    "height": 1.4375039339065552,
-    "walkDistance": 0.9536545718957584,
+    "height": 1.4297442436218262,
+    "walkDistance": 0.9485067152937828,
     "license": "MIT"
   },
   {
     "id": "girl",
     "source": "Assets/Avatars/Children/Female_Child_01",
-    "height": 1.4337273836135864,
-    "walkDistance": 1.20014582746577,
+    "height": 1.4316086769104004,
+    "walkDistance": 1.198372298523996,
     "license": "MIT"
   }
 ]

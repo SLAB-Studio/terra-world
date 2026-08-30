@@ -50,10 +50,27 @@ export function residentClipFor(
   activity: TownCharacterProfile["activity"],
   speed: number,
   reducedMotion: boolean,
+  previous: ResidentClip = "idle",
 ): ResidentClip {
   if (reducedMotion) return "idle";
-  if (activity === "walk") return speed > 0.08 ? "walk" : "idle";
+  // Locomotion belongs to the current routine, never a resident's original
+  // profile. Hysteresis prevents idle/walk chatter at a slowly easing stop.
+  if (speed > (previous === "walk" ? 0.06 : 0.12)) return "walk";
   return activity === "chat" || activity === "wave" ? "talk" : "idle";
+}
+
+/** Conversation is a small upper-body layer; hips and feet stay in idle. */
+export function residentTalkWeight(nodeName: string): number {
+  if (/ (Clavicle|UpperArm|Forearm|Hand)$/.test(nodeName)) return 0.24;
+  if (/ Finger\d+$/.test(nodeName)) return 0.18;
+  if (/ (Head|Neck)$/.test(nodeName)) return 0.16;
+  if (/ Spine\d*$/.test(nodeName)) return 0.1;
+  return 0;
+}
+
+export function residentTransitionBlend(elapsed: number): number {
+  const t = Math.max(0, Math.min(1, elapsed / 0.36));
+  return t * t * (3 - 2 * t);
 }
 
 export function residentClipProgress(
