@@ -111,6 +111,72 @@ function rotationDifference(a: Quaternion, b: Quaternion) {
 }
 
 describe("realistic resident lifecycle", () => {
+  it("uses the authored run on the actual player and returns smoothly to idle", async () => {
+    const { engine, scene, parent, profile } = testWorld();
+    const containers: AssetContainer[] = [];
+    localAssets(containers);
+    const data = JSON.parse(
+      readFileSync(
+        new URL(
+          "../../public/models/residents/player-run.json",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => data }),
+    );
+    try {
+      const rig = createTownCharacter(scene, parent, null, {
+        ...profile,
+        id: "player-rivergate",
+        x: 0,
+        z: 0,
+        age: "adult",
+        hair: "short",
+        activity: "idle",
+      });
+      new FreeCamera("player-observer", new Vector3(0, 2, 4), scene);
+      scene.activeCamera!.getViewMatrix(true);
+      await vi.waitFor(() => expect(hasRealisticResident(rig)).toBe(true));
+      updateRealisticResident(rig, 0, false, 0, 0);
+      await vi.waitFor(() =>
+        expect(rig.root.metadata.modelDetail).toBe("near"),
+      );
+      let travelled = 0;
+      let previous = currentPose(rig.root);
+      for (let frame = 1; frame <= 200; frame++) {
+        const speed = frame < 25 ? 1.8 : frame < 125 ? 3.6 : 0;
+        travelled += speed * 0.04;
+        updateRealisticResident(rig, frame * 0.04, false, speed, travelled);
+        const current = currentPose(rig.root);
+        for (const [name, pose] of current) {
+          expect(
+            rotationDifference(previous.get(name)!.rotation, pose.rotation),
+            `${name} at ${frame}`,
+          ).toBeLessThan(0.8);
+        }
+        previous = current;
+      }
+      expect(
+        scene.animationGroups.filter((g) => g.name === "player-run"),
+      ).toHaveLength(1);
+      const idle = scene.animationGroups.find((g) =>
+        g.name.endsWith("near:idle"),
+      )!;
+      expect(idle).toBeDefined();
+      rig.root.dispose();
+      expect(scene.animationGroups.some((g) => g.name === "player-run")).toBe(
+        false,
+      );
+    } finally {
+      scene.dispose();
+      containers.forEach((c) => c.dispose());
+      engine.dispose();
+    }
+  });
   it.each([
     "man-denim",
     "man-casual",

@@ -59,8 +59,8 @@ def clean_materials(folder):
         mat.node_tree.links.new(shader.outputs['BSDF'], output.inputs['Surface'])
 
 def bake_clip(arm, meshes, gender, clip):
-    suffix = {'walk': 'walk_neutral_01', 'idle': 'idle_breathe_01', 'talk': 'gestic_talk_neutral_01'}[clip]
-    folder = 'xy' if clip == 'walk' else 'static'
+    suffix = {'walk': 'walk_neutral_01', 'run': 'run_neutral_01', 'idle': 'idle_breathe_01', 'talk': 'gestic_talk_neutral_01'}[clip]
+    folder = 'xy' if clip in ('walk', 'run') else 'static'
     old = set(bpy.data.objects)
     bpy.ops.import_scene.fbx(filepath=str(SOURCE / 'Assets' / 'Animations' /
         ('all_animations_max_motextr_' + folder) / (gender + '_' + suffix + '.max.fbx')))
@@ -149,7 +149,7 @@ def bake_clip(arm, meshes, gender, clip):
     return action, max(0.7, travel)
 
 manifest = []
-for key, group, name, gender in PEOPLE:
+for key, group, name, gender in (PEOPLE if __name__ == '__main__' else []):
     if len(sys.argv) > 3 and key not in sys.argv[3:]:
         continue
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -204,5 +204,6 @@ for key, group, name, gender in PEOPLE:
     manifest.append({'id': key, 'source': str(folder.relative_to(SOURCE)),
         'height': height, 'walkDistance': walk_distance, 'license': 'MIT'})
     print('CONVERTED', manifest[-1], flush=True)
-(OUT / 'conversion.json').write_text(json.dumps(manifest, indent=2) + '\n')
-(OUT / 'LICENSE-Microsoft.txt').write_text((SOURCE / 'LICENSE.md').read_text())
+if __name__ == '__main__':
+    (OUT / 'conversion.json').write_text(json.dumps(manifest, indent=2) + '\n')
+    (OUT / 'LICENSE-Microsoft.txt').write_text((SOURCE / 'LICENSE.md').read_text())

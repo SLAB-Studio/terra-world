@@ -4,7 +4,7 @@ import type { TownCharacterProfile } from "./characters-3d";
 export type ResidentModelId =
   "man-denim" | "man-casual" | "woman-casual" | "woman-knit" | "boy" | "girl";
 export type ResidentDetail = "near" | "far";
-export type ResidentClip = "idle" | "walk" | "talk";
+export type ResidentClip = "idle" | "walk" | "talk" | "run";
 
 export function residentModelFor(
   profile: Pick<TownCharacterProfile, "id" | "age" | "hair">,
@@ -82,7 +82,7 @@ export function residentClipProgress(
   duration: number,
 ) {
   const cycles =
-    clip === "walk"
+    clip === "walk" || clip === "run"
       ? travelled / Math.max(0.1, walkDistance)
       : seconds / Math.max(0.1, duration) + phase;
   return ((cycles % 1) + 1) % 1;

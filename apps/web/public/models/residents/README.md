@@ -52,3 +52,16 @@ These are game-ready human assets, not digital doubles of the named fictional
 residents. The original deterministic character IDs, roles and routes are kept.
 The game falls back to its original people if a model cannot load. No user photos,
 faces, account details, or player names are sent to a model-generation service.
+
+## Player running extension
+
+`player-run.json` is a 71,395-byte animation-only addition for the existing
+`man-casual` player skeleton (both LODs), not another copy of the model.
+Source: `Assets/Animations/all_animations_max_motextr_xy/m_run_neutral_01.max.fbx`
+and the same `Male_Adult_06.fbx`, from Microsoft Rocketbox revision
+`0943055db6ec570bcef9f2c8b41c9e5467c808f9`, under the MIT license above.
+`scripts/convert-player-run.py` reuses the resident converter's retargeting,
+grounds the pose and exports compact local-space channels. The cycle covers
+2.1118 source metres in 0.7333 seconds; actual player distance controls playback.
+Only the player requests this clip. Ordinary NPC idle/walk/talk assets and
+behaviors are unchanged.

@@ -7,6 +7,7 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import type { Scene } from "@babylonjs/core/scene";
 import type { TownCharacterRig } from "./characters-3d";
+import { loadPlayerRun, createPlayerRunClip } from "./player-run";
 import {
   applyIndoorResidentPose,
   type IndoorPose,
@@ -33,6 +34,7 @@ type ResidentInstance = {
   poses: Pose[];
   bindings: Array<{ bone: Bone; node: TransformNode }>;
   namedNodes: Map<string, TransformNode>;
+  runDistance: number;
 };
 type ResidentState = {
   scene: Scene;
@@ -134,6 +136,10 @@ async function requestDetail(state: ResidentState, detail: ResidentDetail) {
     const { loadResidentAsset } = await import("./resident-assets");
     if (state.disposed) return;
     const container = await loadResidentAsset(state.scene, model, detail);
+    const runData =
+      state.rig.profile.id === "player-rivergate"
+        ? await loadPlayerRun().catch(() => null)
+        : null;
     if (state.disposed || state.rig.root.isDisposed() || state.scene.isDisposed)
       return;
     const entries = container.instantiateModelsToScene(
@@ -211,7 +217,21 @@ async function requestDetail(state: ResidentState, detail: ResidentDetail) {
         node,
       ]),
     );
-    const next = { entries, mount, meshes, clips, poses, bindings, namedNodes };
+    if (runData) {
+      const run = createPlayerRunClip(state.scene, namedNodes, runData);
+      clips.set("run", run);
+      entries.animationGroups.push(run); // Owned and disposed with this LOD.
+    }
+    const next = {
+      entries,
+      mount,
+      meshes,
+      clips,
+      poses,
+      bindings,
+      namedNodes,
+      runDistance: runData?.distance ?? 1,
+    };
     const previous = state.instance;
     state.instance = next;
     state.detail = detail;
@@ -348,7 +368,12 @@ export function updateRealisticResident(
         ? "chat"
         : "idle"
       : rig.profile.activity);
-  const clip = residentClipFor(activity, speed, reducedMotion, state.clip);
+  const clip =
+    !reducedMotion &&
+    instance.clips.has("run") &&
+    speed > (state.clip === "run" ? 2.05 : 2.3)
+      ? "run"
+      : residentClipFor(activity, speed, reducedMotion, state.clip);
   if (clip !== state.clip) {
     state.transition = instance.poses.map(({ node }) => ({
       node,
@@ -373,7 +398,7 @@ export function updateRealisticResident(
         seconds,
         travelled,
         rig.profile.phase,
-        model.walkDistance * stature,
+        (clip === "run" ? instance.runDistance : model.walkDistance) * stature,
         duration,
       );
   if (clip === "talk") {
