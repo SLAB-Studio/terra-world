@@ -19,6 +19,7 @@ import { registerTownVenues } from "./venues";
 import { createCityConversations } from "./conversations-3d";
 import { upgradeCityTrees } from "./city-models";
 import { addBuildingStreetDetail } from "./streetscape";
+import { createUrbanDetail } from "./urban-detail";
 import { createResidentRoutines } from "./resident-routines-3d";
 import type {
   CreateTownWorldOptions,
@@ -116,6 +117,7 @@ export function createImmersiveTownWorld(
   const details = createTownDetails(scene, materials, shadows);
   const metropolis = createMetropolis(scene, materials, shadows);
   addBuildingStreetDetail(scene, materials);
+  const urbanDetail = createUrbanDetail(scene, materials);
   const disposeTreeModels = upgradeCityTrees(scene, shadows);
   const daylight = createTimeOfDay(
     scene,
@@ -223,6 +225,7 @@ export function createImmersiveTownWorld(
       conversations.dispose();
       residents.dispose();
       disposeTreeModels();
+      urbanDetail.dispose();
       scene.dispose();
     },
   };
