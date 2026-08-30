@@ -11,6 +11,7 @@ import {
 import type { HouseId } from "./HouseDiagnostics";
 import { ROOM_TASKS } from "../../lib/immersive-town/interior-navigation";
 import type { InteriorCommand } from "../../lib/immersive-town/interior-walker";
+import { startCanvasRenderLoop } from "../../lib/immersive-town/canvas-render-loop";
 import styles from "./HouseInterior3D.module.css";
 
 type HouseInterior3DProps = Readonly<{
@@ -56,6 +57,7 @@ function HouseInterior3D({
     async function mountInterior() {
       const canvas = canvasRef.current;
       if (canvas === null) return;
+      let disposeEngine: (() => void) | undefined;
       try {
         const [Babylon, interior] = await Promise.all([
           import("../../lib/immersive-town/babylon-runtime"),
@@ -64,21 +66,17 @@ function HouseInterior3D({
         if (cancelled) return;
         const engine = new Babylon.Engine(
           canvas,
-          true,
+          false,
           {
-            antialias: true,
+            antialias: false,
             audioEngine: false,
             preserveDrawingBuffer: false,
-            powerPreference: "high-performance",
+            powerPreference: "default",
             stencil: true,
           },
-          true,
+          false,
         );
-        const mobile = window.matchMedia("(max-width: 590px)").matches;
-        const pixelRatio = Math.max(1, window.devicePixelRatio || 1);
-        engine.setHardwareScalingLevel(
-          1 / Math.min(pixelRatio, mobile ? 1 : 1.35),
-        );
+        disposeEngine = () => engine.dispose();
         const reducedMotionQuery = window.matchMedia(
           "(prefers-reduced-motion: reduce)",
         );
@@ -97,16 +95,20 @@ function HouseInterior3D({
           },
         );
         world.focusRoom(selectedRoomIdRef.current, reducedMotionQuery.matches);
-        const renderFrame = () => world.scene.render();
-        engine.runRenderLoop(renderFrame);
-        const resizeObserver = new ResizeObserver(() => engine.resize());
-        resizeObserver.observe(canvas);
+        const renderLoop = startCanvasRenderLoop({
+          engine,
+          canvas,
+          render: () => world.scene.render(),
+          onPause: () => world.walker.clearInput(),
+          onQuality: (quality) => {
+            world.scene.shadowsEnabled = quality !== "low";
+          },
+        });
         const runtime: InteriorRuntime = {
           world,
           reducedMotionQuery,
           dispose() {
-            resizeObserver.disconnect();
-            engine.stopRenderLoop(renderFrame);
+            renderLoop.dispose();
             world.dispose();
             engine.dispose();
           },
@@ -122,6 +124,7 @@ function HouseInterior3D({
         };
         setStatus("ready");
       } catch (error) {
+        disposeEngine?.();
         console.error("The 3D home interior could not start", error);
         if (!cancelled) setStatus("failed");
       }

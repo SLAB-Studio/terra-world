@@ -1,5 +1,7 @@
 "use client";
 
+import { startCanvasRenderLoop } from "../../lib/immersive-town/canvas-render-loop";
+
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -71,22 +73,17 @@ export default function BuildingVisit3D({
         if (cancelled || !canvasRef.current || !venue) return;
         const engine = new Babylon.Engine(
           canvasRef.current,
-          true,
+          false,
           {
             audioEngine: false,
             stencil: true,
-            powerPreference: "high-performance",
+            antialias: false,
+            preserveDrawingBuffer: false,
+            powerPreference: "default",
           },
-          true,
+          false,
         );
         disposeEngine = () => engine.dispose();
-        engine.setHardwareScalingLevel(
-          1 /
-            Math.min(
-              window.devicePixelRatio || 1,
-              window.innerWidth < 600 ? 1 : 1.35,
-            ),
-        );
         const world = interior.createVenueWorld(
           engine,
           venue,
@@ -99,15 +96,17 @@ export default function BuildingVisit3D({
           },
         );
         worldRef.current = world;
-        const render = () => {
-          if (document.visibilityState === "visible") world.scene.render();
-        };
-        engine.runRenderLoop(render);
-        const resize = new ResizeObserver(() => engine.resize());
-        resize.observe(canvasRef.current);
+        const renderLoop = startCanvasRenderLoop({
+          engine,
+          canvas: canvasRef.current,
+          render: () => world.scene.render(),
+          onPause: () => world.walker.clearInput(),
+          onQuality: (quality) => {
+            world.scene.shadowsEnabled = quality !== "low";
+          },
+        });
         cleanup = () => {
-          resize.disconnect();
-          engine.stopRenderLoop(render);
+          renderLoop.dispose();
           world.dispose();
           engine.dispose();
           worldRef.current = null;
