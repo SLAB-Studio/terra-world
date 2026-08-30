@@ -43,7 +43,7 @@ export function createTownAnimationController(
     });
     targets.lampBulbs.forEach((bulb) => bulb.scaling.setAll(1));
     targets.ambientActors.forEach((actor) => {
-      applyTownCharacterMotion(actor, 0, true);
+      applyTownCharacterMotion(actor, elapsedSeconds, true);
     });
     targets.playgroundSpinners.forEach((spinner) => {
       spinner.rotation.y = 0;

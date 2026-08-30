@@ -38,7 +38,7 @@ describe("Rivergate 3D characters", () => {
     expect(stillWalk.offsetY).toBe(0);
     expect(stillWalk.offsetZ).toBe(0);
     expect(stillWalk.yaw).toBe(0);
-    expect(stillWave.rightArm).toBeLessThan(-2);
-    expect(stillWave.rightElbow).toBeLessThan(-0.5);
+    expect(stillWave.rightArm).toBeGreaterThan(2);
+    expect(stillWave.rightElbow).toBeGreaterThan(0.5);
   });
 });

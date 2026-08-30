@@ -5,6 +5,13 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
 
+import {
+  PEDESTRIAN_ROUTES,
+  sampleFootstep,
+  samplePedestrianRoute,
+  solvePedestrianLeg,
+} from "./pedestrian-motion";
+
 export type TownCharacterAge = "adult" | "child";
 export type TownCharacterActivity = "chat" | "idle" | "play" | "walk" | "wave";
 export type TownCharacterHair =
@@ -42,6 +49,14 @@ export type TownCharacterRig = Readonly<{
   rightHip: TransformNode;
   leftKnee: TransformNode;
   rightKnee: TransformNode;
+  leftAnkle: TransformNode;
+  rightAnkle: TransformNode;
+  legDimensions: Readonly<{
+    hipY: number;
+    upperLeg: number;
+    lowerLeg: number;
+    shoulderWidth: number;
+  }>;
   torso: TransformNode;
   head: TransformNode;
 }>;
@@ -420,27 +435,27 @@ export function createTownCharacter(
   const dimensions =
     profile.age === "child"
       ? {
-          hipY: 1.14,
+          hipY: 1.08,
           upperLeg: 0.53,
           lowerLeg: 0.53,
           torso: 0.88,
           shoulderY: 1.92,
           upperArm: 0.43,
           lowerArm: 0.42,
-          headY: 2.46,
+          headY: 2.29,
           head: 0.57,
           shoulderWidth: 0.68,
           foot: 0.43,
         }
       : {
-          hipY: 1.48,
+          hipY: 1.425,
           upperLeg: 0.7,
           lowerLeg: 0.69,
           torso: 1.16,
           shoulderY: 2.53,
           upperArm: 0.56,
           lowerArm: 0.55,
-          headY: 3.23,
+          headY: 2.945,
           head: 0.62,
           shoulderWidth: 0.84,
           foot: 0.5,
@@ -456,6 +471,7 @@ export function createTownCharacter(
   const white = material(scene, "#FFF8EC", 0.12);
 
   const torso = new TransformNode(`${profile.id}-torso-rig`, scene);
+  torso.position.y = dimensions.hipY;
   torso.parent = root;
   const chest = MeshBuilder.CreateCylinder(
     `${profile.id}-torso`,
@@ -467,7 +483,7 @@ export function createTownCharacter(
     },
     scene,
   );
-  chest.position.y = dimensions.hipY + dimensions.torso * 0.52;
+  chest.position.y = dimensions.torso * 0.52;
   chest.material = shirt;
   finishCharacterMesh(chest, torso, shadows, true);
 
@@ -482,7 +498,8 @@ export function createTownCharacter(
       },
       scene,
     );
-    collar.position.y = dimensions.headY - dimensions.head * 0.68;
+    collar.position.y =
+      dimensions.headY - dimensions.hipY - dimensions.head * 0.68;
     collar.material = accent;
     finishCharacterMesh(collar, torso, shadows);
     const scarf = MeshBuilder.CreateBox(
@@ -496,7 +513,7 @@ export function createTownCharacter(
     );
     scarf.position.set(
       -dimensions.shoulderWidth * 0.14,
-      dimensions.hipY + dimensions.torso * 0.72,
+      dimensions.torso * 0.72,
       -dimensions.shoulderWidth * 0.48,
     );
     scarf.rotation.z = -0.08;
@@ -514,7 +531,7 @@ export function createTownCharacter(
     },
     scene,
   );
-  hips.position.y = dimensions.hipY + 0.08;
+  hips.position.y = 0.08;
   hips.material = bottoms;
   finishCharacterMesh(hips, torso, shadows);
 
@@ -527,13 +544,13 @@ export function createTownCharacter(
     },
     scene,
   );
-  neck.position.y = dimensions.headY - dimensions.head * 0.53;
+  neck.position.y = dimensions.headY - dimensions.hipY - dimensions.head * 0.53;
   neck.material = skin;
   finishCharacterMesh(neck, torso, shadows);
 
   const head = new TransformNode(`${profile.id}-head-rig`, scene);
-  head.position.y = dimensions.headY;
-  head.parent = root;
+  head.position.y = dimensions.headY - dimensions.hipY;
+  head.parent = torso;
   const face = MeshBuilder.CreateSphere(
     `${profile.id}-head`,
     { diameter: dimensions.head, segments: 14 },
@@ -565,23 +582,23 @@ export function createTownCharacter(
 
   const leftShoulder = createArm(
     scene,
-    root,
+    torso,
     shadows,
     profile.id,
     "left",
     -1,
-    dimensions,
+    { ...dimensions, shoulderY: dimensions.shoulderY - dimensions.hipY },
     shirt,
     skin,
   );
   const rightShoulder = createArm(
     scene,
-    root,
+    torso,
     shadows,
     profile.id,
     "right",
     1,
-    dimensions,
+    { ...dimensions, shoulderY: dimensions.shoulderY - dimensions.hipY },
     shirt,
     skin,
   );
@@ -620,6 +637,9 @@ export function createTownCharacter(
     rightHip: rightLeg.hip,
     leftKnee: leftLeg.knee,
     rightKnee: rightLeg.knee,
+    leftAnkle: leftLeg.ankle,
+    rightAnkle: rightLeg.ankle,
+    legDimensions: dimensions,
     torso,
     head,
   };
@@ -644,7 +664,11 @@ export function applyTownCharacterMotion(
     rig.baseY + motion.offsetY,
     rig.profile.z + motion.offsetZ,
   );
-  rig.root.rotation.y = rig.profile.rotation + motion.yaw;
+  // A walking heading is absolute in route space, not an offset from an idle pose.
+  rig.root.rotation.y =
+    rig.profile.activity === "walk" && !reducedMotion
+      ? motion.yaw
+      : rig.profile.rotation + motion.yaw;
   rig.torso.rotation.x = motion.torsoPitch;
   rig.head.rotation.y = motion.headYaw;
   rig.leftShoulder.rotation.x = motion.leftArm;
@@ -655,6 +679,65 @@ export function applyTownCharacterMotion(
   rig.rightHip.rotation.x = motion.rightLeg;
   rig.leftKnee.rotation.x = motion.leftKnee;
   rig.rightKnee.rotation.x = motion.rightKnee;
+  rig.leftAnkle.rotation.x = -motion.leftLeg - motion.leftKnee;
+  rig.rightAnkle.rotation.x = -motion.rightLeg - motion.rightKnee;
+
+  const route = PEDESTRIAN_ROUTES[rig.profile.id];
+  if (route !== undefined) {
+    const place = samplePedestrianRoute(
+      route,
+      elapsedSeconds,
+      rig.profile.phase,
+    );
+    const strength = reducedMotion ? 0 : Math.min(1, place.speed / 0.65);
+    const stride = rig.profile.age === "child" ? 0.48 : 0.64;
+    const left = sampleFootstep(place.travelled, stride, 0, strength);
+    const right = sampleFootstep(place.travelled, stride, 0.5, strength);
+    const dimensions = rig.legDimensions;
+    const soleHeight = dimensions.shoulderWidth * 0.09;
+    const setLeg = (
+      foot: typeof left,
+      hip: TransformNode,
+      knee: TransformNode,
+      ankle: TransformNode,
+    ) => {
+      const pose = solvePedestrianLeg(
+        dimensions.upperLeg,
+        dimensions.lowerLeg,
+        dimensions.hipY - soleHeight - foot.lift,
+        foot.z,
+      );
+      hip.rotation.x = pose.hip;
+      knee.rotation.x = pose.knee;
+      ankle.rotation.x = pose.ankle;
+    };
+    setLeg(left, rig.leftHip, rig.leftKnee, rig.leftAnkle);
+    setLeg(right, rig.rightHip, rig.rightKnee, rig.rightAnkle);
+    rig.root.position.set(place.x, place.y, place.z);
+    rig.root.rotation.y = place.yaw;
+    rig.torso.rotation.x = -0.018 * strength;
+    rig.head.rotation.y = 0;
+    rig.leftShoulder.rotation.x = left.z * 0.9;
+    rig.rightShoulder.rotation.x = right.z * 0.9;
+    rig.leftElbow.rotation.x = 0.18;
+    rig.rightElbow.rotation.x = 0.18;
+  } else {
+    // Keep standing/chatting feet on the floor. Only a playing child may hop.
+    const dimensions = rig.legDimensions;
+    const soleY = (hip: number, knee: number) =>
+      dimensions.hipY -
+      dimensions.upperLeg * Math.cos(hip) -
+      dimensions.lowerLeg * Math.cos(hip + knee) -
+      dimensions.shoulderWidth * 0.09;
+    const lowest = Math.min(
+      soleY(motion.leftLeg, motion.leftKnee),
+      soleY(motion.rightLeg, motion.rightKnee),
+    );
+    rig.root.position.y =
+      rig.baseY -
+      lowest +
+      (rig.profile.activity === "play" ? motion.offsetY : 0);
+  }
 }
 
 export function sampleTownCharacterMotion(
@@ -673,20 +756,20 @@ export function sampleTownCharacterMotion(
     headYaw: 0,
     leftArm: 0.06,
     rightArm: -0.06,
-    leftElbow: -0.08,
-    rightElbow: -0.08,
+    leftElbow: 0.08,
+    rightElbow: 0.08,
     leftLeg: 0,
     rightLeg: 0,
-    leftKnee: 0.04,
-    rightKnee: 0.04,
+    leftKnee: 0,
+    rightKnee: 0,
   } as const;
 
   if (reducedMotion) {
     if (activity === "wave") {
       return {
         ...quiet,
-        rightArm: -2.25,
-        rightElbow: -0.72,
+        rightArm: 2.25,
+        rightElbow: 0.72,
         headYaw: -0.12,
       };
     }
@@ -707,7 +790,7 @@ export function sampleTownCharacterMotion(
       offsetX: Math.sin(loop) * pathRadius,
       offsetY: Math.abs(stride) * 0.045,
       offsetZ: Math.cos(loop) * pathRadius,
-      yaw: loop + Math.PI / 2,
+      yaw: loop - Math.PI / 2,
       torsoPitch: 0.055,
       headYaw: Math.sin(loop * 0.7) * 0.1,
       leftArm: stride * 0.62,
@@ -744,8 +827,8 @@ export function sampleTownCharacterMotion(
       torsoPitch: -0.025,
       headYaw: -0.12 + Math.sin(elapsedSeconds * 0.8 + phase) * 0.07,
       leftArm: 0.12,
-      rightArm: -2.2 + wave * 0.16,
-      rightElbow: -0.72 + wave * 0.24,
+      rightArm: 2.2 + wave * 0.16,
+      rightElbow: 0.72 + wave * 0.24,
     };
   }
 
@@ -763,8 +846,8 @@ export function sampleTownCharacterMotion(
       rightElbow: -0.28,
       leftLeg: beat * 0.22,
       rightLeg: -beat * 0.22,
-      leftKnee: skip * 0.3,
-      rightKnee: Math.max(0, -beat) * 0.3,
+      leftKnee: -skip * 0.3,
+      rightKnee: -Math.max(0, -beat) * 0.3,
     };
   }
 
@@ -833,6 +916,13 @@ function createArm(
   const elbow = new TransformNode(`${id}-${label}-elbow`, scene);
   elbow.position.y = -dimensions.upperArm;
   elbow.parent = shoulder;
+  const elbowJoint = MeshBuilder.CreateSphere(
+    `${id}-${label}-elbow-joint`,
+    { diameter: dimensions.shoulderWidth * 0.2, segments: 10 },
+    scene,
+  );
+  elbowJoint.material = skin;
+  finishCharacterMesh(elbowJoint, elbow, shadows);
   const forearm = MeshBuilder.CreateCylinder(
     `${id}-${label}-forearm`,
     {
@@ -894,6 +984,13 @@ function createLeg(
   const knee = new TransformNode(`${id}-${label}-knee`, scene);
   knee.position.y = -dimensions.upperLeg;
   knee.parent = hip;
+  const kneeJoint = MeshBuilder.CreateSphere(
+    `${id}-${label}-knee-joint`,
+    { diameter: dimensions.shoulderWidth * 0.23, segments: 10 },
+    scene,
+  );
+  kneeJoint.material = bottoms;
+  finishCharacterMesh(kneeJoint, knee, shadows);
   const lower = MeshBuilder.CreateCylinder(
     `${id}-${label}-lower-leg`,
     {
@@ -916,10 +1013,13 @@ function createLeg(
     },
     scene,
   );
-  shoe.position.set(0, -dimensions.lowerLeg, -dimensions.foot * 0.22);
+  const ankle = new TransformNode(`${id}-${label}-ankle`, scene);
+  ankle.position.y = -dimensions.lowerLeg;
+  ankle.parent = knee;
+  shoe.position.set(0, 0, -dimensions.foot * 0.22);
   shoe.material = shoes;
-  finishCharacterMesh(shoe, knee, shadows);
-  return { hip, knee };
+  finishCharacterMesh(shoe, ankle, shadows);
+  return { hip, knee, ankle };
 }
 
 function createFace(
