@@ -3,15 +3,19 @@
 This is a visual extension of the existing adult-focused city, not a new crowd
 simulation or visual identity. Rigged, textured human models replace the primitive
 body meshes once a complete asset is ready. The original character roots, IDs,
-roles, authored routes, deterministic timing, and local game rules remain intact.
-People are non-pickable and non-colliding: they add no conversation mechanic,
-navigation obstacle, repair action, save field, or 0G request. Existing walking,
+roles and local game rules remain intact. The later
+[resident-routine extension](resident-routines.md) replaces authored route loops
+with deterministic local destination travel, visits and rides.
+The asset replacement itself adds no conversation mechanic, player navigation
+obstacle, repair action, save field, or 0G request; residents remain non-pickable.
+Later routines coordinate residents with one another and traffic. Existing walking,
 building entry, camera, and campaign interactions retain their boundaries.
 
 ## Implementation and assets
 
-- `characters-3d.ts` retains root placement and route headings, then delegates
-  appearance and pose updates to `realistic-residents.ts`.
+- `characters-3d.ts` retains the character roots and delegates appearance and
+  pose updates to `realistic-residents.ts`; current world movement is owned by
+  `resident-routines-3d.ts`.
 - `resident-models.ts` owns stable appearance selection, detail thresholds, and
   clip timing. `resident-assets.ts` owns the lazy-loaded glTF loader and per-scene
   asset cache.
@@ -34,7 +38,8 @@ building entry, camera, and campaign interactions retain their boundaries.
 Near detail remains until distance reaches 26 units (18 with shadows disabled),
 avoiding boundary thrashing. Distance checks normally run every 0.5 seconds.
 Only near-detail meshes cast resident shadows; both variants receive shadows.
-All twelve GLBs total 11,149,860 bytes; the six far variants total 4,843,932 bytes.
+After the retargeting correction, all twelve GLBs total 11,813,068 bytes; the six
+far variants total 5,175,564 bytes.
 These are asset budgets, not frame-rate measurements.
 
 Registration requires a real rendering canvas; ordinary headless worlds do not
@@ -54,10 +59,13 @@ usable if the GLBs have not been cached.
 
 ## Motion and accessibility
 
-Walk phase follows travelled route distance, adjusted for model stature and cycle
-length, rather than wall-clock time. Speeds at or below 0.08 select idle; chat and
-wave select talk; other activities select idle. Pose transitions blend over 0.22
-seconds. Anatomical retargeting preserves adult/child limb proportions and grounds
+Walk phase follows travelled distance, adjusted for model stature and cycle
+length, rather than wall-clock time. Current clip selection uses speed hysteresis
+(walk starts above 0.12 and remains active above 0.06); chat and wave select a
+restrained upper-body talk layer over idle. Pose transitions ease over 0.36
+seconds. The later [routine/animation correction](resident-routines.md#animation-correction)
+fixes stale-parent retargeting and reconciles loop endpoints. Anatomical
+retargeting preserves adult/child limb proportions and grounds
 feet; a half-turn mount aligns imported forward direction with route headings.
 The old primitive body's extra bob is not layered onto the imported animation.
 
@@ -68,6 +76,9 @@ the existing scene controllers stop advancing route time, retaining current rout
 positions. Repeated stationary reduced-motion updates reuse bone matrices.
 
 ## Reproduction and checks
+
+The verification counts below record the earlier asset implementation, not the
+later resident-routine extension; see its [current scope and checks](resident-routines.md).
 
 From the repository root, with Node 20.9+ and `uv` available:
 

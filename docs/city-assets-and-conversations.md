@@ -2,6 +2,10 @@
 
 Implementation record, 2026-08-30. This is a narrow extension of Rivergate's existing adult, muted 3D city—not a replacement visual system or a new simulation.
 
+Subsequent behavior update: [resident routines](resident-routines.md) adds local
+destination travel, doorway visits and stopped-vehicle rides. The asset and
+verification record below retains its original implementation scope.
+
 ## Scope and preserved behavior
 
 - The populated city, walking controls, building entrances, campaign properties and missions remain the underlying experience.
@@ -32,7 +36,7 @@ The canonical [asset inventory, provenance, modifications, attribution and licen
 
 ## Resident conversations
 
-- Three existing resident pairs converse at Market square, School gardens and River promenade. Each has separate day and night text.
+- Three existing resident pairs have authored conversations for Market square, School gardens and River promenade, with separate day/night text. Under the later routines, a pair speaks only when both members are visible, idle and within 3.5 scene units; these are no longer permanently stationary conversation groups.
 - A 54-second cycle provides three alternating seven-second turns, short gaps between lines and a longer quiet interval. Pair offsets keep their cycles staggered.
 - Only the nearest active speaker in front of the camera is selected: within 28 units while walking, or 95 units in the overview camera.
 - One depth-tested, camera-facing caption is attached above the speaker. It names the resident, wraps the line and scales within bounded sizes as distance changes. Buildings can occlude it; it is not an always-on-top overlay.

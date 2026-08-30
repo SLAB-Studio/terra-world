@@ -66,9 +66,9 @@ Short narrow screens hide the help text and place home entry beside movement con
 
 ## Local behavior
 
-Residents use five authored pedestrian routes, separate from the car lanes. Their facing direction follows travel, with deceleration, a pause, and a turn before returning. Footstep timing follows distance travelled; leg and ankle joints keep the supporting shoe planted and the swinging shoe clear of the path. Heads and arms share the torso hierarchy so body movement cannot separate them. Reduced-motion mode holds each walker at their current route position.
+The later [resident-routine extension](resident-routines.md) replaces the five authored walking loops with a shared pedestrian network for 32 residents and 46 entrance destinations. Local deterministic trips include visits, curbside rides, crossing priority and bridge-bank yielding. Facing and footstep timing follow travel; reduced motion holds routine progression. Building visits hand off at exterior thresholds rather than populating the separate player interior scenes with persistent NPCs.
 
-These are scripted neighbourhood routines, not a full autonomous crowd/traffic simulation. Pedestrian route clearance, heading, stopping, joint connections and rendered shoe heights are covered by `pedestrian-motion.test.ts`.
+This remains lightweight local navigation, not full crowd/traffic physics. The resident-routine record describes current tests, animation corrections and outstanding live visual/performance acceptance. Earlier `pedestrian-motion.test.ts` coverage remains a historical check of the underlying character motion helpers.
 
 Outdoor and indoor walking, collision checks, camera switching, and proximity checks run locally after the relevant assets load. The feature adds no 0G calls, wallet actions, uploads, or network persistence. Indoor repairs use the existing upgrade callbacks and data pipeline; walking does not change that behavior or make a cold offline page load available.
 
