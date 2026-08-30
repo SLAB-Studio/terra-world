@@ -10,7 +10,8 @@ import {
   createTownCharacter,
   type TownCharacterProfile,
 } from "./characters-3d";
-import type { TownMaterials } from "./materials";
+import { applyTownSurface, type TownMaterials } from "./materials";
+import { createArchitecturalBatch, type ArchitecturalBox } from "./geometry";
 
 /** Commercial buildings, not pretend homes: all existing homes remain playable. */
 export const DOWNTOWN_BUILDINGS = [
@@ -20,7 +21,7 @@ export const DOWNTOWN_BUILDINGS = [
     x: -6.5,
     z: -15,
     height: 15,
-    colour: "#BA795B",
+    colour: "#9D7762",
   },
   {
     id: "science",
@@ -28,7 +29,7 @@ export const DOWNTOWN_BUILDINGS = [
     x: -6.5,
     z: -38,
     height: 27,
-    colour: "#4D8295",
+    colour: "#929D9D",
   },
   {
     id: "studios",
@@ -36,7 +37,7 @@ export const DOWNTOWN_BUILDINGS = [
     x: -6.5,
     z: -50,
     height: 20,
-    colour: "#6C8683",
+    colour: "#8A9185",
   },
   {
     id: "hub",
@@ -44,7 +45,7 @@ export const DOWNTOWN_BUILDINGS = [
     x: -6.5,
     z: -63,
     height: 31,
-    colour: "#567597",
+    colour: "#6C7C87",
   },
   {
     id: "bookshop",
@@ -52,7 +53,7 @@ export const DOWNTOWN_BUILDINGS = [
     x: -55,
     z: 10,
     height: 14,
-    colour: "#C28D58",
+    colour: "#AD967A",
   },
   {
     id: "arts",
@@ -60,7 +61,7 @@ export const DOWNTOWN_BUILDINGS = [
     x: -51,
     z: 23,
     height: 22,
-    colour: "#7C829C",
+    colour: "#929092",
   },
   {
     id: "cafe",
@@ -68,7 +69,7 @@ export const DOWNTOWN_BUILDINGS = [
     x: 64,
     z: -18,
     height: 13,
-    colour: "#AC705D",
+    colour: "#A07864",
   },
   {
     id: "workshop",
@@ -76,7 +77,7 @@ export const DOWNTOWN_BUILDINGS = [
     x: 64,
     z: -29,
     height: 18,
-    colour: "#57868B",
+    colour: "#828D89",
   },
 ] as const;
 
@@ -87,17 +88,18 @@ export function createMetropolis(
 ) {
   const root = new TransformNode("rivergate-downtown", scene);
   const litWindows = new StandardMaterial("downtown-lit-windows", scene);
-  litWindows.diffuseColor = Color3.FromHexString("#87B6CB");
+  litWindows.diffuseColor = Color3.FromHexString("#7E9195");
   litWindows.specularColor = Color3.FromHexString("#B8DCE5").scale(0.35);
   const sleepingWindows = new StandardMaterial("downtown-unlit-windows", scene);
-  sleepingWindows.diffuseColor = Color3.FromHexString("#345367");
+  sleepingWindows.diffuseColor = Color3.FromHexString("#38464D");
   sleepingWindows.specularColor = Color3.White().scale(0.3);
   const trim = new StandardMaterial("downtown-metal", scene);
-  trim.diffuseColor = Color3.FromHexString("#374B59");
+  trim.diffuseColor = Color3.FromHexString("#3D4549");
   trim.specularColor = Color3.White().scale(0.25);
   const pavement = new StandardMaterial("downtown-pavement", scene);
-  pavement.diffuseColor = Color3.FromHexString("#C6C1AF");
+  pavement.diffuseColor = Color3.FromHexString("#B9B6AB");
   pavement.specularColor = Color3.Black();
+  applyTownSurface(scene, pavement, "stone");
 
   const box = (
     name: string,
@@ -132,7 +134,7 @@ export function createMetropolis(
       scene,
     );
     facade.diffuseColor = Color3.FromHexString(building.colour);
-    facade.specularColor = Color3.White().scale(0.12);
+    applyTownSurface(scene, facade, index % 3 === 0 ? "brick" : "stone");
     box(
       `downtown-${building.id}-foundation`,
       block,
@@ -157,6 +159,12 @@ export function createMetropolis(
       true,
     );
     body.metadata = { blocksWalking: true, buildingKind: "commercial" };
+    const facadeUVs = body.getVerticesData("uv");
+    if (facadeUVs) {
+      for (let uv = 1; uv < facadeUVs.length; uv += 2)
+        facadeUVs[uv] = ((facadeUVs[uv] ?? 0) * building.height) / 4;
+      body.setVerticesData("uv", facadeUVs);
+    }
     box(
       `downtown-${building.id}-roof`,
       block,
@@ -222,6 +230,7 @@ export function createMetropolis(
     const lit: Mesh[] = [],
       dark: Mesh[] = [],
       bands: Mesh[] = [];
+    const joinery: ArchitecturalBox[] = [];
     for (
       let floor = 0;
       floor < Math.floor((building.height - 3.5) / 2.8);
@@ -244,6 +253,27 @@ export function createMetropolis(
             warm ? litWindows : sleepingWindows,
           );
           (warm ? lit : dark).push(window);
+          // Recessed glazing reads as a real opening; every frame shares one draw.
+          for (const direction of [-1, 1]) {
+            const cx = side % 2 ? (side === 1 ? 4.1 : -4.1) : across;
+            const cz = side % 2 ? across : side === 0 ? -4.1 : 4.1;
+            joinery.push([
+              cx,
+              y + direction * 0.82,
+              cz,
+              side % 2 ? 0.18 : 1.86,
+              0.12,
+              side % 2 ? 1.86 : 0.18,
+            ]);
+            joinery.push([
+              cx + (side % 2 ? 0 : direction * 0.89),
+              y,
+              cz + (side % 2 ? direction * 0.89 : 0),
+              side % 2 ? 0.18 : 0.1,
+              1.65,
+              side % 2 ? 0.1 : 0.18,
+            ]);
+          }
         }
       }
       bands.push(
@@ -260,6 +290,19 @@ export function createMetropolis(
         ),
       );
     }
+    // A stone plinth and vertical piers ground the tall volumes at street level.
+    for (const x of [-3.9, -1.3, 1.3, 3.9]) {
+      joinery.push([x, 1.52, -4.18, 0.24, 2.9, 0.28]);
+    }
+    joinery.push([0, 0.2, -4.12, 8.25, 0.4, 0.24]);
+    joinery.push([0, building.height - 0.14, 0, 8.35, 0.25, 8.35]);
+    createArchitecturalBatch(
+      `downtown-${building.id}-stone-joinery`,
+      joinery,
+      materials.cream,
+      block,
+      scene,
+    );
     // Merge repeated geometry by material: hundreds of windows, only a few draws.
     for (const [suffix, parts] of [
       ["lit", lit],
@@ -330,8 +373,8 @@ export function createMetropolis(
         null,
         65,
         "bold 48px sans-serif",
-        "#173747",
-        "#FFF1CF",
+        "#303C3D",
+        "#DDD7C8",
         true,
       );
       const signMaterial = new StandardMaterial(
@@ -427,7 +470,7 @@ export function createMetropolis(
         hair: (["coils", "bun", "short", "waves"] as const)[index % 4]!,
         skin: ["#6F3F2A", "#A9623D", "#DBA580", "#855339"][index % 4]!,
         hairColor: "#30241F",
-        shirt: ["#D8A444", "#4A92C2", "#C27569", "#5C9277"][index % 4]!,
+        shirt: ["#A18B68", "#607787", "#8D7165", "#6E7A65"][index % 4]!,
         bottoms: "#324B62",
         shoes: "#403631",
         x,

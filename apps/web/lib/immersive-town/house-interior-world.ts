@@ -21,6 +21,8 @@ import {
   type InteriorWalkCallbacks,
 } from "./interior-walker";
 import type { WalkBounds } from "./walking";
+import { applyTownSurface } from "./materials";
+import { createArchitecturalBatch } from "./geometry";
 
 export type InteriorRoomId =
   "living-room" | "kitchen" | "garden-room" | "utility-room";
@@ -144,9 +146,11 @@ export function createHouseInteriorWorld(
   sun.intensity = 0.76;
   sun.diffuse = Color3.FromHexString("#FFDCA3");
   sun.specular = Color3.FromHexString("#FFF3D5").scale(0.2);
-  const shadows = new ShadowGenerator(1024, sun);
+  const shadows = new ShadowGenerator(512, sun);
   shadows.usePercentageCloserFiltering = true;
-  shadows.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
+  shadows.filteringQuality = ShadowGenerator.QUALITY_LOW;
+  const shadowMap = shadows.getShadowMap();
+  if (shadowMap) shadowMap.refreshRate = 2;
   shadows.bias = 0.001;
   shadows.normalBias = 0.02;
 
@@ -248,10 +252,10 @@ function createInteriorMaterials(
 ) {
   const accent =
     houseId === "sunny"
-      ? "#F47F70"
+      ? "#85745F"
       : houseId === "bluebell"
-        ? "#62AEF0"
-        : "#FFD24A";
+        ? "#61777B"
+        : "#768069";
   const make = (name: string, color: string, emissive = false) => {
     const material = new StandardMaterial(`interior-${houseId}-${name}`, scene);
     material.diffuseColor = Color3.FromHexString(color);
@@ -263,22 +267,22 @@ function createInteriorMaterials(
   const selection = make("selection", "#FFD24A", true);
   selection.alpha = 0.42;
   return {
-    accent: make("accent", accent),
-    blue: make("blue", "#62AEF0"),
-    clay: make("clay", "#C86E55"),
-    counter: make("counter", "#D29455"),
+    accent: applyTownSurface(scene, make("accent", accent), "fabric"),
+    blue: applyTownSurface(scene, make("blue", "#667E85"), "fabric"),
+    clay: make("clay", "#9A745D"),
+    counter: applyTownSurface(scene, make("counter", "#C7C4B8"), "stone"),
     dark: make("dark", "#263746"),
-    floor: make("floor", "#C28A4A"),
-    green: make("green", "#62A85C"),
-    greenLight: make("green-light", "#90CF6B"),
+    floor: applyTownSurface(scene, make("floor", "#9B846B"), "wood"),
+    green: make("green", "#58725A"),
+    greenLight: make("green-light", "#80906B"),
     metal: make("metal", "#9EB2B5"),
-    paper: make("paper", "#E5CFA0"),
+    paper: make("paper", "#DAD7CA"),
     red: make("red", "#E75F52"),
     selection,
     soil: make("soil", "#805B3E"),
-    wall: make("wall", "#D8C18E"),
-    water: make("water", "#3A9ED3", true),
-    wood: make("wood", "#7A4D2F"),
+    wall: applyTownSurface(scene, make("wall", "#C6C2B4"), "stone"),
+    water: make("water", "#648B96", true),
+    wood: applyTownSurface(scene, make("wood", "#806A53"), "wood"),
     yellow: make("yellow", "#FFD24A", true),
   };
 }
@@ -291,6 +295,24 @@ function createHouseShell(
   const floor = box(scene, "interior-floor", [17.4, 0.55, 12.6], [0, 0, 0]);
   floor.material = materials.floor;
   floor.receiveShadows = true;
+  const joineryRoot = new TransformNode(
+    "interior-architectural-joinery",
+    scene,
+  );
+  createArchitecturalBatch(
+    "interior-skirting-and-cornice",
+    [
+      [-8.05, 0.43, 0, 0.1, 0.27, 11.8],
+      [8.05, 0.43, 0, 0.1, 0.27, 11.8],
+      [0, 0.43, 5.79, 16.2, 0.27, 0.1],
+      [-8.05, 6.22, 0, 0.18, 0.2, 11.8],
+      [8.05, 6.22, 0, 0.18, 0.2, 11.8],
+      [0, 6.22, 5.79, 16.2, 0.2, 0.18],
+    ],
+    materials.paper,
+    joineryRoot,
+    scene,
+  );
 
   for (const [name, size, position] of [
     ["back", [17.4, 6.6, 0.45], [0, 3.2, 6.05]],
@@ -403,6 +425,36 @@ function createLivingRoom(
   );
   table.material = materials.wood;
   register(table, rig, shadows);
+  for (const x of [-5.05, -3.15]) {
+    for (const z of [-2.2, -1.2]) {
+      const leg = box(
+        scene,
+        `living-table-leg-${x}-${z}`,
+        [0.14, 0.6, 0.14],
+        [x, 0.68, z],
+      );
+      leg.material = materials.wood;
+      register(leg, rig);
+    }
+  }
+  for (const x of [-5.1, -4.1, -3.1]) {
+    const cushion = box(
+      scene,
+      `living-sofa-cushion-${x}`,
+      [0.93, 0.2, 1.26],
+      [x, 1.64, -4.37],
+    );
+    cushion.material = materials.accent;
+    register(cushion, rig);
+  }
+  const back = box(
+    scene,
+    "living-sofa-upholstered-back",
+    [3.2, 1.05, 0.23],
+    [-4.1, 1.73, -5.03],
+  );
+  back.material = materials.accent;
+  register(back, rig);
   const lampPole = MeshBuilder.CreateCylinder(
     "living-lamp-pole",
     { height: 3.2, diameter: 0.2, tessellation: 12 },

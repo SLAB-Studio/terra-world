@@ -6,6 +6,7 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
 
 import type { TownMaterials } from "./materials";
+import { createHouseFacadeDetails, naturalizeCanopy } from "./geometry";
 import type {
   TownCompoundId,
   TownCompoundMetadata,
@@ -59,7 +60,7 @@ export function createTownCompounds(
       style: {
         wall: materials.sunflowerWall,
         roof: materials.sunflowerRoof,
-        accent: materials.flower,
+        accent: materials.bark,
       },
       houses: [
         {
@@ -78,7 +79,7 @@ export function createTownCompounds(
       style: {
         wall: materials.riverWall,
         roof: materials.riverRoof,
-        accent: materials.river,
+        accent: materials.riverRoof,
       },
       houses: [
         {
@@ -229,10 +230,10 @@ function createHouse(
   ] as const) {
     const roof = MeshBuilder.CreateBox(
       `${id}-roof-${side}`,
-      { width: 5.7, height: 0.58, depth: 8.5 },
+      { width: 5.7, height: 0.25, depth: 8.5 },
       scene,
     );
-    roof.position.set(x, 5.82, 0);
+    roof.position.set(x, 6.4, 0);
     roof.rotation.z = angle;
     roof.material = style.roof;
     roof.parent = root;
@@ -272,7 +273,7 @@ function createHouse(
     { width: 0.9, height: 2.1, depth: 0.9 },
     scene,
   );
-  chimney.position.set(2.15, 6.25, 1.2);
+  chimney.position.set(2.15, 7.05, 1.2);
   chimney.material = materials.clay;
   chimney.parent = root;
 
@@ -284,6 +285,18 @@ function createHouse(
   step.position.set(0, 1.05, -4.1);
   step.material = materials.bridge;
   step.parent = root;
+
+  createHouseFacadeDetails(scene, root, materials, style.wall, {
+    width: 8.2,
+    depth: 7.2,
+    eaves: 5.28,
+    ridge: 7.87,
+    windowX: 2.45,
+    windowY: 3.45,
+    windowWidth: 1.48,
+    windowHeight: 1.45,
+    doorTop: 3.77,
+  });
 
   root.computeWorldMatrix(true);
   const meshes = root.getChildMeshes();
@@ -524,6 +537,7 @@ function createOrchardGarden(
     );
     canopy.position.y = 3.2;
     canopy.scaling.y = 0.76;
+    naturalizeCanopy(canopy, index + 0.6);
     canopy.material = index % 2 === 0 ? materials.leaf : materials.leafLight;
     canopy.parent = tree;
     shadows.addShadowCaster(trunk);

@@ -12,6 +12,9 @@ import { stepInterior } from "./interior-navigation";
 import type { WalkBounds } from "./walking";
 import type { TownVenue, VenueKind } from "./venue-catalog";
 import type { TownTimeOfDay } from "./types";
+import { applyTownSurface } from "./materials";
+import { createArchitecturalBatch } from "./geometry";
+import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 
 export const VENUE_LIMITS: WalkBounds = {
   minX: -10.8,
@@ -57,14 +60,18 @@ export function createVenueWorld(
     m.emissiveColor = m.diffuseColor.scale(glow);
     return m;
   };
-  const wood = material("warm-oak", "#A77550");
+  const wood = applyTownSurface(scene, material("warm-oak", "#987D60"), "wood");
   const dark = material("charcoal-metal", "#304451");
-  const cream = material("plaster", "#D5D8D1");
-  const teal = material("teal-upholstery", "#348A86");
-  const gold = material("brass", "#D6AA57");
-  const leaf = material("foliage", "#568844");
-  const blue = material("blue-detail", "#5D8DC0");
-  const coral = material("coral-detail", "#CB705B");
+  const cream = material("plaster", "#CCCAC0");
+  const teal = applyTownSurface(
+    scene,
+    material("teal-upholstery", "#607875"),
+    "fabric",
+  );
+  const gold = material("brass", "#AE966C");
+  const leaf = material("foliage", "#607357");
+  const blue = material("blue-detail", "#667D91");
+  const coral = material("coral-detail", "#A17866");
   const glass = material(
     "night-windows",
     night ? "#182C4D" : "#7FBDD6",
@@ -215,7 +222,9 @@ export function createVenueWorld(
     23,
     0.3,
     19,
-    outdoor ? wood : material("floor-stone", "#8D9D9C"),
+    outdoor
+      ? wood
+      : applyTownSurface(scene, material("floor-stone", "#949C97"), "stone"),
   );
   // Narrow joints and a clear contrasting central route make the scale legible.
   for (let z = -9; z <= 9; z += 1.5)
@@ -228,7 +237,7 @@ export function createVenueWorld(
     2.5,
     0.018,
     17,
-    material("runner", "#B5C7BD"),
+    applyTownSurface(scene, material("runner", "#A6AEA1"), "fabric"),
   );
   if (!outdoor) {
     box("back-wall", 0, 2.5, 9.3, 23, 5, 0.3, cream);
@@ -254,6 +263,22 @@ export function createVenueWorld(
       }
     }
     box("ceiling", 0, 5.05, 0, 23, 0.18, 19, cream);
+    const joineryRoot = new TransformNode("venue-architectural-joinery", scene);
+    createArchitecturalBatch(
+      "venue-skirting-and-ceiling-beams",
+      [
+        [-11.16, 0.15, 0, 0.1, 0.3, 18.4],
+        [11.16, 0.15, 0, 0.1, 0.3, 18.4],
+        [0, 0.15, 9.08, 22.2, 0.3, 0.1],
+        [-11.1, 4.77, 0, 0.16, 0.17, 18.4],
+        [11.1, 4.77, 0, 0.16, 0.17, 18.4],
+        [0, 4.84, -4.7, 22.2, 0.22, 0.18],
+        [0, 4.84, 4.7, 22.2, 0.22, 0.18],
+      ],
+      wood,
+      joineryRoot,
+      scene,
+    );
     box("exit-door", 0, 1.6, -9.06, 2.2, 3.2, 0.12, teal);
     sign("EXIT · BACK TO TOWN", 0, 3.65, -8.97, 3.5);
   } else {

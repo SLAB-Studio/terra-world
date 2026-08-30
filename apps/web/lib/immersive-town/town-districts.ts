@@ -9,6 +9,7 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
 
 import type { TownMaterials } from "./materials";
+import { createHouseFacadeDetails } from "./geometry";
 import { neighborhoodHomeProfile } from "./neighborhood-home-stories";
 import type { TownHouseMetadata } from "./types";
 
@@ -164,12 +165,12 @@ export function createTownDistricts(
     river: {
       wall: materials.riverWall,
       roof: materials.riverRoof,
-      accent: materials.river,
+      accent: materials.riverRoof,
     },
     sunflower: {
       wall: materials.sunflowerWall,
       roof: materials.sunflowerRoof,
-      accent: materials.flower,
+      accent: materials.bark,
     },
   };
 
@@ -362,10 +363,10 @@ function createHomeParts(
   ] as const) {
     const roof = MeshBuilder.CreateBox(
       `${id}-roof-${side}`,
-      { width: 5, height: 0.5, depth: 7.1 },
+      { width: 5, height: 0.23, depth: 7.1 },
       scene,
     );
-    roof.position.set(x, 4.7, 0);
+    roof.position.set(x, 5.4, 0);
     roof.rotation.z = angle;
     roof.material = style.roof;
     add(roof, true);
@@ -391,6 +392,19 @@ function createHomeParts(
     add(window);
   }
 
+  parts.push(
+    ...createHouseFacadeDetails(scene, parent, materials, style.wall, {
+      width: 7.5,
+      depth: 6.1,
+      eaves: 4.18,
+      ridge: 6.75,
+      windowX: 2.2,
+      windowY: 2.55,
+      windowWidth: 1.35,
+      windowHeight: 1.2,
+      doorTop: 2.7,
+    }),
+  );
   return parts;
 }
 

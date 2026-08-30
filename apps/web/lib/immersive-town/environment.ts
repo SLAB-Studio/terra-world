@@ -6,7 +6,7 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
 
-import { createSegmentBox, makeRoute } from "./geometry";
+import { createSegmentBox, makeRoute, naturalizeCanopy } from "./geometry";
 import type { TownMaterials } from "./materials";
 import {
   renderedRoadHeight,
@@ -40,6 +40,15 @@ export function createTownEnvironment(
   const cloudRoots: TransformNode[] = [];
   const lampBulbs: Mesh[] = [];
   let districtHouses: readonly TownHouseMetadata[] = [];
+  const landscape = MeshBuilder.CreateGround(
+    "distant-ground-continuation",
+    { width: 1200, height: 1200 },
+    scene,
+  );
+  landscape.position.y = -3.02;
+  landscape.material = materials.grassDark;
+  landscape.parent = root;
+  landscape.isPickable = false;
 
   const terrain = MeshBuilder.CreateBox(
     "terrain-extruded-base",
@@ -461,7 +470,8 @@ function createTree(
       scene,
     );
     lob.position.copyFrom(position);
-    lob.scaling.y = 0.82;
+    lob.scaling.set(1 + (index % 3) * 0.08, 0.95 + (lobIndex % 2) * 0.2, 0.87);
+    naturalizeCanopy(lob, index * 0.71 + lobIndex);
     lob.material = material;
     lob.parent = canopy;
     lob.isPickable = false;

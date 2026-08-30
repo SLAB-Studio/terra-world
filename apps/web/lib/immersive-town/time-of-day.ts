@@ -26,7 +26,7 @@ export function createTimeOfDay(
   moonMaterial.diffuseColor = Color3.Black();
   const moon = MeshBuilder.CreateSphere(
     "rivergate-moon",
-    { diameter: 9, segments: 24 },
+    { diameter: 4.8, segments: 16 },
     scene,
   );
   moon.position.set(-45, 72, 82);
@@ -115,22 +115,22 @@ export function createTimeOfDay(
     const night = mode === "night";
     scene.metadata = { ...scene.metadata, timeOfDay: mode };
     scene.clearColor = night
-      ? Color4.FromHexString("#101D36FF")
+      ? Color4.FromHexString("#141F2AFF")
       : day.sky.clone();
-    scene.fogColor = night ? Color3.FromHexString("#172942") : day.fog.clone();
+    scene.fogColor = night ? Color3.FromHexString("#1D2D37") : day.fog.clone();
     scene.ambientColor = night
-      ? Color3.FromHexString("#324E77").scale(0.3)
+      ? Color3.FromHexString("#40525A").scale(0.3)
       : day.ambient.clone();
     ambient.intensity = night ? 0.5 : day.ambientIntensity;
     ambient.diffuse = night
-      ? Color3.FromHexString("#99B8E6")
+      ? Color3.FromHexString("#BAC7CA")
       : day.ambientColour.clone();
     ambient.groundColor = night
       ? Color3.FromHexString("#142438")
       : day.ground.clone();
     sun.intensity = night ? 0.32 : day.sunIntensity;
     sun.diffuse = night
-      ? Color3.FromHexString("#96B8F3")
+      ? Color3.FromHexString("#ADBDC8")
       : day.sunColour.clone();
     materials.lamp.emissiveColor = night
       ? Color3.FromHexString("#FFD382").scale(1.2)

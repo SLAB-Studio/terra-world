@@ -424,6 +424,8 @@ export function createTownCharacter(
   root.position.set(profile.x, 0.75, profile.z);
   root.rotation.y = profile.rotation;
   root.parent = parent;
+  // Metre-scale adults sit naturally beside doors, vehicles and the eye-height camera.
+  root.scaling.setAll(0.58);
   root.metadata = {
     ...(typeof root.metadata === "object" && root.metadata !== null
       ? root.metadata
@@ -458,14 +460,14 @@ export function createTownCharacter(
           upperArm: 0.56,
           lowerArm: 0.55,
           headY: 2.945,
-          head: 0.62,
+          head: 0.5,
           shoulderWidth: 0.84,
           foot: 0.5,
         };
 
-  const skin = material(scene, profile.skin, 0.2);
+  const skin = material(scene, profile.skin, 0.07);
   const hair = material(scene, profile.hairColor, 0.08);
-  const shirt = material(scene, profile.shirt, 0.13);
+  const shirt = material(scene, profile.shirt, 0.035);
   const bottoms = material(scene, profile.bottoms, 0.1);
   const shoes = material(scene, profile.shoes, 0.12);
   const eye = material(scene, "#241A17", 0.15);
@@ -693,8 +695,9 @@ export function applyTownCharacterMotion(
     );
     const strength = reducedMotion ? 0 : Math.min(1, place.speed / 0.65);
     const stride = rig.profile.age === "child" ? 0.48 : 0.64;
-    const left = sampleFootstep(place.travelled, stride, 0, strength);
-    const right = sampleFootstep(place.travelled, stride, 0.5, strength);
+    const travelled = place.travelled / rig.root.scaling.x;
+    const left = sampleFootstep(travelled, stride, 0, strength);
+    const right = sampleFootstep(travelled, stride, 0.5, strength);
     const dimensions = rig.legDimensions;
     const soleHeight = dimensions.shoulderWidth * 0.09;
     const setLeg = (
@@ -737,7 +740,7 @@ export function applyTownCharacterMotion(
     );
     rig.root.position.y =
       rig.baseY -
-      lowest +
+      lowest * rig.root.scaling.y +
       (rig.profile.activity === "play" ? motion.offsetY : 0);
   }
 }
@@ -1038,7 +1041,7 @@ function createFace(
   for (const side of [-1, 1] as const) {
     const eyeWhite = MeshBuilder.CreateSphere(
       `${profile.id}-eye-white-${side}`,
-      { diameter: headSize * 0.14, segments: 8 },
+      { diameter: headSize * 0.105, segments: 8 },
       scene,
     );
     eyeWhite.position.set(
@@ -1046,13 +1049,13 @@ function createFace(
       headSize * 0.08,
       -headSize * 0.47,
     );
-    eyeWhite.scaling.y = 1.18;
+    eyeWhite.scaling.y = 0.72;
     eyeWhite.scaling.z = 0.35;
     eyeWhite.material = white;
     finishCharacterMesh(eyeWhite, parent, shadows);
     const pupil = MeshBuilder.CreateSphere(
       `${profile.id}-eye-${side}`,
-      { diameter: headSize * 0.07, segments: 8 },
+      { diameter: headSize * 0.05, segments: 8 },
       scene,
     );
     pupil.position.set(
