@@ -25,6 +25,7 @@ import { applyTownSurface } from "./materials";
 import { createArchitecturalBatch } from "./geometry";
 import { createInteriorLife, type InteriorLife } from "./interior-life";
 import { homeLifePlan } from "./interior-life-plan";
+import { INTERIOR_LIMITS } from "./interior-navigation";
 
 export type InteriorRoomId =
   "living-room" | "kitchen" | "garden-room" | "utility-room";
@@ -183,11 +184,12 @@ export function createHouseInteriorWorld(
   const collisionMeshes = scene.meshes.filter(
     (mesh) =>
       /^interior-wall-/.test(mesh.name) ||
-      /^(living-sofa|living-table|living-lamp-pole|kitchen-counter|kitchen-island|garden-planter|garden-bench|utility-bin|utility-shelf|utility-sorting-stand)/.test(
+      (/^(living-sofa|living-table|living-lamp-pole|kitchen-counter|kitchen-island|garden-planter|garden-bench|utility-bin|utility-shelf|utility-sorting-stand)/.test(
         mesh.name,
-      ),
+      ) &&
+        !/^living-sofa-(cushion|upholstered-back)/.test(mesh.name)),
   );
-  const obstacles = (): WalkBounds[] =>
+  const staticObstacles = (): WalkBounds[] =>
     collisionMeshes
       .filter((mesh) => mesh.isEnabled())
       .flatMap((mesh) => {
@@ -198,9 +200,13 @@ export function createHouseInteriorWorld(
         return min.y > 2.9
           ? []
           : [{ minX: min.x, maxX: max.x, minZ: min.z, maxZ: max.z }];
-      })
-      .concat(life.obstacles);
+      });
+  const obstacles = (): WalkBounds[] =>
+    staticObstacles().concat(life.obstacles);
   const walker = createInteriorWalker(scene, canvas, obstacles, callbacks);
+  life.configureNavigation(staticObstacles(), INTERIOR_LIMITS, () =>
+    walker.active ? walker.camera.position : null,
+  );
 
   function focusRoom(roomId: InteriorRoomId | null) {
     roomRigs.forEach((room) => room.selection.setEnabled(false));

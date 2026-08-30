@@ -5,7 +5,7 @@ import { Color3 } from "@babylonjs/core/Maths/math.color";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import type { Scene } from "@babylonjs/core/scene";
 import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
-import { createTownCharacter } from "./characters-3d";
+import { applyTownCharacterMotion, createTownCharacter } from "./characters-3d";
 import {
   hasRealisticResident,
   residentJointPosition,
@@ -15,11 +15,13 @@ import type { IndoorPose } from "./interior-resident-poses";
 import type { InteriorLifePlan } from "./interior-life-plan";
 import { createInteriorDressing } from "./interior-dressing";
 import { interiorRoomAt } from "./interior-navigation";
-import type { WalkPoint } from "./walking";
+import { createIndoorRoutines } from "./indoor-routines";
+import { interiorRoutinePlan } from "./interior-routine-plans";
+import type { WalkBounds, WalkPoint } from "./walking";
 
 export type InteriorLife = ReturnType<typeof createInteriorLife>;
 
-/** One visited-room cast. No crowd simulation, path loops, new engine, or AI per frame. */
+/** One visited-room cast; local routines and shared human animation, never AI per frame. */
 export function createInteriorLife(
   scene: Scene,
   plan: InteriorLifePlan,
@@ -140,7 +142,7 @@ export function createInteriorLife(
     }
     return { person, rig, prop };
   });
-  const obstacles = [
+  const initialObstacles = [
     ...dressing.obstacles,
     ...plan.people
       .filter((person) => person.seat === undefined)
@@ -151,6 +153,7 @@ export function createInteriorLife(
         maxZ: person.z + 0.28,
       })),
   ];
+  let routines: ReturnType<typeof createIndoorRoutines> | null = null;
   let elapsed = 0,
     powered = true;
   const motion =
@@ -161,19 +164,52 @@ export function createInteriorLife(
     seconds: number,
     reducedMotion = motion?.matches ?? false,
   ) => {
-    if (isBlocked() || scene.isDisposed) return;
+    if (
+      isBlocked() ||
+      scene.isDisposed ||
+      (typeof document !== "undefined" && document.hidden)
+    )
+      return;
     if (!reducedMotion)
       elapsed += Number.isFinite(seconds)
         ? Math.max(0, Math.min(0.05, seconds))
         : 0;
     dressing.update(elapsed, reducedMotion);
-    for (const { rig, person, prop } of people) {
-      updateRealisticResident(rig, elapsed, reducedMotion, 0, 0);
+    routines?.update(seconds, false, reducedMotion);
+    for (const [i, { rig, person, prop }] of people.entries()) {
+      const state = routines?.residents[i];
+      if (state) {
+        rig.root.position.x = state.x;
+        rig.root.position.z = state.z;
+        rig.root.rotation.y = state.yaw;
+        rig.root.metadata.routineMotion = state;
+        Object.assign(rig.root.metadata.indoorPose, {
+          taskWeight: state.taskWeight,
+          seatWeight: state.seatWeight,
+        });
+        applyTownCharacterMotion(rig, elapsed, reducedMotion);
+        if (!hasRealisticResident(rig)) {
+          const weight = state.seatWeight;
+          for (const hip of [rig.leftHip, rig.rightHip])
+            hip.rotation.x += (-Math.PI / 2 - hip.rotation.x) * weight;
+          for (const knee of [rig.leftKnee, rig.rightKnee])
+            knee.rotation.x += (Math.PI / 2 - knee.rotation.x) * weight;
+          rig.root.position.y =
+            floorY +
+            ((person.seat ?? floorY) -
+              rig.legDimensions.hipY * rig.root.scaling.y -
+              floorY) *
+              weight;
+        }
+      } else updateRealisticResident(rig, elapsed, reducedMotion, 0, 0);
       if (prop) {
         const right = residentJointPosition(rig, "Bip01 R Hand");
         const left = residentJointPosition(rig, "Bip01 L Hand");
-        if (right && left) {
-          prop.setEnabled(true);
+        const taskWeight = state?.taskWeight ?? 1;
+        prop.setEnabled(!!right && !!left && taskWeight > 0.05);
+        prop.visibility = taskWeight;
+        if (right && left && taskWeight > 0.05) {
+          prop.rotation.y = rig.root.rotation.y;
           prop.position.copyFrom(
             person.prop === "book" ? Vector3.Center(left, right) : right,
           );
@@ -199,7 +235,26 @@ export function createInteriorLife(
     root,
     people,
     dressing,
-    obstacles,
+    get obstacles() {
+      return routines
+        ? [...dressing.obstacles, ...routines.obstacles]
+        : initialObstacles;
+    },
+    get routines() {
+      return routines;
+    },
+    configureNavigation(
+      obstacles: readonly WalkBounds[],
+      bounds: WalkBounds,
+      player: () => WalkPoint | null,
+    ) {
+      routines = createIndoorRoutines({
+        obstacles: [...obstacles, ...dressing.obstacles],
+        bounds,
+        residents: interiorRoutinePlan(plan),
+        player,
+      });
+    },
     update,
     setPowered(value: boolean) {
       powered = value;
@@ -208,23 +263,31 @@ export function createInteriorLife(
     nearbyAt(point: WalkPoint) {
       const near = people
         .filter(
-          ({ person }) =>
+          ({ rig }) =>
             plan.use !== "home" ||
-            interiorRoomAt(person) === interiorRoomAt(point),
+            interiorRoomAt(rig.root.position) === interiorRoomAt(point),
         )
         .map(({ person, rig }) => ({
           person,
           rig,
-          distance: Math.hypot(point.x - person.x, point.z - person.z),
+          distance: Math.hypot(
+            point.x - rig.root.position.x,
+            point.z - rig.root.position.z,
+          ),
         }))
         .sort((a, b) => a.distance - b.distance)[0];
       if (!near || near.distance > 4.8) return null;
       const index = Math.floor(elapsed / 7) % near.person.lines.length;
+      const routine = routines?.residents.find(
+        (state) => state.id === near.rig.profile.id,
+      );
+      const away = routine && routine.phase !== "task";
       return {
         name: near.person.name,
-        role: near.person.role,
-        text:
-          !powered && near.person.activity === "watch"
+        role: away ? routine.label : near.person.role,
+        text: away
+          ? ""
+          : !powered && near.person.activity === "watch"
             ? "The TV has no power. Could we get it working?"
             : near.person.lines[index]!,
       };

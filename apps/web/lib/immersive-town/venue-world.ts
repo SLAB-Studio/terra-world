@@ -454,7 +454,7 @@ export function createVenueWorld(
       );
     }
     screen(-6, 2, 0.3);
-    chair(-6, -2.15, teal, true);
+    chair(-6, -2.23, teal, true);
     for (const x of [-9, -3])
       box("speaker", x, 1.9, 3.5, 1.3, 2.8, 1, dark, true);
     box("recording-stage", 6, 0.1, 2.5, 7, 0.2, 7, wood);
@@ -611,11 +611,11 @@ export function createVenueWorld(
     null,
     floorIndex,
   );
-  obstacles.push(...life.obstacles);
+  const currentObstacles = () => [...obstacles, ...life.obstacles];
   const walker = createIndoorWalker<Zone>(
     scene,
     engine.getRenderingCanvas() ?? null,
-    () => obstacles,
+    currentObstacles,
     {
       starts: {
         floor: VENUE_START,
@@ -645,11 +645,16 @@ export function createVenueWorld(
       },
     },
   );
+  life.configureNavigation(obstacles, VENUE_LIMITS, () =>
+    walker.active ? walker.camera.position : null,
+  );
   walker.enter("floor");
   return {
     scene,
     walker,
-    obstacles,
+    get obstacles() {
+      return currentObstacles();
+    },
     floor,
     life,
     setApartmentHealthy(healthy: boolean) {

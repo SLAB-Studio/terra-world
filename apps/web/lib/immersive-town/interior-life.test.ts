@@ -184,4 +184,27 @@ describe("lived-in interiors", () => {
       engine.dispose();
     }
   });
+
+  it("follows the current room and action instead of speaking from an empty chair", () => {
+    const engine = new NullEngine();
+    const world = createHouseInteriorWorld(engine, "bluebell", ["light"]);
+    try {
+      let foundVisit = false;
+      for (let frame = 0; frame < 900; frame++) {
+        world.life.update(0.05, false);
+        const state = world.life.routines!.residents[0]!;
+        if (state.phase !== "visiting") continue;
+        const nearby = world.life.nearbyAt(state);
+        expect(nearby).toEqual({ name: "Maya", role: state.label, text: "" });
+        expect(world.life.people[0]!.rig.root.position.x).toBeCloseTo(state.x);
+        expect(world.life.people[0]!.rig.root.position.z).toBeCloseTo(state.z);
+        foundVisit = true;
+        break;
+      }
+      expect(foundVisit).toBe(true);
+    } finally {
+      world.dispose();
+      engine.dispose();
+    }
+  });
 });

@@ -416,7 +416,7 @@ export function venueLifePlan(
         "Maya",
         "Eating with family",
         4.7,
-        -2.48,
+        -2.43,
         0,
         "eat",
         ["Can we share the last piece?"],
@@ -574,7 +574,7 @@ export function venueLifePlan(
         "Ezra",
         "Mixing a recording",
         -6,
-        -2.15,
+        -2.23,
         Math.PI,
         "type",
         ["Let’s bring the voice up a little."],
@@ -645,7 +645,7 @@ export function venueLifePlan(
         ["I’m heading to the market."],
         { seat: 0.84 },
       ),
-      person("Ben", "Checking the route", -5, 0, Math.PI, "read", [
+      person("Ben", "Checking the route", -5, -0.4, Math.PI, "read", [
         "This route stops at the library.",
       ]),
     );

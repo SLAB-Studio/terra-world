@@ -577,7 +577,7 @@ function ImmersiveTownMap({
           }
           const activity = traversal?.nearbyActivity ?? null;
           const activityKey = activity
-            ? `${activity.name}:${activity.text}`
+            ? `${activity.name}:${activity.role}:${activity.text}`
             : "";
           if (activityKey !== previousIndoorActivity) {
             previousIndoorActivity = activityKey;
@@ -1021,7 +1021,7 @@ function ImmersiveTownMap({
                             ? activeRoom.healthy
                             : activeRoom.problem
                           : indoorActivity && conversationsEnabled
-                            ? `${indoorActivity.name} · ${indoorActivity.role}: “${indoorActivity.text}”`
+                            ? `${indoorActivity.name} · ${indoorActivity.role}${indoorActivity.text ? `: “${indoorActivity.text}”` : ""}`
                             : apartment && visit.floor === 0
                               ? "Resident repairs · walk to the reception desk."
                               : "Explore the rooms. Approach an object to interact."
