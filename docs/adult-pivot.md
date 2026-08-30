@@ -2,6 +2,12 @@
 
 ## Status
 
+**Later storyline pivot (2026-08-30):** the new adult living-city direction is
+recorded in [the story bible](../storyline.md) and
+[living-city architecture](living-city-architecture.md). The material below
+records the earlier visual/repair pass; it does not limit the new target to
+repair missions or claim the new story systems have been implemented.
+
 This is the first implemented adult-facing visual and performance pass, not a
 claim of photorealism or certified support for every PC. The product direction is
 recorded in `PRODUCT.md`. Existing `DESIGN.md` describes the historical child UI;
@@ -84,8 +90,9 @@ Legacy save, privacy, recovery-code, and guide-output protections remain intact.
   first-load compilation, and a hidden-tab/resume cycle; do not infer hardware
   performance from NullEngine tests.
 - Complete rendered Flowstate review and update the historical design guide.
-- Publish the prepared small commits only after the remote permission block is
-  resolved. A successful local build is not evidence of a GitHub push.
+- The earlier remote permission block was subsequently resolved and updates
+  were pushed to SLAB-Studio/terra-world. Continue verifying each push; a
+  successful local build alone is not evidence of remote publication.
 
 ## Asset provenance
 

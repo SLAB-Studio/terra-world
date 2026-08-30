@@ -1,4 +1,23 @@
-# Terra City Architecture
+# Terra World Architecture
+
+## Current direction — the Rivergate living-city pivot
+
+The current product is the adult living-city game in [storyline.md](storyline.md),
+with **Leo** as companion and **Malik** as the construction entrepreneur.
+The authoritative target architecture, current-versus-planned inventory, real
+0G Compute/Storage/Agentic NFT responsibilities and delivery gates are now in
+[Living-city architecture](docs/living-city-architecture.md).
+
+The material below is retained as the **legacy learning-MVP specification**.
+It is not the current audience, opening, feature scope or a deployment record.
+In particular, an empty starting map, child-facing framing, and the custom
+TerraCityAgent contract must not be mistaken for the new populated adult city
+or a verified ERC-7857 integration. Existing save, validation and security
+protections remain in force unless an explicit versioned migration replaces them.
+
+---
+
+# Legacy learning-MVP specification
 
 ## 1. Product summary
 

@@ -1,5 +1,10 @@
 # Terra City MVP — Trackable Build Phases
 
+> Historical learning-MVP tracker. Keep these completion records; do not reset
+> or reinterpret them as completion of the new living-city storyline. The adult
+> Rivergate pivot uses [the current story bible](storyline.md) and
+> [versioned delivery gates A–D](docs/living-city-architecture.md#6-versioned-delivery-gates).
+
 This checklist breaks the complete MVP into four functional build phases and a fifth dedicated UI/experience phase.
 
 Phases 1–4 may use a plain developer shell for buttons, forms, logs, and map controls. Phase 5 turns the working product into the finished child-facing experience. Basic usability is still required while implementing earlier phases so every feature can be tested.
