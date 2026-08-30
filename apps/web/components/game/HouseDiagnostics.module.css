@@ -1,13 +1,13 @@
 .dialog {
-  --ink: #2b190f;
-  --paper: #fffdf5;
-  --cream: #fff7d9;
-  --coral: #ff7469;
-  --blue: #5d9de8;
-  --yellow: #ffd24a;
-  --green: #69bd67;
-  --deep-green: #276f50;
-  --focus: #075fc7;
+  --ink: #e5ecee;
+  --paper: #1a2931;
+  --cream: #253943;
+  --coral: #283f47;
+  --blue: #96becf;
+  --yellow: #e4bb7b;
+  --green: #364c41;
+  --deep-green: #c4d8b6;
+  --focus: #e4bb7b;
   width: min(1380px, calc(100vw - 32px));
   max-width: none;
   max-height: min(870px, calc(100dvh - 32px));
@@ -16,25 +16,25 @@
   overflow: hidden;
   color: var(--ink);
   background: var(--paper);
-  border: 4px solid var(--ink);
-  border-radius: 20px;
+  border: 1px solid var(--ink);
+  border-radius: 7px;
   box-shadow: 0 18px 50px rgb(20 42 30 / 35%);
-  font-family: "Baloo 2", "Trebuchet MS", sans-serif;
+  font-family: var(--font-game-body, system-ui, sans-serif);
 }
 
 .dialog[data-house="bluebell"] {
   --house-accent: var(--blue);
-  --house-soft: #dff0ff;
+  --house-soft: #2d4855;
 }
 
 .dialog[data-house="sunny"] {
   --house-accent: var(--coral);
-  --house-soft: #ffe3dc;
+  --house-soft: #493c36;
 }
 
 .dialog[data-house="mango"] {
   --house-accent: var(--yellow);
-  --house-soft: #fff0a9;
+  --house-soft: #484335;
 }
 
 .dialog::backdrop {
@@ -61,8 +61,8 @@
   gap: 15px;
   padding: 17px 20px;
   color: var(--ink);
-  background: var(--house-accent);
-  border-bottom: 4px solid var(--ink);
+  background: #1a2931;
+  border-bottom: 1px solid var(--ink);
 }
 
 .homeMark {
@@ -72,8 +72,8 @@
   place-items: center;
   color: var(--ink);
   background: var(--paper);
-  border: 3px solid var(--ink);
-  border-radius: 14px;
+  border: 1px solid var(--ink);
+  border-radius: 7px;
   transform: rotate(-2deg);
 }
 
@@ -93,8 +93,8 @@
 .headingCopy p {
   max-width: 63ch;
   margin-top: 7px;
-  color: #3b281d;
-  font-family: ui-rounded, "Trebuchet MS", sans-serif;
+  color: #bdcdd1;
+  font-family: system-ui, "Trebuchet MS", sans-serif;
   font-size: 0.87rem;
   font-weight: 750;
   line-height: 1.35;
@@ -108,9 +108,9 @@
   padding: 0;
   color: var(--ink);
   background: var(--paper);
-  border: 3px solid var(--ink);
-  border-radius: 14px;
-  box-shadow: 0 4px 0 var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: 7px;
+  box-shadow: 0 4px 12px #08131c33;
   cursor: pointer;
   transition:
     transform 130ms ease-out,
@@ -120,12 +120,12 @@
 
 .closeButton:hover {
   background: var(--cream);
-  box-shadow: 0 6px 0 var(--ink);
+  box-shadow: 0 4px 12px #08131c33;
   transform: translateY(-2px);
 }
 
 .closeButton:active {
-  box-shadow: 0 1px 0 var(--ink);
+  box-shadow: 0 4px 12px #08131c33;
   transform: translateY(3px);
 }
 
@@ -180,7 +180,7 @@
   flex: 0 0 auto;
   color: var(--ink);
   background: var(--house-accent);
-  border: 3px solid var(--ink);
+  border: 1px solid var(--ink);
   border-radius: 46% 46% 42% 42%;
   font-size: 1.55rem;
   font-weight: 900;
@@ -192,9 +192,9 @@
   padding: 12px 13px;
   color: var(--ink);
   background: var(--paper);
-  border: 3px solid var(--ink);
+  border: 1px solid var(--ink);
   border-radius: 14px 14px 14px 5px;
-  font-family: ui-rounded, "Trebuchet MS", sans-serif;
+  font-family: system-ui, "Trebuchet MS", sans-serif;
   font-size: 0.79rem;
   font-weight: 700;
   line-height: 1.42;
@@ -203,7 +203,7 @@
 .ownerBubble strong {
   display: block;
   margin-bottom: 3px;
-  font-family: "Baloo 2", "Trebuchet MS", sans-serif;
+  font-family: "Barlow City", "Trebuchet MS", sans-serif;
   font-size: 0.88rem;
   font-weight: 900;
 }
@@ -217,7 +217,7 @@
   overflow: hidden;
   color: var(--ink);
   background: var(--house-soft);
-  border: 3px solid var(--ink);
+  border: 1px solid var(--ink);
   border-radius: 16px;
 }
 
@@ -235,7 +235,7 @@
   width: 35px;
   height: 35px;
   background: var(--yellow);
-  border: 3px solid var(--ink);
+  border: 1px solid var(--ink);
   border-radius: 50%;
 }
 
@@ -258,7 +258,7 @@
   padding: 5px 10px;
   color: var(--ink);
   background: var(--yellow);
-  border: 2px solid var(--ink);
+  border: 1px solid var(--ink);
   border-radius: 999px;
   font-size: 0.68rem;
   font-weight: 900;
@@ -269,8 +269,8 @@
   margin-top: 28px;
   padding: 15px;
   background: var(--paper);
-  border: 3px solid var(--ink);
-  border-radius: 14px;
+  border: 1px solid var(--ink);
+  border-radius: 7px;
 }
 
 .progressLabel {
@@ -287,7 +287,7 @@
 
 .progressLabel span {
   color: #5b4335;
-  font-family: ui-rounded, "Trebuchet MS", sans-serif;
+  font-family: system-ui, "Trebuchet MS", sans-serif;
   font-size: 0.7rem;
   font-weight: 800;
   text-align: right;
@@ -301,7 +301,7 @@
   overflow: hidden;
   appearance: none;
   background: #e9dfca;
-  border: 2px solid var(--ink);
+  border: 1px solid var(--ink);
   border-radius: 999px;
 }
 
@@ -328,7 +328,7 @@
   max-width: 58ch;
   margin: 10px 0 0;
   color: #594235;
-  font-family: ui-rounded, "Trebuchet MS", sans-serif;
+  font-family: system-ui, "Trebuchet MS", sans-serif;
   font-size: 0.76rem;
   font-weight: 750;
   line-height: 1.4;
@@ -363,7 +363,7 @@
   padding: 6px 10px;
   color: var(--ink);
   background: var(--yellow);
-  border: 2px solid var(--ink);
+  border: 1px solid var(--ink);
   border-radius: 999px;
   font-size: 0.68rem;
   font-weight: 900;
@@ -377,7 +377,7 @@
   grid-template-columns: 1fr;
   gap: 3px;
   background: var(--ink);
-  border: 3px solid var(--ink);
+  border: 1px solid var(--ink);
   border-radius: 16px;
   overflow: hidden;
   list-style: none;
@@ -409,7 +409,7 @@
   place-items: center;
   color: var(--ink);
   background: var(--paper);
-  border: 2px solid var(--ink);
+  border: 1px solid var(--ink);
   border-radius: 11px;
 }
 
@@ -426,7 +426,7 @@
   display: grid;
   gap: 5px;
   color: #4f392d;
-  font-family: ui-rounded, "Trebuchet MS", sans-serif;
+  font-family: system-ui, "Trebuchet MS", sans-serif;
   font-size: 0.72rem;
   font-weight: 700;
   line-height: 1.35;
@@ -441,7 +441,7 @@
 
 .diagnosticTitleRow strong {
   color: var(--ink);
-  font-family: "Baloo 2", "Trebuchet MS", sans-serif;
+  font-family: "Barlow City", "Trebuchet MS", sans-serif;
   font-size: 0.95rem;
   font-weight: 900;
 }
@@ -462,14 +462,14 @@
 .nextStep {
   margin-top: 27px;
   padding-top: 22px;
-  border-top: 3px solid var(--ink);
+  border-top: 1px solid var(--ink);
 }
 
 .nextStepHeading p {
   max-width: 54ch;
   margin-top: 6px;
   color: #594235;
-  font-family: ui-rounded, "Trebuchet MS", sans-serif;
+  font-family: system-ui, "Trebuchet MS", sans-serif;
   font-size: 0.77rem;
   font-weight: 700;
   line-height: 1.4;
@@ -500,8 +500,8 @@
   color: var(--ink);
   text-align: left;
   background: #fff;
-  border: 3px solid var(--ink);
-  border-radius: 14px;
+  border: 1px solid var(--ink);
+  border-radius: 7px;
   cursor: pointer;
   transition:
     transform 130ms ease-out,
@@ -518,7 +518,7 @@
 
 .upgradeButton:active,
 .doneButton:active {
-  box-shadow: 0 1px 0 var(--ink);
+  box-shadow: 0 4px 12px #08131c33;
   transform: translateY(2px);
 }
 
@@ -532,7 +532,7 @@
   display: grid;
   place-items: center;
   background: var(--house-soft);
-  border: 2px solid var(--ink);
+  border: 1px solid var(--ink);
   border-radius: 11px;
 }
 
@@ -550,7 +550,7 @@
 
 .upgradeCopy span {
   color: #594235;
-  font-family: ui-rounded, "Trebuchet MS", sans-serif;
+  font-family: system-ui, "Trebuchet MS", sans-serif;
   font-size: 0.66rem;
   font-weight: 700;
   line-height: 1.3;
@@ -564,9 +564,150 @@
   justify-content: center;
   color: var(--ink);
   background: var(--green);
-  font-family: "Baloo 2", "Trebuchet MS", sans-serif;
+  font-family: "Barlow City", "Trebuchet MS", sans-serif;
   font-size: 0.88rem;
   font-weight: 900;
+}
+
+.header {
+  min-height: 78px;
+  padding: 14px 20px;
+  background: #1a2931;
+  border-color: #48606b;
+}
+.headingCopy h2 {
+  font:
+    600 1.8rem/1.1 "Barlow City",
+    sans-serif;
+}
+.homeMark {
+  width: 42px;
+  height: 42px;
+  background: #253943;
+  border-color: #48606b;
+  transform: none;
+}
+.ownerPanel {
+  background: #20332d;
+}
+.ownerAvatar {
+  color: #e5ecee;
+  background: #354740;
+  border-color: #607568;
+  border-radius: 7px;
+}
+.ownerBubble,
+.progressBlock,
+.homeSnapshot {
+  border-color: #48606b;
+}
+.progressLabel span,
+.roomInstruction,
+.nextStepHeading p,
+.upgradeCopy span {
+  color: #bdcdd1;
+}
+.statusKey,
+.gardenLabel,
+.recommendedNote {
+  color: #17262f;
+  background: #e4bb7b;
+  border: 0;
+  border-radius: 4px;
+}
+.diagnosticList {
+  gap: 1px;
+  background: #48606b;
+  border-color: #48606b;
+  border-radius: 7px;
+}
+.diagnosticItem {
+  background: #253943;
+  min-height: 100px;
+}
+.diagnosticItem.healthy {
+  background: #263c33;
+}
+.diagnosticItem.needsFixing {
+  background: #3b3a2f;
+}
+.diagnosticCopy {
+  color: #c7d3d5;
+  font-weight: 400;
+}
+.diagnosticCopy small {
+  color: #e3c9a4;
+  font-weight: 500;
+}
+.diagnosticIcon,
+.healthy .diagnosticIcon,
+.needsFixing .diagnosticIcon {
+  border: 0;
+  color: #d8e4d7;
+  background: #405248;
+}
+.needsFixing .diagnosticIcon {
+  color: #e4bb7b;
+  background: #4b4837;
+}
+.upgradeButton {
+  background: #253943;
+  border-color: #48606b;
+  min-height: 64px;
+}
+.upgradeButton.recommendedUpgrade {
+  background: #e4bb7b;
+  color: #17262f;
+}
+.recommendedUpgrade .upgradeCopy span {
+  color: #35454a;
+}
+.recommendedUpgrade .upgradeIcon {
+  color: #17262f;
+  background: #eccc9a;
+}
+.upgradeIcon {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 4px;
+}
+.upgradeIcon svg {
+  width: 24px;
+  height: 24px;
+}
+.upgradeButton:hover,
+.doneButton:hover {
+  background: #344b55;
+  box-shadow: none;
+  transform: none;
+}
+.recommendedUpgrade:hover {
+  color: #17262f;
+  background: #f1ce98;
+}
+.closeButton {
+  border: 0;
+  color: #d9e4e5;
+  background: #253943;
+  box-shadow: none;
+}
+.closeButton:hover {
+  background: #344b55;
+  box-shadow: none;
+  transform: none;
+}
+.doneButton {
+  border: 0;
+  color: #17262f;
+  background: #bccdab;
+}
+.doneButton:hover {
+  color: #17262f;
+  background: #d0ddc4;
+}
+.nextStep {
+  border-color: #48606b;
 }
 
 @keyframes checkup-arrives {
@@ -686,7 +827,7 @@
   }
 
   .diagnosticItem {
-    min-height: 104px;
+    min-height: 78px;
   }
 
   .nextStepHeading {

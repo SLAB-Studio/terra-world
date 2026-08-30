@@ -3,10 +3,10 @@
   max-width: none;
   max-height: calc(100svh - 32px);
   padding: 0;
-  border: 4px solid #273e4b;
-  border-radius: 24px;
-  color: #263d47;
-  background: #fff8e5;
+  border: 1px solid #48606b;
+  border-radius: 7px;
+  color: #e5ecee;
+  background: #1a2931;
   box-shadow: 0 16px 50px #07132180;
   overflow: auto;
 }
@@ -17,22 +17,22 @@
 .dialog select {
   min-height: 46px;
   padding: 10px 15px;
-  border: 2px solid #29414b;
-  border-radius: 12px;
-  color: #213a45;
-  background: #ffda60;
+  border: 1px solid #48606b;
+  border-radius: 7px;
+  color: #14232b;
+  background: #d8bb91;
   font: inherit;
   font-size: 0.85rem;
   font-weight: 800;
   cursor: pointer;
 }
 .dialog button:hover {
-  background: #ffe790;
+  background: #f0d6ae;
 }
 .dialog button:focus-visible,
 .dialog select:focus-visible,
 .stage canvas:focus-visible {
-  outline: 3px solid #13716b;
+  outline: 3px solid #e4bb7b;
   outline-offset: 3px;
 }
 .header {
@@ -41,7 +41,7 @@
   justify-content: space-between;
   gap: 16px;
   padding: 16px 22px;
-  border-bottom: 2px solid #d9d4bf;
+  border-bottom: 1px solid #48606b;
 }
 .header h2 {
   margin: 0;
@@ -66,10 +66,10 @@
 }
 .floorBar select {
   max-width: 300px;
-  background: white;
+  background: #253943;
 }
 .floorBar > span {
-  color: #526963;
+  color: #bacbd0;
   font-size: 0.75rem;
 }
 .stage {
@@ -98,10 +98,10 @@
   user-select: none;
   font-size: 0.7rem;
   padding: 8px 4px;
-  background: #fff8e5ed;
+  background: #1a2931ed;
 }
 .controls button:active {
-  background: #ffda60;
+  background: #d8bb91;
 }
 .forward {
   grid-area: forward;
@@ -127,7 +127,7 @@
   align-content: center;
   justify-items: center;
   gap: 16px;
-  color: #fff8e5;
+  color: #eef2ed;
   background: #142439;
 }
 .description {
@@ -141,7 +141,7 @@
 }
 .directory > p {
   font-size: 0.9rem;
-  color: #526963;
+  color: #bacbd0;
 }
 .directory h3 {
   margin: 24px 0 12px;
@@ -156,18 +156,59 @@
   display: grid;
   gap: 5px;
   text-align: left;
-  background: white;
+  background: #253943;
 }
 .destinations span {
   font-size: 0.72rem;
   font-weight: 600;
-  color: #526963;
+  color: #bacbd0;
 }
+.dialog {
+  font-family: var(--font-game-body, system-ui, sans-serif);
+}
+.header h2 {
+  font:
+    600 1.7rem/1.2 "Barlow City",
+    sans-serif;
+}
+.dialog button,
+.dialog select {
+  color: #e5ecee;
+  background: #253943;
+  border-color: #48606b;
+  font-weight: 500;
+  border-radius: 5px;
+}
+.dialog button:hover,
+.dialog button:active {
+  color: #17262f;
+  background: #e4bb7b;
+}
+.floorBar select {
+  color: #e5ecee;
+}
+.controls button {
+  color: #e5ecee;
+  background: #17262fee;
+  border: 0;
+}
+.nearby button {
+  color: #17262f;
+  background: #e4bb7b;
+}
+.destinations button {
+  color: #e5ecee;
+  background: #253943;
+}
+.destinations button:hover span {
+  color: #35454a;
+}
+
 @media (max-width: 650px) {
   .dialog {
     width: calc(100vw - 12px);
     max-height: calc(100svh - 12px);
-    border-radius: 17px;
+    border-radius: 7px;
   }
   .header {
     padding: 12px;

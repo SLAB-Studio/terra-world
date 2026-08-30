@@ -117,7 +117,7 @@ const UPGRADE_DETAILS: Readonly<
   >
 > = {
   light: {
-    label: "Sun light",
+    label: "Solar power",
     action: "Add sun light",
     benefit: "Uses sunshine to make clean power for the rooms.",
     icon: "energy",
@@ -135,7 +135,7 @@ const UPGRADE_DETAILS: Readonly<
     icon: "nature",
   },
   recycle: {
-    label: "Recycle bin",
+    label: "Recycling",
     action: "Add a recycle bin",
     benefit: "Sorts useful things so the yard stays clean.",
     icon: "recycle",
@@ -309,7 +309,7 @@ export default function HouseDiagnostics({
             </p>
           </div>
           <button
-            aria-label={`Close ${profile.homeName} check-up`}
+            aria-label={`Close ${profile.homeName} inspection`}
             className={styles.closeButton}
             onClick={onClose}
             ref={closeButtonRef}

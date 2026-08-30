@@ -3,10 +3,10 @@
   z-index: 70;
   inset: 12px;
   overflow: hidden;
-  border: 4px solid #2b190f;
-  border-radius: 24px;
-  color: #2b190f;
-  background: #fffdf4;
+  border: 1px solid #e5ecee;
+  border-radius: 7px;
+  color: #e5ecee;
+  background: #1a2931;
   box-shadow: 0 18px 38px rgba(28, 18, 12, 0.34);
 }
 
@@ -17,8 +17,8 @@
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 12px;
-  border-bottom: 4px solid #2b190f;
-  background: #f47f70;
+  border-bottom: 1px solid #e5ecee;
+  background: #283f47;
 }
 
 .titleMark {
@@ -26,9 +26,9 @@
   height: 48px;
   display: grid;
   place-items: center;
-  border: 3px solid #2b190f;
-  border-radius: 14px;
-  background: #ffd24a;
+  border: 1px solid #e5ecee;
+  border-radius: 7px;
+  background: #e4bb7b;
 }
 
 .header h2,
@@ -41,7 +41,7 @@
 }
 
 .header h2 {
-  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-family: "Barlow City", system-ui, system-ui, sans-serif;
   font-size: clamp(1.35rem, 2.4vw, 1.85rem);
   line-height: 1;
 }
@@ -57,10 +57,10 @@
   height: 46px;
   display: grid;
   place-items: center;
-  border: 3px solid #2b190f;
-  border-radius: 13px;
-  color: #2b190f;
-  background: #fffdf4;
+  border: 1px solid #e5ecee;
+  border-radius: 7px;
+  color: #e5ecee;
+  background: #1a2931;
 }
 
 .stageRail {
@@ -69,9 +69,9 @@
   grid-template-columns: repeat(5, minmax(105px, 1fr));
   gap: 8px;
   overflow-x: auto;
-  border-bottom: 3px solid #2b190f;
-  background: #f4efd9;
-  scrollbar-color: #f0643b #fffdf4;
+  border-bottom: 1px solid #e5ecee;
+  background: #20323b;
+  scrollbar-color: #f0643b #1a2931;
 }
 
 .stageButton {
@@ -82,10 +82,10 @@
   grid-template-rows: auto auto;
   align-items: center;
   gap: 0 7px;
-  border: 3px solid #2b190f;
-  border-radius: 13px;
-  color: #2b190f;
-  background: #fffdf4;
+  border: 1px solid #e5ecee;
+  border-radius: 7px;
+  color: #e5ecee;
+  background: #1a2931;
   text-align: left;
 }
 
@@ -95,7 +95,7 @@
   height: 30px;
   display: grid;
   place-items: center;
-  border: 2px solid #2b190f;
+  border: 1px solid #e5ecee;
   border-radius: 50%;
   background: var(--stage-colour);
   font-weight: 900;
@@ -103,7 +103,7 @@
 
 .stageButton strong {
   align-self: end;
-  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-family: "Barlow City", system-ui, system-ui, sans-serif;
   font-size: 0.74rem;
   line-height: 1;
 }
@@ -126,7 +126,7 @@
 }
 
 .stagesun {
-  --stage-colour: #ffd24a;
+  --stage-colour: #e4bb7b;
 }
 
 .stagewater {
@@ -156,13 +156,13 @@
 .challengeDetail {
   min-height: 0;
   overflow-y: auto;
-  scrollbar-color: #ffd24a #fffdf4;
+  scrollbar-color: #e4bb7b #1a2931;
 }
 
 .challengeList {
   padding: 15px;
-  border-right: 3px solid #2b190f;
-  background: #f5f0db;
+  border-right: 1px solid #e5ecee;
+  background: #14232b;
 }
 
 .challengeList > div:first-child {
@@ -171,7 +171,7 @@
 
 .challengeList h3,
 .challengeDetail h3 {
-  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-family: "Barlow City", system-ui, system-ui, sans-serif;
   line-height: 1.05;
 }
 
@@ -181,7 +181,7 @@
 
 .challengeList p {
   margin-top: 4px;
-  color: #5d4537;
+  color: #bdcdd1;
   font-size: 0.72rem;
   font-weight: 700;
   line-height: 1.25;
@@ -196,15 +196,15 @@
   grid-template-columns: 34px 1fr auto;
   align-items: center;
   gap: 8px;
-  border: 3px solid #2b190f;
-  border-radius: 14px;
-  color: #2b190f;
-  background: #fffdf4;
+  border: 1px solid #e5ecee;
+  border-radius: 7px;
+  color: #e5ecee;
+  background: #1a2931;
   text-align: left;
 }
 
 .challengeButton[aria-pressed="true"] {
-  background: #fff2b7;
+  background: #344741;
   box-shadow: 0 5px 10px rgba(43, 25, 15, 0.18);
 }
 
@@ -217,9 +217,9 @@
   height: 34px;
   display: grid;
   place-items: center;
-  border: 2px solid #2b190f;
+  border: 1px solid #e5ecee;
   border-radius: 10px;
-  background: #ffd24a;
+  background: #e4bb7b;
   font-weight: 900;
 }
 
@@ -229,14 +229,14 @@
 }
 
 .challengeButton strong {
-  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-family: "Barlow City", system-ui, system-ui, sans-serif;
   font-size: 0.86rem;
   line-height: 1.05;
 }
 
 .challengeButton small {
   margin-top: 2px;
-  color: #63493a;
+  color: #bdcdd1;
   font-size: 0.65rem;
   font-weight: 750;
 }
@@ -251,7 +251,7 @@
 
 .challengeDetail {
   padding: 18px 21px 24px;
-  background: #fffdf4;
+  background: #1a2931;
 }
 
 .detailTopline {
@@ -259,7 +259,7 @@
   display: flex;
   justify-content: space-between;
   gap: 9px;
-  color: #5f4434;
+  color: #bdcdd1;
   font-size: 0.69rem;
   font-weight: 900;
   text-transform: uppercase;
@@ -272,7 +272,7 @@
 
 .story {
   margin-top: 8px !important;
-  color: #553e31;
+  color: #bdcdd1;
   font-size: 0.87rem;
   font-weight: 720;
   line-height: 1.35;
@@ -281,10 +281,10 @@
 .instruction {
   margin-top: 12px !important;
   padding: 10px 12px;
-  border: 3px solid #2b190f;
-  border-radius: 13px;
-  background: #ffe678;
-  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  border: 1px solid #e5ecee;
+  border-radius: 7px;
+  background: #344741;
+  font-family: "Barlow City", system-ui, system-ui, sans-serif;
   font-size: 0.96rem;
   font-weight: 850;
   line-height: 1.15;
@@ -304,9 +304,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  border: 2px solid #d5c9ae;
+  border: 1px solid #48606b;
   border-radius: 11px;
-  background: #fffaf0;
+  background: #253943;
   font-size: 0.76rem;
   font-weight: 800;
 }
@@ -317,18 +317,18 @@
   display: grid;
   place-items: center;
   border-radius: 9px;
-  color: #a05d22;
-  background: #fff0a8;
+  color: #dfc499;
+  background: #3f4134;
 }
 
 .goalList .goalComplete {
   border-color: #72b76a;
-  background: #e2f3d7;
+  background: #2d443a;
 }
 
 .goalList .goalComplete span {
-  color: #2f733c;
-  background: #bde4a8;
+  color: #d0dfc9;
+  background: #456144;
 }
 
 .learningNote {
@@ -336,9 +336,9 @@
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  border-radius: 12px;
-  color: #214d35;
-  background: #dff1d5;
+  border-radius: 7px;
+  color: #d0dfc9;
+  background: #2d443a;
 }
 
 .learningNote p {
@@ -350,7 +350,7 @@
 .learningNote strong {
   display: block;
   margin-bottom: 2px;
-  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-family: "Barlow City", system-ui, system-ui, sans-serif;
   font-size: 0.8rem;
 }
 
@@ -366,13 +366,13 @@
   padding: 5px;
   display: grid;
   place-items: center;
-  border: 3px solid #2b190f;
-  border-radius: 12px;
-  background: #fff8dc;
+  border: 1px solid #e5ecee;
+  border-radius: 7px;
+  background: #253943;
 }
 
 .moveCount span {
-  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-family: "Barlow City", system-ui, system-ui, sans-serif;
   font-size: 1.18rem;
   font-weight: 900;
   line-height: 0.85;
@@ -392,21 +392,21 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: 3px solid #2b190f;
-  border-radius: 12px;
-  color: #2b190f;
-  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  border: 1px solid #e5ecee;
+  border-radius: 7px;
+  color: #e5ecee;
+  font-family: "Barlow City", system-ui, system-ui, sans-serif;
   font-weight: 850;
 }
 
 .hintButton {
-  background: #9fcdf4;
+  background: #344d5c;
 }
 
 .startButton {
   width: 100%;
   margin-top: 13px;
-  background: #72cf51;
+  background: #b9c9aa;
 }
 
 .hintButton:disabled {
@@ -416,14 +416,14 @@
 .hintPanel {
   margin-top: 11px;
   padding: 11px 12px;
-  border: 3px solid #2b190f;
-  border-radius: 13px;
-  background: #e8dcf7;
+  border: 1px solid #e5ecee;
+  border-radius: 7px;
+  background: #343c50;
 }
 
 .hintPanel > strong {
   display: block;
-  font-family: "Baloo 2", ui-rounded, system-ui, sans-serif;
+  font-family: "Barlow City", system-ui, system-ui, sans-serif;
   font-size: 0.82rem;
 }
 
@@ -440,21 +440,108 @@
 }
 
 .hintPanel small {
-  color: #5b4668;
+  color: #c7cddc;
   font-size: 0.61rem;
   font-weight: 850;
 }
 
 .drawer button:focus-visible {
-  outline: 4px solid #167c8a;
+  outline: 4px solid #e4bb7b;
   outline-offset: 2px;
+}
+
+.drawer {
+  font-family: var(--font-game-body, system-ui, sans-serif);
+  border-color: #48606b;
+}
+.header {
+  min-height: 72px;
+  border-color: #48606b;
+  background: #1a2931;
+}
+.header h2 {
+  font-weight: 600;
+}
+.titleMark {
+  background: #253943;
+  color: #e4bb7b;
+  border: 0;
+}
+.header > button {
+  border: 0;
+  background: #253943;
+  color: #e5ecee;
+}
+.stageRail,
+.challengeList {
+  border-color: #48606b;
+}
+.stageButton {
+  border-color: #48606b;
+  background: #253943;
+}
+.stageButton > span {
+  color: #17262f;
+  border: 0;
+}
+.stageButton[aria-current="step"] {
+  color: #17262f;
+  box-shadow: none;
+}
+.stageButton strong,
+.challengeButton strong,
+.challengeDetail h3 {
+  font-weight: 600;
+}
+.challengeButton {
+  border-color: #48606b;
+}
+.challengeNumber {
+  color: #17262f;
+  border: 0;
+}
+.completeMark {
+  color: #b9c9aa;
+}
+.arrowMark {
+  color: #e4bb7b;
+}
+.instruction {
+  border: 0;
+  color: #eef2ed;
+  font-family: var(--font-game-body);
+  font-weight: 500;
+  line-height: 1.5;
+}
+.goalList li {
+  font-weight: 500;
+}
+.moveCount {
+  border-color: #48606b;
+}
+.hintButton,
+.startButton {
+  border: 0;
+  font-family: var(--font-game-body);
+  font-weight: 600;
+}
+.hintButton {
+  color: #e5ecee;
+  background: #344d5c;
+}
+.startButton {
+  color: #17262f;
+  background: #b9c9aa;
+}
+.hintPanel {
+  border: 0;
 }
 
 @media (max-width: 760px) {
   .drawer {
     position: fixed;
     inset: 8px;
-    border-radius: 20px;
+    border-radius: 7px;
   }
 
   .header {
@@ -494,7 +581,7 @@
   .challengeList {
     padding: 12px;
     border-right: 0;
-    border-bottom: 3px solid #2b190f;
+    border-bottom: 1px solid #e5ecee;
   }
 
   .challengeDetail {
