@@ -692,9 +692,37 @@ export function applyTownCharacterMotion(
       rig.profile.phase,
     );
     const strength = reducedMotion ? 0 : Math.min(1, place.speed / 0.65);
-    poseWalkingCharacter(rig, place.travelled, strength);
+    const stride = rig.profile.age === "child" ? 0.48 : 0.64;
+    const left = sampleFootstep(place.travelled, stride, 0, strength);
+    const right = sampleFootstep(place.travelled, stride, 0.5, strength);
+    const dimensions = rig.legDimensions;
+    const soleHeight = dimensions.shoulderWidth * 0.09;
+    const setLeg = (
+      foot: typeof left,
+      hip: TransformNode,
+      knee: TransformNode,
+      ankle: TransformNode,
+    ) => {
+      const pose = solvePedestrianLeg(
+        dimensions.upperLeg,
+        dimensions.lowerLeg,
+        dimensions.hipY - soleHeight - foot.lift,
+        foot.z,
+      );
+      hip.rotation.x = pose.hip;
+      knee.rotation.x = pose.knee;
+      ankle.rotation.x = pose.ankle;
+    };
+    setLeg(left, rig.leftHip, rig.leftKnee, rig.leftAnkle);
+    setLeg(right, rig.rightHip, rig.rightKnee, rig.rightAnkle);
     rig.root.position.set(place.x, place.y, place.z);
     rig.root.rotation.y = place.yaw;
+    rig.torso.rotation.x = -0.018 * strength;
+    rig.head.rotation.y = 0;
+    rig.leftShoulder.rotation.x = left.z * 0.9;
+    rig.rightShoulder.rotation.x = right.z * 0.9;
+    rig.leftElbow.rotation.x = 0.18;
+    rig.rightElbow.rotation.x = 0.18;
   } else {
     // Keep standing/chatting feet on the floor. Only a playing child may hop.
     const dimensions = rig.legDimensions;
@@ -712,43 +740,6 @@ export function applyTownCharacterMotion(
       lowest +
       (rig.profile.activity === "play" ? motion.offsetY : 0);
   }
-}
-
-/** A grounded pose only; player and NPC controllers own their own position. */
-export function poseWalkingCharacter(
-  rig: TownCharacterRig,
-  distance: number,
-  strength: number,
-) {
-  const stride = rig.profile.age === "child" ? 0.48 : 0.64;
-  const left = sampleFootstep(distance, stride, 0, strength);
-  const right = sampleFootstep(distance, stride, 0.5, strength);
-  const dimensions = rig.legDimensions;
-  const soleHeight = dimensions.shoulderWidth * 0.09;
-  const setLeg = (
-    foot: typeof left,
-    hip: TransformNode,
-    knee: TransformNode,
-    ankle: TransformNode,
-  ) => {
-    const pose = solvePedestrianLeg(
-      dimensions.upperLeg,
-      dimensions.lowerLeg,
-      dimensions.hipY - soleHeight - foot.lift,
-      foot.z,
-    );
-    hip.rotation.x = pose.hip;
-    knee.rotation.x = pose.knee;
-    ankle.rotation.x = pose.ankle;
-  };
-  setLeg(left, rig.leftHip, rig.leftKnee, rig.leftAnkle);
-  setLeg(right, rig.rightHip, rig.rightKnee, rig.rightAnkle);
-  rig.torso.rotation.x = -0.018 * strength;
-  rig.head.rotation.y = 0;
-  rig.leftShoulder.rotation.x = left.z * 0.9;
-  rig.rightShoulder.rotation.x = right.z * 0.9;
-  rig.leftElbow.rotation.x = 0.18;
-  rig.rightElbow.rotation.x = 0.18;
 }
 
 export function sampleTownCharacterMotion(
