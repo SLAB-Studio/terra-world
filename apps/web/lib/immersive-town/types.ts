@@ -65,6 +65,7 @@ export interface ImmersiveTownWorld {
   readonly venues: readonly TownVenueMetadata[];
   readonly animation: TownAnimationController;
   readonly timeOfDay: TownTimeOfDay;
+  setRenderQuality(quality: TownQuality): void;
   setTimeOfDay(mode: TownTimeOfDay): void;
   getHouseFromMesh(mesh: AbstractMesh | null): TownHouseMetadata | null;
   getVenueFromMesh(mesh: AbstractMesh | null): TownVenueMetadata | null;

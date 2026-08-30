@@ -3,5 +3,6 @@
 import "@babylonjs/core/Culling/ray";
 
 export { Engine } from "@babylonjs/core/Engines/engine";
+export { SceneInstrumentation } from "@babylonjs/core/Instrumentation/sceneInstrumentation";
 export { PointerEventTypes } from "@babylonjs/core/Events/pointerEvents";
 export { Color3 } from "@babylonjs/core/Maths/math.color";

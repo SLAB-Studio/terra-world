@@ -14,6 +14,15 @@ import type { HouseId, HouseUpgradeId } from "./HouseDiagnostics";
 import "./TownWalking.css";
 import BuildingVisit3D from "./BuildingVisit3D";
 import type { TownVenue } from "../../lib/immersive-town/venue-catalog";
+import { createAdaptiveResolution } from "../../lib/immersive-town/adaptive-performance";
+import {
+  getRenderBudget,
+  parseRenderQuality,
+  RENDER_QUALITY_STORAGE_KEY,
+  sceneQualityForRenderBudget,
+  shouldPauseTown,
+  type RenderQualityPreference,
+} from "../../lib/immersive-town/render-quality";
 
 export type NeighborhoodHouseSelection = Readonly<{
   id: string;
@@ -45,6 +54,8 @@ type RuntimeHandle = Readonly<{
   cancelCameraAnimation(): void;
   resetCamera(): void;
   focusHouse(houseId: string): void;
+  setRenderPreference(preference: RenderQualityPreference): void;
+  syncPauseState(): void;
   dispose(): void;
 }>;
 
@@ -66,12 +77,26 @@ function ImmersiveTownMap({
 }: ImmersiveTownMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const runtimeRef = useRef<RuntimeHandle | null>(null);
+  const [renderPreference, setRenderPreference] =
+    useState<RenderQualityPreference>("auto");
+  const [showFrameRate, setShowFrameRate] = useState(false);
+  const showFrameRateRef = useRef(false);
+  showFrameRateRef.current = showFrameRate;
+  const frameRateRef = useRef<HTMLOutputElement>(null);
   const [venue, setVenue] = useState<TownVenue | null>(null);
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const [allHomes, setAllHomes] = useState<NeighborhoodHouseSelection[]>([]);
   const [nearbyVenue, setNearbyVenue] = useState<TownVenue | null>(null);
   const visitOpenRef = useRef(false);
   visitOpenRef.current = venue !== null || directoryOpen;
+  const renderingBlockedRef = useRef(false);
+  renderingBlockedRef.current =
+    visitOpenRef.current ||
+    selectedHouseId !== null ||
+    selectedNeighborhoodHouseId !== null;
+  useEffect(() => {
+    runtimeRef.current?.syncPauseState();
+  }, [venue, directoryOpen, selectedHouseId, selectedNeighborhoodHouseId]);
   const timeOfDayRef = useRef(timeOfDay);
   timeOfDayRef.current = timeOfDay;
   useEffect(() => {
@@ -137,33 +162,55 @@ function ImmersiveTownMap({
         ]);
         if (cancelled) return;
 
-        const mobile = window.matchMedia("(max-width: 760px)").matches;
         const reducedMotionQuery = window.matchMedia(
           "(prefers-reduced-motion: reduce)",
         );
         const engine = new Babylon.Engine(
           canvas,
-          true,
+          false,
           {
-            antialias: true,
+            antialias: false,
             audioEngine: false,
             preserveDrawingBuffer: false,
-            powerPreference: "high-performance",
+            powerPreference: "default",
             stencil: true,
           },
-          true,
+          false,
         );
-        const devicePixelRatio = Math.max(1, window.devicePixelRatio || 1);
-        const targetPixelRatio = mobile ? 1 : 1.5;
-        engine.setHardwareScalingLevel(
-          1 / Math.min(devicePixelRatio, targetPixelRatio),
-        );
+        let preference: RenderQualityPreference = "auto";
+        try {
+          preference = parseRenderQuality(
+            localStorage.getItem(RENDER_QUALITY_STORAGE_KEY),
+          );
+        } catch {
+          // Private browsing/storage restrictions must not prevent entry.
+        }
+        setRenderPreference(preference);
+        const readBudget = () =>
+          getRenderBudget(
+            preference,
+            window.devicePixelRatio,
+            canvas.clientWidth,
+            canvas.clientHeight,
+          );
+        const resolution = createAdaptiveResolution(readBudget());
+        engine.setHardwareScalingLevel(1 / resolution.pixelRatio);
 
         const world = town.createImmersiveTownWorld(engine, {
           attachCameraControls: true,
-          quality: mobile ? "low" : "medium",
+          quality: sceneQualityForRenderBudget(
+            preference,
+            resolution.pixelRatio,
+          ),
           reducedMotion: reducedMotionQuery.matches,
         });
+        const instrumentation = new Babylon.SceneInstrumentation(world.scene);
+        const applyResolution = () => {
+          engine.setHardwareScalingLevel(1 / resolution.pixelRatio);
+          world.setRenderQuality(
+            sceneQualityForRenderBudget(preference, resolution.pixelRatio),
+          );
+        };
         adapterTools.configureKidFriendlyCamera(world.camera);
         const walker = walkingTools.createTownWalker(world, canvas, {
           isBlocked: () =>
@@ -223,7 +270,10 @@ function ImmersiveTownMap({
         let hoveredHouseId: string | null = null;
         const setHoveredHouse = (houseId: string | null) => {
           if (houseId === hoveredHouseId) return;
-          world.houses.forEach((house) => {
+          const affectedHouses = [hoveredHouseId, houseId];
+          affectedHouses.forEach((id) => {
+            const house = world.houses.find((candidate) => candidate.id === id);
+            if (!house) return;
             const highlighted = house.id === houseId;
             house.meshes.forEach((mesh) => {
               mesh.renderOutline = highlighted;
@@ -364,6 +414,12 @@ function ImmersiveTownMap({
           cancelCameraAnimation: () => cancelCameraAnimation(),
           resetCamera,
           focusHouse,
+          setRenderPreference(nextPreference) {
+            preference = nextPreference;
+            resolution.reset(readBudget());
+            applyResolution();
+          },
+          syncPauseState: () => syncPauseState(),
           dispose() {
             cancelCameraAnimation();
             walker.dispose();
@@ -376,6 +432,7 @@ function ImmersiveTownMap({
             window.removeEventListener("pointerup", dropUpgradeOnHouse);
             vehicles.dispose();
             upgrades.dispose();
+            instrumentation.dispose();
             world.dispose();
             engine.stopRenderLoop();
             engine.dispose();
@@ -393,22 +450,77 @@ function ImmersiveTownMap({
           })),
         );
 
-        const resizeObserver = new ResizeObserver(() => world.resize());
+        let viewport = "";
+        const resizeObserver = new ResizeObserver(() => {
+          const nextViewport = `${canvas.clientWidth}:${canvas.clientHeight}:${window.devicePixelRatio}`;
+          if (nextViewport === viewport) return;
+          viewport = nextViewport;
+          resolution.reset(readBudget());
+          applyResolution();
+          world.resize();
+        });
         resizeObserver.observe(canvas);
         let isOnscreen = true;
         let isPageVisible = document.visibilityState === "visible";
         let isRendering = false;
+        let lastFrameAt = 0;
+        let measuredMs = 0;
+        let measuredFrames = 0;
+        let measuredDrawCalls = 0;
+        const resetMeasurements = () => {
+          lastFrameAt = 0;
+          measuredMs = 0;
+          measuredFrames = 0;
+          measuredDrawCalls = 0;
+          resolution.reset();
+        };
         const renderFrame = () => {
-          if (!visitOpenRef.current) world.render();
+          const now = performance.now();
+          const frameMs = lastFrameAt > 0 ? now - lastFrameAt : 0;
+          lastFrameAt = now;
+          if (frameMs > 0 && resolution.sample(frameMs) !== null)
+            applyResolution();
+          world.render();
+          if (showFrameRateRef.current && frameMs > 0 && frameMs <= 1000) {
+            measuredMs += frameMs;
+            measuredFrames += 1;
+            measuredDrawCalls += instrumentation.drawCallsCounter.current;
+            if (measuredMs >= 1000 && frameRateRef.current) {
+              const fps = Math.round((measuredFrames * 1000) / measuredMs);
+              const quality =
+                sceneQualityForRenderBudget(
+                  preference,
+                  resolution.pixelRatio,
+                ) === "low"
+                  ? "Performance"
+                  : "Balanced";
+              frameRateRef.current.textContent = `${fps} FPS · ${quality} · ${Math.round(resolution.pixelRatio * 100)}% resolution · ${world.scene.getActiveMeshes().length}/${world.scene.meshes.length} active meshes · ${Math.round(measuredDrawCalls / measuredFrames)} draw calls/frame`;
+              measuredMs = 0;
+              measuredFrames = 0;
+              measuredDrawCalls = 0;
+            }
+          } else {
+            measuredMs = 0;
+            measuredFrames = 0;
+            measuredDrawCalls = 0;
+          }
         };
         const syncPauseState = () => {
-          const paused = !isOnscreen || !isPageVisible;
+          const paused = shouldPauseTown(
+            isPageVisible,
+            isOnscreen,
+            renderingBlockedRef.current,
+          );
           if (paused) walker.clearInput();
           world.animation.setPaused(paused);
           if (paused && isRendering) {
             engine.stopRenderLoop(renderFrame);
             isRendering = false;
+            resetMeasurements();
+            if (frameRateRef.current)
+              frameRateRef.current.textContent = "City rendering paused";
           } else if (!paused && !isRendering) {
+            resetMeasurements();
             engine.runRenderLoop(renderFrame);
             isRendering = true;
           }
@@ -586,6 +698,49 @@ function ImmersiveTownMap({
           Places
         </button>
       </div>
+      <details className="town-render-settings">
+        <summary>Graphics</summary>
+        <label>
+          Render quality
+          <select
+            aria-label="Render quality"
+            disabled={engineStatus !== "ready"}
+            value={renderPreference}
+            onChange={(event) => {
+              const preference = parseRenderQuality(event.target.value);
+              setRenderPreference(preference);
+              runtimeRef.current?.setRenderPreference(preference);
+              try {
+                localStorage.setItem(RENDER_QUALITY_STORAGE_KEY, preference);
+              } catch {
+                // Keep the preference for this session when storage is unavailable.
+              }
+            }}
+          >
+            <option value="auto">Auto</option>
+            <option value="performance">Performance</option>
+            <option value="balanced">Balanced</option>
+          </select>
+        </label>
+        <p>
+          {renderPreference === "auto"
+            ? "Adjusts resolution to frame time. The whole city stays available."
+            : renderPreference === "performance"
+              ? "Lower resolution and no dynamic shadows. All places and people remain."
+              : "Sharper detail and light shadows, with a bounded resolution."}
+        </p>
+        <label className="town-frame-rate-toggle">
+          <input
+            type="checkbox"
+            checked={showFrameRate}
+            onChange={(event) => setShowFrameRate(event.target.checked)}
+          />
+          Show frame rate
+        </label>
+        <output ref={frameRateRef} hidden={!showFrameRate} aria-live="off">
+          Measuring city frames…
+        </output>
+      </details>
       {viewMode === "walk" ? (
         <>
           <div className="town-walk-help">

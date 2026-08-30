@@ -20,6 +20,7 @@ import type {
   CreateTownWorldOptions,
   ImmersiveTownWorld,
   TownHouseMetadata,
+  TownQuality,
 } from "./types";
 
 /**
@@ -93,18 +94,17 @@ export function createImmersiveTownWorld(
   sun.specular = Color3.FromHexString("#FFF9E8").scale(0.58);
   sun.autoCalcShadowZBounds = true;
 
-  const shadowMapSize =
-    options.quality === "low" ? 1024 : options.quality === "high" ? 2048 : 1536;
-  const shadows = new ShadowGenerator(shadowMapSize, sun);
+  // Keep one bounded shadow allocation across quality changes. Performance
+  // mode skips its render pass entirely; scene content and picking stay intact.
+  const shadows = new ShadowGenerator(1024, sun);
   shadows.usePercentageCloserFiltering = true;
-  shadows.filteringQuality =
-    options.quality === "high"
-      ? ShadowGenerator.QUALITY_HIGH
-      : options.quality === "low"
-        ? ShadowGenerator.QUALITY_LOW
-        : ShadowGenerator.QUALITY_MEDIUM;
+  shadows.filteringQuality = ShadowGenerator.QUALITY_LOW;
   shadows.bias = 0.0008;
   shadows.normalBias = 0.024;
+  const shadowMap = shadows.getShadowMap();
+  if (shadowMap) shadowMap.refreshRate = 2;
+  let renderQuality: TownQuality = options.quality ?? "medium";
+  scene.shadowsEnabled = renderQuality !== "low";
 
   const materials = createTownMaterials(scene);
   const environment = createTownEnvironment(scene, materials, shadows);
@@ -161,11 +161,20 @@ export function createImmersiveTownWorld(
     venues: destinations.venues,
     getVenueFromMesh: destinations.getVenueFromMesh,
     animation,
+    setRenderQuality(quality) {
+      if (disposed || quality === renderQuality) return;
+      renderQuality = quality;
+      scene.shadowsEnabled = quality !== "low";
+      shadowMap?.resetRefreshCounter();
+    },
     get timeOfDay() {
       return daylight.current;
     },
     setTimeOfDay(mode) {
-      if (!disposed) daylight.setTimeOfDay(mode);
+      if (!disposed) {
+        daylight.setTimeOfDay(mode);
+        shadowMap?.resetRefreshCounter();
+      }
     },
     getHouseFromMesh(mesh) {
       if (mesh === null) return null;
