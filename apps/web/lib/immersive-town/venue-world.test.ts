@@ -35,7 +35,7 @@ describe("purpose-built public interiors", () => {
               canWalkInside(VENUE_START, world.obstacles, VENUE_LIMITS),
               `${venue.id} ${i} spawn`,
             ).toBe(true);
-            expect(world.scene.activeCamera).toBe(world.walker.camera);
+            expect(world.scene.activeCamera?.name).toBe("walking-party-camera");
             for (let z = -8; z <= 8; z += 0.25)
               expect(
                 canWalkInside({ x: 0, z }, world.obstacles, VENUE_LIMITS),

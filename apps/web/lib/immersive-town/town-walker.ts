@@ -4,6 +4,8 @@ import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 
 import type { ImmersiveTownWorld, TownHouseMetadata } from "./types";
 import type { TownVenueMetadata } from "./venues";
+import { createWalkingParty } from "./walking-party";
+import { pacedInput, shiftHeld } from "./locomotion-input";
 import {
   WALK_EYE_HEIGHT,
   canWalkAt,
@@ -49,7 +51,7 @@ export function createTownWalker(
   ];
   const raisedGround = world.scene.meshes
     .filter((mesh) =>
-      /^(compound-lawn|compound-yard)|-(foundation|front-step)$/.test(
+      /^(compound-lawn|compound-yard|compound-path)|-(foundation|front-step)$/.test(
         mesh.name,
       ),
     )
@@ -153,7 +155,10 @@ export function createTownWalker(
   const keys = new Set<string>();
   const heldButtons = new Set<WalkCommand>();
 
+  let runToggled = false;
+  const running = () => active && (runToggled || shiftHeld(keys));
   const clearInput = () => {
+    runToggled = false;
     keys.clear();
     heldButtons.clear();
     dragging = null;
@@ -186,7 +191,7 @@ export function createTownWalker(
   const move = (input: WalkInput, dt: number) => {
     const pose = stepWalk(
       { x: camera.position.x, z: camera.position.z, yaw: camera.rotation.y },
-      input,
+      pacedInput(input, running()),
       dt,
       obstacles,
     );
@@ -250,6 +255,10 @@ export function createTownWalker(
   };
   const onKeyDown = (event: KeyboardEvent) => {
     if (!active || blocked() || !keyboardInMap(event)) return;
+    if (event.code === "ShiftLeft" || event.code === "ShiftRight") {
+      keys.add(event.code);
+      return; // Preserve Shift+Tab focus navigation.
+    }
     if (
       [
         "KeyW",
@@ -338,6 +347,12 @@ export function createTownWalker(
       world.engine.getDeltaTime() / 1000,
     );
   });
+  const party = createWalkingParty(world.scene, camera, {
+    reducedMotion: () => world.animation.reducedMotion,
+    obstacles: () => obstacles,
+    canStand: canWalkAt,
+    groundHeight,
+  });
   if (canvas !== null) {
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
@@ -355,13 +370,22 @@ export function createTownWalker(
     groundHeight,
     doors,
     venueDoors,
-    setActive,
+    setActive(next: boolean) {
+      setActive(next);
+      party.setActive(next);
+    },
     clearInput,
     enterHouse,
     enterVenue,
     enterNearby,
     get active() {
       return active;
+    },
+    get running() {
+      return running();
+    },
+    setRunning(next: boolean) {
+      runToggled = next && active && !blocked();
     },
     hold(command: WalkCommand, pressed: boolean) {
       if (pressed && active && !blocked()) heldButtons.add(command);
@@ -392,6 +416,7 @@ export function createTownWalker(
         canvas.removeEventListener("pointermove", onPointerMove);
         canvas.removeEventListener("pointerleave", onPointerUp);
       }
+      party.dispose();
       camera.dispose();
     },
   };

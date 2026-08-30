@@ -12,9 +12,14 @@ describe("Rivergate 3D characters", () => {
       RIVERGATE_CHARACTER_PROFILES.map((profile) => profile.storyRole).filter(
         Boolean,
       ),
-    ).toEqual(
-      expect.arrayContaining(["leo", "maya", "malik", "nia", "mr-sam"]),
-    );
+    ).toEqual(expect.arrayContaining(["maya", "malik", "nia", "mr-sam"]));
+    // Leo is the player's dog, not a second human standing in the town cast.
+    expect(
+      RIVERGATE_CHARACTER_PROFILES.some(({ id }) => id === "guide-elliot"),
+    ).toBe(true);
+    expect(
+      RIVERGATE_CHARACTER_PROFILES.some(({ storyRole }) => storyRole === "leo"),
+    ).toBe(false);
     expect(new Set(RIVERGATE_CHARACTER_PROFILES.map(({ id }) => id)).size).toBe(
       RIVERGATE_CHARACTER_PROFILES.length,
     );

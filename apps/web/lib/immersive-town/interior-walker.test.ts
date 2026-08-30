@@ -126,7 +126,7 @@ describe("walkable 3D home", () => {
     });
     try {
       world.focusRoom("living-room");
-      expect(world.scene.activeCamera).toBe(world.walker.camera);
+      expect(world.scene.activeCamera?.name).toBe("walking-party-camera");
       expect(world.walker.camera.position.y).toBe(2.25);
       expect(world.scene.getMeshByName("interior-ceiling")?.isEnabled()).toBe(
         true,

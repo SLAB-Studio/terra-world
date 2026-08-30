@@ -623,6 +623,7 @@ export function createVenueWorld(
         lift: VENUE_START,
         repair: VENUE_START,
       },
+      limits: VENUE_LIMITS,
       roomAt: () => "floor",
       nearbyAt: (p) =>
         Math.abs(p.x) < 2 && p.z < -6.7

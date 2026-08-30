@@ -81,7 +81,7 @@ describe("Rivergate walking camera", () => {
     const originalRadius = world.camera.radius;
     const homes = [...world.houses];
     walker.setActive(true);
-    expect(world.scene.activeCamera).toBe(walker.camera);
+    expect(world.scene.activeCamera?.name).toBe("walking-party-camera");
     expect(canWalkAt(walker.camera.position, walker.obstacles)).toBe(true);
     const firstDoor = walker.doors[0]!;
     walker.camera.position.copyFrom(firstDoor.approach);

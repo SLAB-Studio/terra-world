@@ -126,7 +126,7 @@ describe("grounded Rivergate pedestrians", () => {
     const scene = new Scene(engine);
     const parent = new TransformNode("population-test", scene);
     try {
-      for (const id of ["south-walker-kai", "resident-malik", "guide-leo"]) {
+      for (const id of ["south-walker-kai", "resident-malik", "guide-elliot"]) {
         const profile = RIVERGATE_CHARACTER_PROFILES.find((p) => p.id === id)!;
         const rig = createTownCharacter(scene, parent, null, profile);
         expect(rig.head.parent).toBe(rig.torso);

@@ -10,6 +10,9 @@ import {
   stepInterior,
 } from "./interior-navigation";
 import type { WalkBounds, WalkInput, WalkPoint, WalkPose } from "./walking";
+import { createWalkingParty } from "./walking-party";
+import { canWalkInside } from "./interior-navigation";
+import { pacedInput, shiftHeld } from "./locomotion-input";
 
 export type InteriorCommand = "forward" | "back" | "left" | "right";
 export type InteriorWalker = ReturnType<typeof createInteriorWalker>;
@@ -33,6 +36,7 @@ export function createInteriorWalker(
     obstacles,
     {
       starts: ROOM_STARTS,
+      groundHeight: 0.275,
       roomAt: interiorRoomAt,
       nearbyAt: nearbyInteriorTask,
       step: stepInterior,
@@ -48,6 +52,8 @@ export function createIndoorWalker<Area extends string>(
   obstacles: () => readonly WalkBounds[],
   navigation: {
     starts: Record<Area, WalkPose>;
+    limits?: WalkBounds;
+    groundHeight?: number;
     roomAt(point: WalkPoint): Area;
     nearbyAt(point: WalkPoint): Area | null;
     step(
@@ -75,7 +81,10 @@ export function createIndoorWalker<Area extends string>(
   const keys = new Set<string>();
   const holds = new Set<InteriorCommand>();
   let look: { id: number; x: number; y: number } | null = null;
+  let runToggled = false;
+  const running = () => active && (runToggled || shiftHeld(keys));
   const clearInput = () => {
+    runToggled = false;
     keys.clear();
     holds.clear();
     look = null;
@@ -107,7 +116,7 @@ export function createIndoorWalker<Area extends string>(
     if (!active || blocked()) return;
     const pose = navigation.step(
       { x: camera.position.x, z: camera.position.z, yaw: camera.rotation.y },
-      input,
+      pacedInput(input, running(), true),
       dt,
       obstacles(),
     );
@@ -132,6 +141,10 @@ export function createIndoorWalker<Area extends string>(
       e.target.closest('input, textarea, select, [contenteditable="true"]')
     )
       return;
+    if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
+      keys.add(e.code);
+      return; // Do not swallow Shift+Tab.
+    }
     if (
       [
         "KeyW",
@@ -200,6 +213,15 @@ export function createIndoorWalker<Area extends string>(
       scene.getEngine().getDeltaTime() / 1000,
     );
   });
+  const party = createWalkingParty(scene, camera, {
+    indoors: true,
+    reducedMotion: () =>
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true,
+    obstacles,
+    canStand: (p, bounds) => canWalkInside(p, bounds, navigation.limits),
+    groundHeight: () => navigation.groundHeight ?? 0,
+  });
   if (canvas) {
     window.addEventListener("keydown", keydown);
     window.addEventListener("keyup", keyup);
@@ -219,6 +241,12 @@ export function createIndoorWalker<Area extends string>(
     get active() {
       return active;
     },
+    get running() {
+      return running();
+    },
+    setRunning(next: boolean) {
+      runToggled = next && active && !blocked();
+    },
     get room() {
       return currentRoom;
     },
@@ -233,6 +261,7 @@ export function createIndoorWalker<Area extends string>(
       camera.rotation.set(0.12, start.yaw, 0);
       active = true;
       scene.activeCamera = camera;
+      party.setActive(true);
       canvas?.focus({ preventScroll: true });
       publish();
     },
@@ -242,11 +271,13 @@ export function createIndoorWalker<Area extends string>(
       camera.rotation.set(0, pose.yaw, 0);
       active = true;
       scene.activeCamera = camera;
+      party.setActive(true);
       canvas?.focus({ preventScroll: true });
       publish();
     },
     stop() {
       active = false;
+      party.setActive(false);
       clearInput();
       currentRoom = null;
       nearby = null;
@@ -280,6 +311,7 @@ export function createIndoorWalker<Area extends string>(
         canvas.removeEventListener("pointercancel", pointerup);
         canvas.removeEventListener("lostpointercapture", pointerup);
       }
+      party.dispose();
       camera.dispose();
     },
   };

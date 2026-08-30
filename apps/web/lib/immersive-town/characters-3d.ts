@@ -248,7 +248,7 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
     pathRadius: 2.5,
   },
   {
-    id: "guide-leo",
+    id: "guide-elliot",
     age: "adult",
     activity: "wave",
     hair: "curls",
@@ -262,7 +262,6 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
     z: 14,
     rotation: -0.72,
     phase: 0.45,
-    storyRole: "leo",
   },
   {
     id: "resident-malik",
