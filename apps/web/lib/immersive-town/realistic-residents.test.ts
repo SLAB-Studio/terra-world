@@ -112,6 +112,116 @@ function rotationDifference(a: Quaternion, b: Quaternion) {
 
 describe("realistic resident lifecycle", () => {
   it.each([
+    "man-denim",
+    "man-casual",
+    "woman-casual",
+    "woman-knit",
+    "boy",
+    "girl",
+  ] as ResidentModelId[])(
+    "smoothly stands, walks and sits again with the actual %s indoor skeleton",
+    async (model) => {
+      const profile = RIVERGATE_CHARACTER_PROFILES.find(
+        (p) => residentModelFor(p) === model,
+      )!;
+      const { engine, scene, parent } = testWorld(profile.id);
+      const containers: AssetContainer[] = [];
+      localAssets(containers);
+      try {
+        const rig = createTownCharacter(scene, parent, null, {
+          ...profile,
+          activity: "idle",
+        });
+        rig.root.metadata.indoorPose = {
+          activity: "read",
+          floorY: 0.04,
+          height: profile.age === "child" ? 1.5 : 2.1,
+          seat: 0.84,
+          seatWeight: 1,
+          taskWeight: 1,
+        };
+        rig.root.position.set(3, 0.04, 3);
+        rig.root.rotation.y = 0;
+        new FreeCamera("indoor-walk-observer", new Vector3(3, 2, 7), scene);
+        scene.activeCamera!.getViewMatrix(true);
+        await vi.waitFor(() => expect(hasRealisticResident(rig)).toBe(true));
+        updateRealisticResident(rig, 0, false, 0, 0);
+        await vi.waitFor(() =>
+          expect(rig.root.metadata.modelDetail).toBe("near"),
+        );
+        updateRealisticResident(rig, 0.04, false, 0, 0);
+        updateRealisticResident(rig, 0.08, false, 0, 0);
+        let previous = currentPose(rig.root),
+          previousY = rig.root.position.y;
+        let travelled = 0,
+          walkingPose: Quaternion | undefined,
+          walkRange = 0;
+        for (let frame = 3; frame <= 220; frame++) {
+          const seconds = frame * 0.04;
+          const progress =
+            seconds < 1
+              ? 1
+              : seconds < 2
+                ? 2 - seconds
+                : seconds < 6
+                  ? 0
+                  : seconds < 7
+                    ? seconds - 6
+                    : 1;
+          const weight = progress * progress * (3 - 2 * progress);
+          const speed = seconds >= 2.1 && seconds < 5.7 ? 0.8 : 0;
+          travelled += speed * 0.04;
+          Object.assign(rig.root.metadata.indoorPose, {
+            seatWeight: weight,
+            taskWeight: weight,
+          });
+          rig.root.metadata.routineMotion = {
+            activity: speed ? "walk" : "idle",
+            speed,
+            travelled,
+          };
+          updateRealisticResident(rig, seconds, false, 0, 0);
+          const current = currentPose(rig.root);
+          for (const [name, value] of current)
+            expect(
+              rotationDifference(previous.get(name)!.rotation, value.rotation),
+              `${model}/${name}/${seconds} blend`,
+            ).toBeLessThan(0.5);
+          expect(
+            Math.abs(rig.root.position.y - previousY),
+            `${model} height continuity`,
+          ).toBeLessThan(0.09);
+          expect(rig.root.position.asArray().every(Number.isFinite)).toBe(true);
+          if (speed) {
+            expect(rig.root.position.y).toBeCloseTo(0.04, 5);
+            const thigh = [...current.entries()].find(([name]) =>
+              name.endsWith("L Thigh"),
+            )![1].rotation;
+            walkingPose ??= thigh;
+            walkRange = Math.max(
+              walkRange,
+              rotationDifference(walkingPose, thigh),
+            );
+          }
+          previous = current;
+          previousY = rig.root.position.y;
+        }
+        expect(
+          walkRange,
+          "seated override releases the walking gait",
+        ).toBeGreaterThan(0.2);
+        expect(residentJointPosition(rig, "Bip01 L Thigh")!.y).toBeCloseTo(
+          0.93,
+          1,
+        );
+      } finally {
+        scene.dispose();
+        containers.forEach((container) => container.dispose());
+        engine.dispose();
+      }
+    },
+  );
+  it.each([
     "home",
     "apartments",
     "hub",

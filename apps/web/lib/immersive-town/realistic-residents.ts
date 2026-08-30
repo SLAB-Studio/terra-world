@@ -362,7 +362,10 @@ export function updateRealisticResident(
   const frameRate = group.targetedAnimations[0]?.animation.framePerSecond ?? 60;
   const duration = (group.to - group.from) / frameRate;
   const model = residentAsset(residentModelFor(rig.profile), state.detail);
-  const stature = (rig.profile.age === "child" ? 1.38 : 1.82) / model.height;
+  const indoorPose = rig.root.metadata?.indoorPose as IndoorPose | undefined;
+  const stature =
+    (indoorPose?.height ?? (rig.profile.age === "child" ? 1.38 : 1.82)) /
+    model.height;
   const progress = reducedMotion
     ? 0
     : residentClipProgress(
@@ -409,7 +412,6 @@ export function updateRealisticResident(
       );
     }
   } else state.transition = [];
-  const indoorPose = rig.root.metadata?.indoorPose as IndoorPose | undefined;
   if (indoorPose)
     applyIndoorResidentPose(
       rig.root,

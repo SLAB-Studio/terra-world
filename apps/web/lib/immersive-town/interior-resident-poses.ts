@@ -8,6 +8,8 @@ export type IndoorPose = Readonly<{
   height: number;
   seat?: number;
   task?: IndoorTask;
+  taskWeight?: number;
+  seatWeight?: number;
 }>;
 
 /** Aim a joint in its parent's coordinates; no guesses about imported bone axes. */
@@ -81,6 +83,40 @@ export function applyIndoorResidentPose(
   seconds: number,
   reducedMotion: boolean,
 ) {
+  const taskWeight = Math.max(0, Math.min(1, pose.taskWeight ?? 1));
+  const seatWeight =
+    pose.seat === undefined
+      ? 0
+      : Math.max(0, Math.min(1, pose.seatWeight ?? 1));
+  root.position.y = pose.floorY;
+  if (taskWeight === 0 && seatWeight === 0) return;
+  // Preserve the sampled locomotion underneath the task. This avoids snapping
+  // seated legs/IK arms onto a walking clip when an actor stands or returns.
+  const underlying = new Map<
+    TransformNode,
+    { rotation: Quaternion; weight: number }
+  >();
+  for (const side of ["L", "R"] as const) {
+    for (const part of [
+      "Thigh",
+      "Calf",
+      "Foot",
+      "UpperArm",
+      "Forearm",
+    ] as const) {
+      const node = nodes.get(`Bip01 ${side} ${part}`);
+      const weight = ["Thigh", "Calf", "Foot"].includes(part)
+        ? seatWeight
+        : taskWeight;
+      if (node && weight < 1)
+        underlying.set(node, {
+          rotation:
+            node.rotationQuaternion?.clone() ??
+            Quaternion.FromEulerVector(node.rotation),
+          weight,
+        });
+    }
+  }
   const forward = new Vector3(
     -Math.sin(root.rotation.y),
     0,
@@ -108,7 +144,7 @@ export function applyIndoorResidentPose(
   root.computeWorldMatrix(true);
   for (const side of ["L", "R"] as const) {
     const lateral = side === "L" ? -1 : 1;
-    if (pose.seat !== undefined) {
+    if (pose.seat !== undefined && seatWeight > 0) {
       aim(
         `Bip01 ${side} Thigh`,
         `Bip01 ${side} Calf`,
@@ -142,7 +178,7 @@ export function applyIndoorResidentPose(
       ),
     );
   }
-  if (pose.seat !== undefined) {
+  if (pose.seat !== undefined && seatWeight > 0) {
     const hips = [
       nodes.get("Bip01 L Thigh"),
       nodes.get("Bip01 R Thigh"),
@@ -153,7 +189,7 @@ export function applyIndoorResidentPose(
           node.computeWorldMatrix(true);
           return sum + node.getAbsolutePosition().y;
         }, 0) / hips.length;
-      root.position.y += pose.seat + 0.09 - hipY;
+      root.position.y += (pose.seat + 0.09 - hipY) * seatWeight;
       root.computeWorldMatrix(true);
     }
   }
@@ -180,5 +216,15 @@ export function applyIndoorResidentPose(
       }
       reachIndoorArm(upper, lower, hand, target);
     }
+  }
+  for (const [node, base] of underlying) {
+    if (node.rotationQuaternion)
+      Quaternion.SlerpToRef(
+        base.rotation,
+        node.rotationQuaternion,
+        base.weight,
+        node.rotationQuaternion,
+      );
+    node.computeWorldMatrix(true);
   }
 }
