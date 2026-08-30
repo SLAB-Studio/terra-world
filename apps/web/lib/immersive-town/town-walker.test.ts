@@ -42,19 +42,17 @@ describe("Rivergate walking camera", () => {
       fakeWindow.dispatchEvent(
         Object.assign(new Event("pointerup"), { pointerId: 2 }),
       );
-      const before = walker.camera.position.clone();
+      const before = walker.position.clone();
       world.scene.onBeforeRenderObservable.notifyObservers(world.scene);
-      expect(walker.camera.position.subtract(before).length()).toBeGreaterThan(
-        0,
-      );
+      expect(walker.position.subtract(before).length()).toBeGreaterThan(0);
       walker.hold("forward", false);
-      const stopped = walker.camera.position.clone();
+      const stopped = walker.position.clone();
       world.scene.onBeforeRenderObservable.notifyObservers(world.scene);
-      expect(walker.camera.position.equals(stopped)).toBe(true);
+      expect(walker.position.equals(stopped)).toBe(true);
       walker.hold("back", true);
       fakeWindow.dispatchEvent(new Event("blur"));
       world.scene.onBeforeRenderObservable.notifyObservers(world.scene);
-      expect(walker.camera.position.equals(stopped)).toBe(true);
+      expect(walker.position.equals(stopped)).toBe(true);
     } finally {
       walker.dispose();
       world.dispose();
@@ -82,9 +80,13 @@ describe("Rivergate walking camera", () => {
     const homes = [...world.houses];
     walker.setActive(true);
     expect(world.scene.activeCamera).toBe(walker.camera);
-    expect(canWalkAt(walker.camera.position, walker.obstacles)).toBe(true);
+    expect(canWalkAt(walker.position, walker.obstacles)).toBe(true);
+    expect(walker.avatar.root.isEnabled()).toBe(true);
+    expect(
+      walker.camera.position.subtract(walker.position).length(),
+    ).toBeGreaterThan(4);
     const firstDoor = walker.doors[0]!;
-    walker.camera.position.copyFrom(firstDoor.approach);
+    walker.position.copyFrom(firstDoor.approach);
     walker.enterHouse();
     expect(onEnterHouse).toHaveBeenCalledOnce();
     isBlocked = true;
@@ -95,13 +97,14 @@ describe("Rivergate walking camera", () => {
     expect(onEnterHouse).toHaveBeenCalledOnce();
     isBlocked = false;
     walker.nudge("back");
-    const streetPosition = walker.camera.position.clone();
+    const streetPosition = walker.position.clone();
     walker.setActive(false);
+    expect(walker.avatar.root.isEnabled()).toBe(false);
     expect(world.scene.activeCamera).toBe(originalCamera);
     expect(world.camera.radius).toBe(originalRadius);
     expect(world.houses).toEqual(homes);
     walker.setActive(true);
-    expect(walker.camera.position.equals(streetPosition)).toBe(true);
+    expect(walker.position.equals(streetPosition)).toBe(true);
     walker.dispose();
     expect(world.scene.activeCamera).toBe(originalCamera);
     world.dispose();

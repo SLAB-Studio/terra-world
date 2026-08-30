@@ -3,8 +3,14 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 
 import type { ImmersiveTownWorld, TownHouseMetadata } from "./types";
+import { createPlayerAvatar } from "./player-avatar";
 import {
-  WALK_EYE_HEIGHT,
+  clipCameraBoom,
+  desiredFollowPosition,
+  playerCameraTarget,
+  PLAYER_WALK_SPEED,
+} from "./third-person-camera";
+import {
   canWalkAt,
   insideWalkBounds,
   nearbyWalkDoor,
@@ -51,6 +57,18 @@ export function createTownWalker(
       ),
     )
     .map(boundsForMesh);
+  const cameraObstacles = [
+    ...obstacles,
+    ...world.scene.meshes
+      .filter((mesh) => /roof|canopy/.test(mesh.name))
+      .map((mesh) => {
+        const bounds = boundsForMesh(mesh);
+        return {
+          ...bounds,
+          bottom: mesh.getBoundingInfo().boundingBox.minimumWorld.y,
+        };
+      }),
+  ];
   const groundHeight = (point: { x: number; z: number }) => {
     let height = Math.max(0.71, walkingRoadHeight(point) ?? 0);
     for (const ground of raisedGround) {
@@ -110,6 +128,25 @@ export function createTownWalker(
   camera.maxZ = 320;
   camera.fov = 1.05;
   camera.inertia = 0;
+  const avatar = createPlayerAvatar(world);
+  const position = avatar.root.position;
+  position.set(-38, 0.75, -30);
+  let viewYaw = 0;
+  let viewPitch = 0.4;
+  const followCamera = (dt: number, snap = false) => {
+    const target = playerCameraTarget(position);
+    const desired = desiredFollowPosition(position, viewYaw, viewPitch);
+    const blend =
+      snap || world.animation.reducedMotion ? 1 : 1 - Math.exp(-12 * dt);
+    const candidate = {
+      x: camera.position.x + (desired.x - camera.position.x) * blend,
+      y: camera.position.y + (desired.y - camera.position.y) * blend,
+      z: camera.position.z + (desired.z - camera.position.z) * blend,
+    };
+    const safe = clipCameraBoom(target, candidate, cameraObstacles);
+    camera.position.set(safe.x, safe.y, safe.z);
+    camera.setTarget(new Vector3(target.x, target.y, target.z));
+  };
   let active = false;
   let hasStarted = false;
   let nearby: TownHouseMetadata | null = null;
@@ -123,6 +160,7 @@ export function createTownWalker(
     keys.clear();
     heldButtons.clear();
     dragging = null;
+    avatar.stop();
   };
   const blocked = () =>
     callbacks.isBlocked() ||
@@ -133,7 +171,7 @@ export function createTownWalker(
         ) !== null ||
         document.visibilityState !== "visible"));
   const publishNearby = () => {
-    const door = nearbyWalkDoor(camera.position, doors);
+    const door = nearbyWalkDoor(position, doors);
     const next =
       door === null
         ? null
@@ -144,14 +182,27 @@ export function createTownWalker(
     }
   };
   const move = (input: WalkInput, dt: number) => {
+    const frameTime = Number.isFinite(dt) ? Math.max(0, Math.min(dt, 0.05)) : 0;
     const pose = stepWalk(
-      { x: camera.position.x, z: camera.position.z, yaw: camera.rotation.y },
+      { x: position.x, z: position.z, yaw: viewYaw },
       input,
-      dt,
+      frameTime,
       obstacles,
+      PLAYER_WALK_SPEED,
     );
-    camera.position.set(pose.x, groundHeight(pose) + WALK_EYE_HEIGHT, pose.z);
-    camera.rotation.y = pose.yaw;
+    const dx = pose.x - position.x,
+      dz = pose.z - position.z;
+    position.set(pose.x, groundHeight(pose), pose.z);
+    viewYaw = pose.yaw;
+    avatar.update(
+      dx,
+      dz,
+      frameTime,
+      viewYaw,
+      world.animation.reducedMotion,
+      input.turn !== 0,
+    );
+    followCamera(frameTime);
     publishNearby();
   };
   const enterHouse = (id?: string) => {
@@ -165,31 +216,30 @@ export function createTownWalker(
     clearInput();
     if (next === active) return;
     active = next;
+    avatar.root.setEnabled(active);
     if (active) {
       world.camera.detachControl();
       if (!hasStarted) {
         // Begin beside a real front door, not in a road or inside a building.
         const start = doors.find((door) => canWalkAt(door.approach, obstacles));
         if (start !== undefined) {
-          camera.position.copyFrom(start.approach);
+          position.copyFrom(start.approach);
           const away = new Vector3(
             start.approach.x - start.x,
             0,
             start.approach.z - start.z,
           ).normalize();
           const streetStart = start.approach.add(away.scale(5));
-          if (canWalkAt(streetStart, obstacles))
-            camera.position.copyFrom(streetStart);
-          camera.position.y = groundHeight(camera.position) + WALK_EYE_HEIGHT;
-          camera.rotation.y =
-            Math.atan2(
-              start.x - camera.position.x,
-              start.z - camera.position.z,
-            ) + 0.48;
+          if (canWalkAt(streetStart, obstacles)) position.copyFrom(streetStart);
+          position.y = groundHeight(position);
+          viewYaw =
+            Math.atan2(start.x - position.x, start.z - position.z) + 0.48;
+          avatar.face(viewYaw);
         }
         hasStarted = true;
       }
       world.scene.activeCamera = camera;
+      followCamera(0, true);
       canvas?.focus({ preventScroll: true });
       publishNearby();
     } else {
@@ -242,11 +292,9 @@ export function createTownWalker(
     const dy = event.clientY - dragging.y;
     lookDistance += Math.abs(dx) + Math.abs(dy);
     if (lookDistance > 5) ignorePickUntil = performance.now() + 250;
-    camera.rotation.y += dx * 0.004;
-    camera.rotation.x = Math.max(
-      -0.65,
-      Math.min(0.65, camera.rotation.x + dy * 0.004),
-    );
+    viewYaw += dx * 0.004;
+    viewPitch = Math.max(0.12, Math.min(0.85, viewPitch + dy * 0.004));
+    followCamera(1 / 60, world.animation.reducedMotion);
     dragging = { id: event.pointerId, x: event.clientX, y: event.clientY };
   };
   const onPointerUp = (event: PointerEvent) => {
@@ -296,6 +344,8 @@ export function createTownWalker(
   }
   return {
     camera,
+    position,
+    avatar,
     obstacles,
     doors,
     setActive,
@@ -334,6 +384,7 @@ export function createTownWalker(
         canvas.removeEventListener("pointerleave", onPointerUp);
       }
       camera.dispose();
+      avatar.dispose();
     },
   };
 }

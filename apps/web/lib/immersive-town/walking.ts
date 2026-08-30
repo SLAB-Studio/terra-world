@@ -89,6 +89,7 @@ export function stepWalk(
   input: WalkInput,
   elapsedSeconds: number,
   obstacles: readonly WalkBounds[],
+  speed: number = WALK_SPEED,
 ): WalkPose {
   const dt = Number.isFinite(elapsedSeconds)
     ? Math.max(0, Math.min(0.05, elapsedSeconds))
@@ -100,13 +101,9 @@ export function stepWalk(
   const right = safe(input.right);
   const length = Math.max(1, Math.hypot(forward, right));
   const dx =
-    ((Math.sin(yaw) * forward + Math.cos(yaw) * right) / length) *
-    WALK_SPEED *
-    dt;
+    ((Math.sin(yaw) * forward + Math.cos(yaw) * right) / length) * speed * dt;
   const dz =
-    ((Math.cos(yaw) * forward - Math.sin(yaw) * right) / length) *
-    WALK_SPEED *
-    dt;
+    ((Math.cos(yaw) * forward - Math.sin(yaw) * right) / length) * speed * dt;
   const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.1));
   let { x, z } = pose;
   for (let index = 0; index < steps; index += 1) {
