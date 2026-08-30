@@ -37,8 +37,14 @@ export function startCanvasRenderLoop(
     );
   const resolution = createAdaptiveResolution(readBudget());
   let quality: TownQuality | undefined;
+  let appliedPixelRatio: number | undefined;
   const applyResolution = () => {
-    engine.setHardwareScalingLevel(1 / resolution.pixelRatio);
+    const resized = appliedPixelRatio !== resolution.pixelRatio;
+    if (resized) {
+      appliedPixelRatio = resolution.pixelRatio;
+      // Babylon resizes internally when hardware scaling changes.
+      engine.setHardwareScalingLevel(1 / resolution.pixelRatio);
+    }
     const nextQuality = sceneQualityForRenderBudget(
       preference,
       resolution.pixelRatio,
@@ -47,6 +53,7 @@ export function startCanvasRenderLoop(
       quality = nextQuality;
       options.onQuality(nextQuality);
     }
+    return resized;
   };
   applyResolution();
 
@@ -82,15 +89,14 @@ export function startCanvasRenderLoop(
       rendering = true;
     }
   };
-  let viewport = "";
+  let viewport = `${canvas.clientWidth}:${canvas.clientHeight}:${window.devicePixelRatio}`;
   const resize = new ResizeObserver(() => {
     if (disposed) return;
     const nextViewport = `${canvas.clientWidth}:${canvas.clientHeight}:${window.devicePixelRatio}`;
     if (nextViewport === viewport) return;
     viewport = nextViewport;
     resolution.reset(readBudget());
-    applyResolution();
-    engine.resize();
+    if (!applyResolution()) engine.resize();
   });
   const intersection = new IntersectionObserver(
     ([entry]) => {

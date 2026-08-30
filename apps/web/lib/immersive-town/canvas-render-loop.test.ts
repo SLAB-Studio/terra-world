@@ -52,7 +52,8 @@ function setup(
       frame = callback;
     }),
     stopRenderLoop: vi.fn(),
-    setHardwareScalingLevel: vi.fn(),
+    // Match Babylon's resize side effect so duplicate work is observable.
+    setHardwareScalingLevel: vi.fn(() => engine.resize()),
     resize: vi.fn(),
   };
   const canvas = { clientWidth: 1200, clientHeight: 800 };
@@ -154,13 +155,32 @@ describe("interior render lifecycle", () => {
     s.resize();
     s.resize();
     expect(s.engine.resize).toHaveBeenCalledTimes(1);
+    s.canvas.clientWidth = 1280;
+    s.resize();
+    expect(s.engine.resize).toHaveBeenCalledTimes(2);
+    expect(s.engine.setHardwareScalingLevel).toHaveBeenCalledTimes(1);
     s.canvas.clientWidth = 3840;
     s.canvas.clientHeight = 2160;
     s.resize();
-    expect(s.engine.resize).toHaveBeenCalledTimes(2);
+    expect(s.engine.resize).toHaveBeenCalledTimes(3);
     expect(s.engine.setHardwareScalingLevel).toHaveBeenLastCalledWith(
       1 / Math.sqrt(1_800_000 / (3840 * 2160)),
     );
+    s.loop.dispose();
+  });
+  it("does not reset learned Auto quality or repeat scaling after a layout resize", () => {
+    const s = setup();
+    for (let n = 0; n < 110; n++) s.tick(40);
+    expect(s.engine.setHardwareScalingLevel).toHaveBeenCalledTimes(2);
+    expect(s.onQuality).toHaveBeenLastCalledWith("low");
+    s.canvas.clientWidth = 1180;
+    s.resize();
+    s.resize();
+    expect(s.engine.setHardwareScalingLevel).toHaveBeenCalledTimes(2);
+    expect(s.engine.resize).toHaveBeenCalledTimes(3);
+    expect(s.onQuality).toHaveBeenCalledTimes(2);
+    for (let n = 0; n < 40; n++) s.tick(40);
+    expect(s.engine.setHardwareScalingLevel).toHaveBeenLastCalledWith(1 / 0.8);
     s.loop.dispose();
   });
 });

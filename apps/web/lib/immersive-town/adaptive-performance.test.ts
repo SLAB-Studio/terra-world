@@ -90,6 +90,34 @@ describe("adaptive resolution", () => {
     const controller = createAdaptiveResolution(autoBudget());
     expect(feed(controller, 19, 30_000)).toEqual([]);
   });
+  it("backs off rejected quality increases but retries after conditions improve", () => {
+    const controller = createAdaptiveResolution(autoBudget());
+    const changes: number[] = [];
+    // Model a costly effects boundary: low is smooth, medium is too slow.
+    for (let elapsed = 0; elapsed < 120_000;) {
+      const frameMs = controller.pixelRatio >= 0.85 ? 40 : 1000 / 60;
+      elapsed += frameMs;
+      const next = controller.sample(frameMs);
+      if (next !== null) changes.push(next);
+    }
+    expect(changes.slice(0, 3)).toEqual([0.8, 0.9, 0.8]);
+    expect(changes.length).toBeLessThanOrEqual(6);
+    // A less demanding view or recovered machine can still earn full detail.
+    feed(controller, 1000 / 60, 180_000);
+    expect(controller.pixelRatio).toBe(1.25);
+  });
+  it("keeps learned Auto resolution across resizes and clamps to a smaller budget", () => {
+    const controller = createAdaptiveResolution(autoBudget());
+    feed(controller, 40, 4200);
+    controller.reset(getRenderBudget("auto", 2, 1180, 800));
+    expect(controller.pixelRatio).toBe(0.8);
+    expect(feed(controller, 40, 1800)).toEqual([]);
+    const large = getRenderBudget("auto", 2, 3840, 2160);
+    controller.reset(large);
+    expect(controller.pixelRatio).toBe(large.maxPixelRatio);
+    controller.reset(getRenderBudget("balanced", 2, 1200, 800));
+    expect(controller.pixelRatio).toBe(1.25);
+  });
   it("ignores invalid measurements and suspension gaps, rewarming on resume", () => {
     const controller = createAdaptiveResolution(autoBudget());
     feed(controller, 40, 4200);

@@ -17,6 +17,12 @@ describe("city quality changes", () => {
       const camera = world.camera;
       const houseIds = world.houses.map((home) => home.id);
       const venueIds = world.venues.map((place) => place.venue.id);
+      const residentIds = world.residents.life.states.map(
+        (resident) => resident.id,
+      );
+      expect(houseIds).toHaveLength(28);
+      expect(venueIds).toHaveLength(18);
+      expect(residentIds).toHaveLength(32);
       world.camera.alpha = 0.4;
       expect(world.timeOfDay).toBe("night");
       expect(world.scene.shadowsEnabled).toBe(true);
@@ -30,6 +36,9 @@ describe("city quality changes", () => {
         expect(world.camera.alpha).toBe(0.4);
         expect(world.houses.map((home) => home.id)).toEqual(houseIds);
         expect(world.venues.map((place) => place.venue.id)).toEqual(venueIds);
+        expect(
+          world.residents.life.states.map((resident) => resident.id),
+        ).toEqual(residentIds);
         for (const home of world.houses) {
           expect(world.getHouseFromMesh(home.pickMesh)?.id).toBe(home.id);
           expect(home.pickMesh.isPickable).toBe(true);
