@@ -12,6 +12,8 @@ import type {
 import type { VehicleFleet } from "../../lib/immersive-town/vehicles-3d";
 import type { HouseId, HouseUpgradeId } from "./HouseDiagnostics";
 import "./TownWalking.css";
+import BuildingVisit3D from "./BuildingVisit3D";
+import type { TownVenue } from "../../lib/immersive-town/venue-catalog";
 
 export type NeighborhoodHouseSelection = Readonly<{
   id: string;
@@ -64,6 +66,12 @@ function ImmersiveTownMap({
 }: ImmersiveTownMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const runtimeRef = useRef<RuntimeHandle | null>(null);
+  const [venue, setVenue] = useState<TownVenue | null>(null);
+  const [directoryOpen, setDirectoryOpen] = useState(false);
+  const [allHomes, setAllHomes] = useState<NeighborhoodHouseSelection[]>([]);
+  const [nearbyVenue, setNearbyVenue] = useState<TownVenue | null>(null);
+  const visitOpenRef = useRef(false);
+  visitOpenRef.current = venue !== null || directoryOpen;
   const timeOfDayRef = useRef(timeOfDay);
   timeOfDayRef.current = timeOfDay;
   useEffect(() => {
@@ -159,6 +167,7 @@ function ImmersiveTownMap({
         adapterTools.configureKidFriendlyCamera(world.camera);
         const walker = walkingTools.createTownWalker(world, canvas, {
           isBlocked: () =>
+            visitOpenRef.current ||
             propsRef.current.selectedHouseId !== null ||
             propsRef.current.selectedNeighborhoodHouseId !== null ||
             propsRef.current.activeUpgradeId !== null,
@@ -179,6 +188,8 @@ function ImmersiveTownMap({
                 displayName: house.displayName,
               });
           },
+          onNearbyVenue: (place) => setNearbyVenue(place?.venue ?? null),
+          onEnterVenue: (place) => setVenue(place.venue),
         });
         const upgrades = upgradeTools.createHouseUpgradeVisuals(
           world.scene,
@@ -229,6 +240,8 @@ function ImmersiveTownMap({
               pointer.pickInfo?.pickedMesh ?? null,
             );
             setHoveredHouse(hovered?.id ?? null);
+            if (world.getVenueFromMesh(pointer.pickInfo?.pickedMesh ?? null))
+              canvas.style.cursor = "pointer";
             return;
           }
           if (pointer.type === Babylon.PointerEventTypes.POINTERDOWN) {
@@ -236,6 +249,16 @@ function ImmersiveTownMap({
             return;
           }
           if (pointer.type !== Babylon.PointerEventTypes.POINTERPICK) return;
+          if (visitOpenRef.current || propsRef.current.activeUpgradeId !== null)
+            return;
+          const destination = world.getVenueFromMesh(
+            pointer.pickInfo?.pickedMesh ?? null,
+          );
+          if (destination) {
+            if (walker.active) walker.enterVenue(destination.venue.id);
+            else setVenue(destination.venue);
+            return;
+          }
           const house = world.getHouseFromMesh(
             pointer.pickInfo?.pickedMesh ?? null,
           );
@@ -257,6 +280,7 @@ function ImmersiveTownMap({
         });
 
         const dropUpgradeOnHouse = (event: PointerEvent) => {
+          if (visitOpenRef.current) return;
           const active = propsRef.current.activeUpgradeId;
           if (active === null) return;
           const bounds = canvas.getBoundingClientRect();
@@ -362,13 +386,21 @@ function ImmersiveTownMap({
           return;
         }
         runtimeRef.current = runtime;
+        setAllHomes(
+          world.houses.map((house) => ({
+            id: house.id,
+            displayName: house.displayName,
+          })),
+        );
 
         const resizeObserver = new ResizeObserver(() => world.resize());
         resizeObserver.observe(canvas);
         let isOnscreen = true;
         let isPageVisible = document.visibilityState === "visible";
         let isRendering = false;
-        const renderFrame = () => world.render();
+        const renderFrame = () => {
+          if (!visitOpenRef.current) world.render();
+        };
         const syncPauseState = () => {
           const paused = !isOnscreen || !isPageVisible;
           if (paused) walker.clearInput();
@@ -503,7 +535,7 @@ function ImmersiveTownMap({
       <canvas
         aria-label={
           viewMode === "walk"
-            ? "Walk around Rivergate. W A S D to move, arrow keys to move or turn, E to enter a nearby home. Drag to look."
+            ? "Walk around Rivergate. W A S D to move, arrow keys to move or turn, E to enter a nearby building. Drag to look."
             : "3D town view. Drag to turn, scroll to zoom."
         }
         tabIndex={0}
@@ -542,6 +574,17 @@ function ImmersiveTownMap({
         >
           Walk around
         </button>
+        <button
+          type="button"
+          disabled={engineStatus !== "ready"}
+          onClick={() => {
+            onWalkStart();
+            runtimeRef.current?.walker.clearInput();
+            setDirectoryOpen(true);
+          }}
+        >
+          Places
+        </button>
       </div>
       {viewMode === "walk" ? (
         <>
@@ -564,16 +607,20 @@ function ImmersiveTownMap({
           </div>
           <div className="town-walk-entry">
             <p aria-live="polite" role="status">
-              {nearbyHouse === null
-                ? "Walk up to a front door to visit."
-                : nearbyHouse.displayName}
+              {nearbyVenue?.name ??
+                nearbyHouse?.displayName ??
+                "Walk up to a front door to visit."}
             </p>
-            {nearbyHouse !== null ? (
+            {nearbyHouse !== null || nearbyVenue !== null ? (
               <button
                 type="button"
-                onClick={() => runtimeRef.current?.walker.enterHouse()}
+                onClick={() => runtimeRef.current?.walker.enterNearby()}
               >
-                Enter home
+                {nearbyVenue?.outdoor
+                  ? "Visit this place"
+                  : nearbyVenue
+                    ? "Enter building"
+                    : "Enter home"}
               </button>
             ) : null}
           </div>
@@ -617,6 +664,29 @@ function ImmersiveTownMap({
           </button>
         </div>
       )}
+      {venue !== null || directoryOpen ? (
+        <BuildingVisit3D
+          key={venue?.id ?? "directory"}
+          venue={venue}
+          timeOfDay={timeOfDay}
+          homes={allHomes}
+          onVisit={(place) => {
+            setDirectoryOpen(false);
+            setVenue(place);
+          }}
+          onHome={(home) => {
+            setVenue(null);
+            setDirectoryOpen(false);
+            if (isHouseId(home.id)) onHouseSelect(home.id);
+            else onNeighborhoodHouseSelect(home);
+          }}
+          onClose={() => {
+            setVenue(null);
+            setDirectoryOpen(false);
+            canvasRef.current?.focus({ preventScroll: true });
+          }}
+        />
+      ) : null}
     </div>
   );
 }

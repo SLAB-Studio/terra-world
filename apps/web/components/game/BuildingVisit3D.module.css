@@ -1,0 +1,231 @@
+.dialog {
+  width: min(1180px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100svh - 32px);
+  padding: 0;
+  border: 4px solid #273e4b;
+  border-radius: 24px;
+  color: #263d47;
+  background: #fff8e5;
+  box-shadow: 0 16px 50px #07132180;
+  overflow: auto;
+}
+.dialog::backdrop {
+  background: #0a1826c9;
+}
+.dialog button,
+.dialog select {
+  min-height: 46px;
+  padding: 10px 15px;
+  border: 2px solid #29414b;
+  border-radius: 12px;
+  color: #213a45;
+  background: #ffda60;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.dialog button:hover {
+  background: #ffe790;
+}
+.dialog button:focus-visible,
+.dialog select:focus-visible,
+.stage canvas:focus-visible {
+  outline: 3px solid #13716b;
+  outline-offset: 3px;
+}
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 22px;
+  border-bottom: 2px solid #d9d4bf;
+}
+.header p {
+  margin: 0 0 2px;
+  font-size: 0.65rem;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+  color: #557570;
+}
+.header h2 {
+  margin: 0;
+  font-size: clamp(1.2rem, 2.5vw, 1.8rem);
+}
+.header button {
+  flex-shrink: 0;
+}
+.floorBar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 22px;
+  font-size: 0.8rem;
+}
+.floorBar label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.floorBar select {
+  max-width: 300px;
+  background: white;
+}
+.floorBar > span {
+  color: #526963;
+  font-size: 0.75rem;
+}
+.stage {
+  position: relative;
+  height: min(60svh, 680px);
+  min-height: 320px;
+  background: #142439;
+}
+.stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+.controls {
+  position: absolute;
+  bottom: 18px;
+  left: 18px;
+  display: grid;
+  grid-template-columns: repeat(3, 80px);
+  grid-template-areas: ". forward ." "left back right";
+  gap: 6px;
+}
+.controls button {
+  touch-action: none;
+  user-select: none;
+  font-size: 0.7rem;
+  padding: 8px 4px;
+  background: #fff8e5ed;
+}
+.controls button:active {
+  background: #ffda60;
+}
+.forward {
+  grid-area: forward;
+}
+.back {
+  grid-area: back;
+}
+.left {
+  grid-area: left;
+}
+.right {
+  grid-area: right;
+}
+.nearby {
+  position: absolute;
+  bottom: 18px;
+  right: 18px;
+}
+.status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 16px;
+  color: #fff8e5;
+  background: #142439;
+}
+.description {
+  padding: 12px 22px;
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.directory {
+  padding: 8px 22px 28px;
+}
+.directory > p {
+  font-size: 0.9rem;
+  color: #526963;
+}
+.directory h3 {
+  margin: 24px 0 12px;
+  font-size: 1rem;
+}
+.destinations {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.destinations button {
+  display: grid;
+  gap: 5px;
+  text-align: left;
+  background: white;
+}
+.destinations span {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #526963;
+}
+@media (max-width: 650px) {
+  .dialog {
+    width: calc(100vw - 12px);
+    max-height: calc(100svh - 12px);
+    border-radius: 17px;
+  }
+  .header {
+    padding: 12px;
+    gap: 8px;
+  }
+  .header button {
+    padding: 8px 10px;
+    font-size: 0.72rem;
+  }
+  .floorBar {
+    padding: 8px 12px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .floorBar label {
+    width: 100%;
+    justify-content: space-between;
+    font-size: 0.72rem;
+  }
+  .floorBar select {
+    max-width: 65%;
+    font-size: 0.75rem;
+  }
+  .floorBar > span {
+    font-size: 0.65rem;
+  }
+  .keyboard {
+    display: none;
+  }
+  .stage {
+    height: calc(100svh - 280px);
+    min-height: 280px;
+  }
+  .controls {
+    left: 10px;
+    bottom: 10px;
+    grid-template-columns: repeat(3, 68px);
+    gap: 4px;
+  }
+  .nearby {
+    bottom: 115px;
+    right: 10px;
+  }
+  .description {
+    padding: 10px 12px;
+    font-size: 0.75rem;
+  }
+  .directory {
+    padding: 6px 12px 20px;
+  }
+  .destinations {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
