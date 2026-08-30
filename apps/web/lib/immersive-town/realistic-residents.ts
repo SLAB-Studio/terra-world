@@ -8,6 +8,10 @@ import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import type { Scene } from "@babylonjs/core/scene";
 import type { TownCharacterRig } from "./characters-3d";
 import {
+  applyIndoorResidentPose,
+  type IndoorPose,
+} from "./interior-resident-poses";
+import {
   residentAsset,
   residentClipFor,
   residentClipProgress,
@@ -28,6 +32,7 @@ type ResidentInstance = {
   clips: Map<ResidentClip, AnimationGroup>;
   poses: Pose[];
   bindings: Array<{ bone: Bone; node: TransformNode }>;
+  namedNodes: Map<string, TransformNode>;
 };
 type ResidentState = {
   scene: Scene;
@@ -51,6 +56,17 @@ const residents = new WeakMap<TransformNode, ResidentState>();
 
 export function hasRealisticResident(rig: TownCharacterRig) {
   return residents.get(rig.root)?.instance !== null && residents.has(rig.root);
+}
+
+/** Attach everyday objects to the displayed pose, including after an LOD swap. */
+export function residentJointPosition(
+  rig: TownCharacterRig,
+  joint: string,
+): Vector3 | null {
+  const node = residents.get(rig.root)?.instance?.namedNodes.get(joint);
+  if (!node) return null;
+  node.computeWorldMatrix(true);
+  return node.getAbsolutePosition().clone();
 }
 
 function disposeInstance(
@@ -134,7 +150,10 @@ async function requestDetail(state: ResidentState, detail: ResidentDetail) {
     mount.rotation.y = Math.PI;
     // The old rig uses 0.58 scene scale; assets are already in metres.
     // Preserve child/adult stature, independent of the imported authoring units.
-    const height = state.rig.profile.age === "child" ? 1.38 : 1.82;
+    const indoorPose = state.rig.root.metadata?.indoorPose as
+      IndoorPose | undefined;
+    const height =
+      indoorPose?.height ?? (state.rig.profile.age === "child" ? 1.38 : 1.82);
     mount.scaling.setAll(
       height / residentAsset(model, detail).height / state.rig.root.scaling.x,
     );
@@ -186,7 +205,13 @@ async function requestDetail(state: ResidentState, detail: ResidentDetail) {
         }
       }
     }
-    const next = { entries, mount, meshes, clips, poses, bindings };
+    const namedNodes = new Map(
+      [...nodes].map((node) => [
+        poseName(node).replace(/^Bip\d+/, "Bip01"),
+        node,
+      ]),
+    );
+    const next = { entries, mount, meshes, clips, poses, bindings, namedNodes };
     const previous = state.instance;
     state.instance = next;
     state.detail = detail;
@@ -384,6 +409,15 @@ export function updateRealisticResident(
       );
     }
   } else state.transition = [];
+  const indoorPose = rig.root.metadata?.indoorPose as IndoorPose | undefined;
+  if (indoorPose)
+    applyIndoorResidentPose(
+      rig.root,
+      instance.namedNodes,
+      indoorPose,
+      seconds + rig.profile.phase,
+      reducedMotion,
+    );
   syncBones(instance);
   // The skinned animation already contains grounded hip and foot movement.
   // Do not add the old primitive rig's body bob on top of it.

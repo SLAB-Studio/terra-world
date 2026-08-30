@@ -16,6 +16,7 @@ import {
 } from "./characters-3d";
 import {
   hasRealisticResident,
+  residentJointPosition,
   updateRealisticResident,
 } from "./realistic-residents";
 import {
@@ -25,6 +26,9 @@ import {
   type ResidentModelId,
 } from "./resident-models";
 import { PEDESTRIAN_ROUTES, samplePedestrianRoute } from "./pedestrian-motion";
+import { createInteriorLife } from "./interior-life";
+import { homeLifePlan, venueLifePlan } from "./interior-life-plan";
+import { TOWN_VENUES } from "./venue-catalog";
 
 const loader = vi.hoisted(() => vi.fn());
 vi.mock("./resident-assets", () => ({ loadResidentAsset: loader }));
@@ -53,26 +57,31 @@ function testWorld(profileId = "south-walker-kai") {
 }
 
 function localAssets(containers: AssetContainer[]) {
+  let serial: Promise<unknown> = Promise.resolve();
   loader.mockImplementation(
-    async (scene: Scene, id: ResidentModelId, detail: ResidentDetail) => {
-      const bytes = readFileSync(
-        new URL(
-          `../../public${residentAsset(id, detail).url}`,
-          import.meta.url,
-        ),
-      );
-      const container = await LoadAssetContainerAsync(
-        new Uint8Array(bytes),
-        scene,
-        {
-          pluginExtension: ".glb",
-          pluginOptions: {
-            gltf: { skipMaterials: true, animationStartMode: 0 },
+    (scene: Scene, id: ResidentModelId, detail: ResidentDetail) => {
+      const request = serial.then(async () => {
+        const bytes = readFileSync(
+          new URL(
+            `../../public${residentAsset(id, detail).url}`,
+            import.meta.url,
+          ),
+        );
+        const container = await LoadAssetContainerAsync(
+          new Uint8Array(bytes),
+          scene,
+          {
+            pluginExtension: ".glb",
+            pluginOptions: {
+              gltf: { skipMaterials: true, animationStartMode: 0 },
+            },
           },
-        },
-      );
-      containers.push(container);
-      return container;
+        );
+        containers.push(container);
+        return container;
+      });
+      serial = request.catch(() => {});
+      return request;
     },
   );
 }
@@ -102,6 +111,189 @@ function rotationDifference(a: Quaternion, b: Quaternion) {
 }
 
 describe("realistic resident lifecycle", () => {
+  it.each([
+    "home",
+    "apartments",
+    "hub",
+    "bank",
+    "cafe",
+    "clinic",
+    "science",
+    "workshop",
+    "studios",
+  ])(
+    "keeps the real %s task hands in contact with their authored equipment through a cycle",
+    async (use) => {
+      const plans = TOWN_VENUES.flatMap((venue) =>
+        venue.floors.map((_, i) => venueLifePlan(venue, i)),
+      );
+      const plan =
+        use === "home" ? homeLifePlan() : plans.find((p) => p.use === use)!;
+      // Isolate each real asset load; the test runner's dynamic-import mock is not
+      // re-entrant. Production multi-person loading uses the scene asset queue.
+      for (const taskPerson of plan.people.filter((p) => p.task)) {
+        const { engine, scene } = testWorld();
+        const containers: AssetContainer[] = [];
+        localAssets(containers);
+        try {
+          const life = createInteriorLife(
+            scene,
+            { ...plan, people: [taskPerson] },
+            () => false,
+          );
+          new FreeCamera("task-observer", new Vector3(0, 2, 0), scene);
+          scene.activeCamera!.getViewMatrix(true);
+          await vi.waitFor(() => {
+            life.update(0.05);
+            expect(
+              life.loadedPeople,
+              JSON.stringify(life.people.map(({ rig }) => rig.root.metadata)),
+            ).toBe(life.people.length);
+          });
+          life.update(0.05);
+          await vi.waitFor(() => {
+            life.update(0.05);
+            expect(
+              life.people.every(
+                ({ rig }) => rig.root.metadata.modelDetail === "near",
+              ),
+            ).toBe(true);
+          });
+          for (let frame = 0; frame < 100; frame++) {
+            life.update(0.05);
+            for (const { person, rig, prop } of life.people) {
+              for (const [side, point] of [
+                ["L", person.task!.left],
+                ["R", person.task!.right],
+              ] as const) {
+                const hand = residentJointPosition(rig, `Bip01 ${side} Hand`)!;
+                expect(
+                  Vector3.Distance(hand, Vector3.FromArray(point)),
+                  `${use}/${person.name}/${side} reaches equipment`,
+                ).toBeLessThan(0.1);
+              }
+              if (person.prop === "spoon") {
+                const tip = prop!.position.add(new Vector3(0, -0.2, 0));
+                const pot =
+                  use === "home"
+                    ? new Vector3(6.4, 2.45, -4.85)
+                    : new Vector3(7.8, 1.79, 7.5);
+                expect(Math.hypot(tip.x - pot.x, tip.z - pot.z)).toBeLessThan(
+                  0.27,
+                );
+                expect(tip.y).toBeLessThan(pot.y);
+                expect(tip.y).toBeGreaterThan(pot.y - 0.3);
+              }
+            }
+          }
+        } finally {
+          scene.dispose();
+          containers.forEach((c) => c.dispose());
+          engine.dispose();
+        }
+      }
+    },
+  );
+  it.each([
+    "man-denim",
+    "man-casual",
+    "woman-casual",
+    "woman-knit",
+    "boy",
+    "girl",
+  ] as ResidentModelId[])(
+    "seats the real %s skeleton on furniture, bends knees forward and holds a stable task pose",
+    async (model) => {
+      const profile = RIVERGATE_CHARACTER_PROFILES.find(
+        (p) => residentModelFor(p) === model,
+      )!;
+      const { engine, scene, parent } = testWorld(profile.id);
+      const containers: AssetContainer[] = [];
+      localAssets(containers);
+      try {
+        const rig = createTownCharacter(scene, parent, null, {
+          ...profile,
+          activity: "idle",
+        });
+        rig.root.position.set(3, 0.04, 2);
+        rig.root.rotation.y = Math.PI;
+        rig.root.metadata.indoorPose = {
+          activity: "watch",
+          floorY: 0.04,
+          height: profile.age === "child" ? 1.5 : 2.1,
+          seat: 0.84,
+        };
+        await vi.waitFor(() => expect(hasRealisticResident(rig)).toBe(true));
+        new FreeCamera("nearby", new Vector3(3, 2, 7), scene);
+        scene.activeCamera!.getViewMatrix(true);
+        updateRealisticResident(rig, 0, false, 0, 0);
+        await vi.waitFor(() =>
+          expect(rig.root.metadata.modelDetail).toBe("near"),
+        );
+        const joints = new Map(
+          rig.root
+            .getChildTransformNodes()
+            .map((n) => [
+              n.name
+                .slice(n.name.lastIndexOf(":") + 1)
+                .replace(/^Bip\d+/, "Bip01"),
+              n,
+            ]),
+        );
+        const absolute = (name: string) => {
+          const node = joints.get(name)!;
+          node.computeWorldMatrix(true);
+          return node.getAbsolutePosition().clone();
+        };
+        let previousY: number | undefined;
+        for (let frame = 0; frame < 60; frame++) {
+          updateRealisticResident(rig, frame * 0.05, false, 0, 0);
+          const hip = absolute("Bip01 L Thigh"),
+            knee = absolute("Bip01 L Calf"),
+            ankle = absolute("Bip01 L Foot");
+          expect(hip.y, `${model} seat height`).toBeCloseTo(0.93, 1);
+          expect(
+            knee.z - hip.z,
+            `${model} knees face the television`,
+          ).toBeGreaterThan(0.2);
+          expect(knee.y - ankle.y, `${model} feet below knees`).toBeGreaterThan(
+            0.2,
+          );
+          expect(Math.abs(rig.root.position.x - 3)).toBeLessThan(0.001);
+          if (previousY !== undefined)
+            expect(
+              Math.abs(rig.root.position.y - previousY),
+              `${model} no seat-height jitter`,
+            ).toBeLessThan(0.025);
+          previousY = rig.root.position.y;
+        }
+        rig.root.metadata.indoorPose.activity = "type";
+        rig.root.metadata.indoorPose.task = {
+          left: [3.2, 1.48, 2.5],
+          right: [2.8, 1.48, 2.5],
+        };
+        let previousHand: Vector3 | undefined;
+        for (let frame = 0; frame < 60; frame++) {
+          updateRealisticResident(rig, 4 + frame * 0.05, false, 0, 0);
+          const hand = absolute("Bip01 R Hand");
+          expect(hand.asArray().every(Number.isFinite)).toBe(true);
+          expect(hand.z).toBeGreaterThan(2.2);
+          if (previousHand)
+            expect(Vector3.Distance(hand, previousHand)).toBeLessThan(0.055);
+          previousHand = hand;
+          expect(absolute("Bip01 L Thigh").y).toBeCloseTo(0.93, 1);
+        }
+        updateRealisticResident(rig, 8, true, 0, 0);
+        const frozen = rig.root.position.clone();
+        updateRealisticResident(rig, 40, true, 0, 0);
+        expect(rig.root.position.equals(frozen)).toBe(true);
+      } finally {
+        scene.dispose();
+        containers.forEach((c) => c.dispose());
+        engine.dispose();
+      }
+    },
+  );
   it.each([
     "man-denim",
     "man-casual",

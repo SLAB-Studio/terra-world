@@ -17,7 +17,7 @@ export type VenueKind =
   | "dock";
 export type VenueFloor = Readonly<{
   label: string;
-  use: VenueKind | "lobby" | "roof";
+  use: VenueKind | "lobby" | "roof" | "bank";
 }>;
 export type TownVenue = Readonly<{
   id: string;
@@ -44,7 +44,11 @@ const tower = (
   doorZ: -4.2,
   description,
   floors: [
-    { label: "Ground · Welcome", use: "lobby" },
+    {
+      label:
+        id === "hub" ? "Ground · Banking & city services" : "Ground · Welcome",
+      use: id === "hub" ? "bank" : "lobby",
+    },
     ...Array.from({ length: Math.floor((height - 3.5) / 2.8) }, (_, i) => ({
       label: `${i + 1} · ${roomName}`,
       use: id,
@@ -79,7 +83,7 @@ export const TOWN_VENUES: readonly TownVenue[] = [
     "hub",
     "City Hub",
     31,
-    "Explore Rivergate’s offices, desks and shared workspaces.",
+    "Visit the banking and city-service counters downstairs, then explore Rivergate’s offices and shared workspaces.",
     "Town offices",
   ),
   tower(
@@ -196,6 +200,8 @@ export const findTownVenue = (id: string) =>
 
 export function venueFloorDescription(venue: TownVenue, index: number): string {
   const floor = venue.floors[index];
+  if (floor?.use === "bank")
+    return "Watch tellers help residents with deposits and service payments. These are fictional background activities, not real transactions. Take the lift upstairs for the offices.";
   if (floor?.use === "roof")
     return "Explore the open-air terrace, planted corners and seating. Stay behind the safety rails, then take the lift back downstairs.";
   if (venue.kind === "apartments")

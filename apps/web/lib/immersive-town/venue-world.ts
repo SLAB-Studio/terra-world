@@ -10,11 +10,13 @@ import { Scene } from "@babylonjs/core/scene";
 import { createIndoorWalker } from "./interior-walker";
 import { stepInterior } from "./interior-navigation";
 import type { WalkBounds } from "./walking";
-import type { TownVenue, VenueKind } from "./venue-catalog";
+import type { TownVenue, VenueFloor } from "./venue-catalog";
 import type { TownTimeOfDay } from "./types";
 import { applyTownSurface } from "./materials";
 import { createArchitecturalBatch } from "./geometry";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
+import { createInteriorLife } from "./interior-life";
+import { venueLifePlan } from "./interior-life-plan";
 
 export const VENUE_LIMITS: WalkBounds = {
   minX: -10.8,
@@ -165,9 +167,18 @@ export function createVenueWorld(
     box("stem", x, 1.15, z, 0.12, 1.1, 0.12, wood);
     sphere("leaves", x, 1.8, z, 1.25, leaf);
   };
-  const chair = (x: number, z: number, mat = teal) => {
+  const chair = (x: number, z: number, mat = teal, facesPositiveZ = false) => {
     box("chair-seat", x, 0.72, z, 1, 0.22, 0.9, mat, true);
-    box("chair-back", x, 1.25, z + 0.38, 1, 0.9, 0.14, mat);
+    box(
+      "chair-back",
+      x,
+      1.25,
+      z + (facesPositiveZ ? -0.38 : 0.38),
+      1,
+      0.9,
+      0.14,
+      mat,
+    );
     for (const dx of [-0.36, 0.36])
       for (const dz of [-0.3, 0.3])
         box("chair-leg", x + dx, 0.35, z + dz, 0.1, 0.7, 0.1, dark);
@@ -178,11 +189,29 @@ export function createVenueWorld(
       for (const dz of [-d / 2 + 0.2, d / 2 - 0.2])
         box("table-leg", x + dx, 0.6, z + dz, 0.16, 1.2, 0.16, dark);
   };
-  const sofa = (x: number, z: number) => {
+  const sofa = (x: number, z: number, facesPositiveZ = false) => {
     box("sofa-base", x, 0.6, z, 3, 0.75, 1.2, teal, true);
-    box("sofa-back", x, 1.1, z + 0.5, 3, 1.1, 0.2, teal);
+    box(
+      "sofa-back",
+      x,
+      1.1,
+      z + (facesPositiveZ ? -0.5 : 0.5),
+      3,
+      1.1,
+      0.2,
+      teal,
+    );
     for (const dx of [-1.1, 0, 1.1])
-      box("sofa-cushion", x + dx, 1.1, z + 0.27, 0.85, 0.65, 0.24, gold);
+      box(
+        "sofa-cushion",
+        x + dx,
+        1.1,
+        z + (facesPositiveZ ? -0.27 : 0.27),
+        0.85,
+        0.65,
+        0.24,
+        gold,
+      );
   };
   const shelves = (x: number, z: number, books = true) => {
     box("shelf-frame", x, 1.7, z, 3, 3.4, 0.75, wood, true);
@@ -337,7 +366,7 @@ export function createVenueWorld(
   plant(-9.5, -7);
   plant(9.5, 7);
 
-  const use: VenueKind | "lobby" | "roof" =
+  const use: VenueFloor["use"] =
     floor.use === "lobby" && venue.kind !== "apartments" && venue.kind !== "hub"
       ? venue.kind
       : floor.use;
@@ -360,7 +389,7 @@ export function createVenueWorld(
     for (const x of [-6, 5.5])
       for (const z of [-3.5, 2]) {
         table(x, z, 2.8, 1.7);
-        chair(x - 0.8, z + 1.5);
+        chair(x - 0.8, z + (x === 5.5 && z === -3.5 ? 1.02 : 1.5));
         chair(x + 0.8, z + 1.5, coral);
         sphere("fruit-bowl", x, 1.48, z, 0.4, gold);
       }
@@ -380,7 +409,7 @@ export function createVenueWorld(
     for (const x of [-7, -3.5, 3.5, 7])
       for (const z of [-3, 0.5, 4]) {
         table(x, z, 2.2, 1.15);
-        chair(x, z - 1.25, accent(floorIndex + Math.abs(x)));
+        chair(x, z - 1.25, accent(floorIndex + Math.abs(x)), true);
         box("exercise-book", x, 1.4, z, 0.6, 0.06, 0.45, blue);
       }
     box("classroom-board", -5.4, 2.8, 8.98, 7.6, 2.2, 0.14, teal);
@@ -412,12 +441,12 @@ export function createVenueWorld(
   } else if (use === "studios") {
     table(-6, -1, 5.5, 2, dark);
     for (let i = 0; i < 10; i++) {
-      box("mixing-fader", -8 + i * 0.45, 1.39, -1, 0.08, 0.06, 0.65, cream);
+      box("mixing-fader", -8 + i * 0.45, 1.39, -1.65, 0.08, 0.06, 0.65, cream);
       box(
         "mixing-knob",
         -8 + i * 0.45,
         1.48,
-        -1 + (i % 3) * 0.12,
+        -1.65 + (i % 3) * 0.07,
         0.18,
         0.12,
         0.16,
@@ -425,7 +454,7 @@ export function createVenueWorld(
       );
     }
     screen(-6, 2, 0.3);
-    chair(-6, -2.7);
+    chair(-6, -2.15, teal, true);
     for (const x of [-9, -3])
       box("speaker", x, 1.9, 3.5, 1.3, 2.8, 1, dark, true);
     box("recording-stage", 6, 0.1, 2.5, 7, 0.2, 7, wood);
@@ -472,7 +501,7 @@ export function createVenueWorld(
     sign("REPAIR · REUSE · REIMAGINE", -5.5, 3.8, 8.9, 6);
   } else if (use === "apartments") {
     // A central entrance hall connects living/dining, kitchen and sleeping areas.
-    sofa(-6, -3);
+    sofa(-6, -3, true);
     table(-6, -5, 2.6, 1.2);
     box("living-rug", -6, 0.025, -4, 6, 0.025, 5, coral);
     box("bed-base", -6, 0.5, 4.3, 3.5, 1, 4.2, wood, true);
@@ -482,18 +511,32 @@ export function createVenueWorld(
     table(6, -3, 3.5, 2);
     chair(5, -1.4);
     chair(7, -1.4);
-    box("kitchen-cabinets", 7, 0.95, 7.8, 6, 1.9, 1.4, teal, true);
-    box("worktop", 7, 1.94, 7.8, 6.2, 0.15, 1.5, cream);
-    box("sink", 5.3, 2.04, 7.8, 1.2, 0.08, 0.8, dark);
-    box("tap", 5.3, 2.35, 8.2, 0.1, 0.6, 0.1, gold);
+    box("kitchen-cabinets", 7, 0.6, 7.8, 6, 1.2, 1.4, teal, true);
+    box("worktop", 7, 1.24, 7.8, 6.2, 0.15, 1.5, cream);
+    box("sink", 5.3, 1.34, 7.8, 1.2, 0.08, 0.8, dark);
+    box("tap", 5.3, 1.65, 8.2, 0.1, 0.6, 0.1, gold);
     box("fridge", 3.3, 1.5, 7.7, 1.3, 3, 1.5, cream, true);
+  } else if (use === "bank") {
+    for (const x of [-6, 6]) {
+      box("reception-desk", x, 0.85, 2.5, 6, 1.7, 1.6, wood, true);
+      screen(x, 2.05, 2.7);
+      sign(
+        x < 0 ? "DEPOSITS · TELLER" : "CITY SERVICES · PAYMENTS",
+        x,
+        3.2,
+        4.3,
+        5.5,
+      );
+      shelves(x, 7.8, false);
+    }
+    sign("RIVERGATE COMMUNITY BANK · SIMULATED SERVICES", 0, 4.5, 8.85, 10);
   } else if (use === "hub" || use === "lobby") {
     if (use === "hub") {
       for (const x of [-6, 6])
         for (const z of [-2, 4]) {
           table(x, z, 4.6, 1.8);
           screen(x, 1.95, z + 0.4);
-          chair(x, z - 1.5);
+          chair(x, z - 1.3, teal, true);
         }
       sign("PLANNING A BETTER RIVERGATE", -5.5, 3.7, 8.9, 6);
     } else {
@@ -561,6 +604,14 @@ export function createVenueWorld(
     sign("RESIDENT SERVICES · REPAIRS", -6, 2.6, 1.65, 5.5);
     sphere("resident-repair-indicator", -3.5, 1.9, 1.65, 0.28, repairStatus);
   }
+  const life = createInteriorLife(
+    scene,
+    venueLifePlan(venue, floorIndex),
+    () => callbacks.isBlocked?.() ?? false,
+    null,
+    floorIndex,
+  );
+  obstacles.push(...life.obstacles);
   const walker = createIndoorWalker<Zone>(
     scene,
     engine.getRenderingCanvas() ?? null,
@@ -600,6 +651,7 @@ export function createVenueWorld(
     walker,
     obstacles,
     floor,
+    life,
     setApartmentHealthy(healthy: boolean) {
       if (repairStatus) {
         repairStatus.diffuseColor = Color3.FromHexString(
