@@ -10,6 +10,7 @@ import {
 } from "./characters-3d";
 import type { TownMaterials } from "./materials";
 import { TOWN_DETAIL_HOME_PROFILES } from "./neighborhood-home-stories";
+import { PEDESTRIAN_ROUTES } from "./pedestrian-motion";
 import { renderedRoadHeight, sampleRoadFrame } from "./road";
 import type { TownHouseMetadata } from "./types";
 
@@ -35,6 +36,31 @@ export function createTownDetails(
   const ambientActors: TownCharacterRig[] = [];
   const houses: TownHouseMetadata[] = [];
   const playgroundSpinners: TransformNode[] = [];
+  for (const route of Object.values(PEDESTRIAN_ROUTES)) {
+    if (!route.drawPath) continue;
+    route.points.slice(1).forEach((to, i) => {
+      const from = route.points[i]!;
+      const path = MeshBuilder.CreateBox(
+        `pedestrian-path-${route.id}-${i}`,
+        {
+          width: 1.65,
+          height: 0.08,
+          depth: Math.hypot(to.x - from.x, to.z - from.z) + 0.8,
+        },
+        scene,
+      );
+      path.position.set(
+        (from.x + to.x) / 2,
+        from.y - 0.04,
+        (from.z + to.z) / 2,
+      );
+      path.rotation.y = Math.atan2(to.x - from.x, to.z - from.z);
+      path.material = materials.bridge;
+      path.parent = root;
+      path.isPickable = false;
+      path.receiveShadows = true;
+    });
+  }
 
   const homeStyles: readonly HomeStyle[] = [
     {

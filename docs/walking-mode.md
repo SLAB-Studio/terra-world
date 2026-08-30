@@ -32,6 +32,10 @@ Short narrow screens hide the help text and place home entry beside movement con
 
 ## Local behavior
 
+Residents use five authored pedestrian routes, separate from the car lanes. Their facing direction follows travel, with deceleration, a pause, and a turn before returning. Footstep timing follows distance travelled; leg and ankle joints keep the supporting shoe planted and the swinging shoe clear of the path. Heads and arms share the torso hierarchy so body movement cannot separate them. Reduced-motion mode holds each walker at their current route position.
+
+These are scripted neighbourhood routines, not a full autonomous crowd/traffic simulation. Pedestrian route clearance, heading, stopping, joint connections and rendered shoe heights are covered by `pedestrian-motion.test.ts`.
+
 Walking, collision checks, camera switching, and door proximity run locally after the town assets load. The feature adds no 0G calls, wallet actions, uploads, or network persistence. It does not change the existing room tour's data behavior or make a cold offline page load available.
 
 ## Verification
