@@ -30,8 +30,9 @@ A living city, a thousand stories, your decisions. The distinguishing feature
 is a verified connection between decisions, evolving city systems, resident
 memory and generated stories.
 
-Leo is the city's curious companion. He can form uncertain theories and admit
-mistakes, but neither he nor the story model may invent historical facts.
+Leo is the city's curious female virtual dog companion. She can form uncertain
+theories and admit mistakes, but neither she nor the story model may invent
+historical facts.
 AI interprets evidence and expresses fictional characters; deterministic,
 versioned rules own the world and its consequences.
 
@@ -42,9 +43,9 @@ target systems and 0G commitments are in
 ## Operating Context
 
 A responsive browser game supporting mouse, keyboard and touch. Retain the
-current populated 3D city, aerial and first-person views, enterable places,
-night default and day/night switch. Do not downgrade the city into a sparse
-map or replace its actual 3D scene with an illustrative backdrop.
+current populated 3D city, aerial and third-person “Walk with Leo” views,
+enterable places, night default and day/night switch. Do not downgrade the city
+into a sparse map or replace its actual 3D scene with an illustrative backdrop.
 
 Ordinary PCs, including integrated-GPU machines, remain the target. Use bounded
 geometry, shared assets, appropriate level of detail, scalable effects and
@@ -60,8 +61,9 @@ real-world-time penalties.
 ## Existing playable foundation
 
 - A populated town with 28 homes, 18 public venues and 32 ambient residents.
-- Aerial/first-person exploration, building interiors, day/night and graphics
-  controls.
+- Aerial exploration and third-person “Walk with Leo,” with a controllable human
+  character and Leo accompanying the player outdoors and inside buildings;
+  building interiors, day/night and graphics controls remain available.
 - Local resident journeys, building handoffs, rides and limited authored nearby
   conversations. These are not yet persistent household/economic agents.
 - Fifteen residential repair missions across five stages, plus the separate
@@ -125,8 +127,9 @@ delivery gates for this pivot.
 ## Brand Commitments
 
 The product is **Terra World**; the playable city is **Rivergate**; its companion
-is **Leo** (LEO in display headings). The new draft's builder named Leo becomes
-**Malik**, retaining the established companion/character distinction.
+is **Leo**, a female virtual dog (LEO in display headings). The new draft's
+builder named Leo becomes **Malik**, retaining the established
+companion/character distinction.
 
 Maya, Malik, Nia and Sam have the new roles defined in the story bible. Preserve
 stable character IDs and actual prior events when introducing those roles.
