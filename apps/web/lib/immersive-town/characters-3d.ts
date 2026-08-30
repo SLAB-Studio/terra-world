@@ -4,6 +4,11 @@ import { Color3 } from "@babylonjs/core/Maths/math.color";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
+import {
+  hasRealisticResident,
+  registerRealisticResident,
+  updateRealisticResident,
+} from "./realistic-residents";
 
 import {
   PEDESTRIAN_ROUTES,
@@ -648,6 +653,7 @@ export function createTownCharacter(
     head,
   };
   applyTownCharacterMotion(rig, 0, true);
+  registerRealisticResident(scene, rig, shadows);
   return rig;
 }
 
@@ -656,6 +662,27 @@ export function applyTownCharacterMotion(
   elapsedSeconds: number,
   reducedMotion: boolean,
 ) {
+  if (hasRealisticResident(rig)) {
+    const route = rig.profile.walkingRoute ?? PEDESTRIAN_ROUTES[rig.profile.id];
+    const place = route
+      ? samplePedestrianRoute(route, elapsedSeconds, rig.profile.phase)
+      : null;
+    if (place) {
+      rig.root.position.set(place.x, place.y, place.z);
+      rig.root.rotation.y = place.yaw;
+    } else {
+      rig.root.position.set(rig.profile.x, rig.baseY, rig.profile.z);
+      rig.root.rotation.y = rig.profile.rotation;
+    }
+    updateRealisticResident(
+      rig,
+      elapsedSeconds,
+      reducedMotion,
+      place?.speed ?? 0,
+      place?.travelled ?? 0,
+    );
+    return;
+  }
   const motion = sampleTownCharacterMotion(
     rig.profile.activity,
     elapsedSeconds,
@@ -687,6 +714,8 @@ export function applyTownCharacterMotion(
   rig.rightAnkle.rotation.x = -motion.rightLeg - motion.rightKnee;
 
   const route = rig.profile.walkingRoute ?? PEDESTRIAN_ROUTES[rig.profile.id];
+  let walkingSpeed = 0;
+  let walkingDistance = 0;
   if (route !== undefined) {
     const place = samplePedestrianRoute(
       route,
@@ -694,6 +723,8 @@ export function applyTownCharacterMotion(
       rig.profile.phase,
     );
     const strength = reducedMotion ? 0 : Math.min(1, place.speed / 0.65);
+    walkingSpeed = place.speed;
+    walkingDistance = place.travelled;
     const stride = rig.profile.age === "child" ? 0.48 : 0.64;
     const travelled = place.travelled / rig.root.scaling.x;
     const left = sampleFootstep(travelled, stride, 0, strength);
@@ -743,6 +774,13 @@ export function applyTownCharacterMotion(
       lowest * rig.root.scaling.y +
       (rig.profile.activity === "play" ? motion.offsetY : 0);
   }
+  updateRealisticResident(
+    rig,
+    elapsedSeconds,
+    reducedMotion,
+    walkingSpeed,
+    walkingDistance,
+  );
 }
 
 export function sampleTownCharacterMotion(

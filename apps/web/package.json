@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@babylonjs/core": "^9.23.0",
+    "@babylonjs/loaders": "9.23.0",
     "@terra/campaign-schema": "workspace:*",
     "@terra/simulation": "workspace:*",
     "next": "^15.2.0",

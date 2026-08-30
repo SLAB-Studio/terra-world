@@ -38,6 +38,9 @@ importers:
       '@babylonjs/core':
         specifier: ^9.23.0
         version: 9.23.0
+      '@babylonjs/loaders':
+        specifier: 9.23.0
+        version: 9.23.0(@babylonjs/core@9.23.0)(babylonjs-gltf2interface@9.23.0)
       '@terra/campaign-schema':
         specifier: workspace:*
         version: link:../../packages/campaign-schema
@@ -152,6 +155,16 @@ packages:
 
   /@babylonjs/core@9.23.0:
     resolution: {integrity: sha512-FpDaTPx485J1H0AEJpoJ785Z1CwCkEPNnZFu7WzHTy0ByGCy75bkZZILh4QFU4LLnzK1iuHwUfecCguATIeKSA==}
+    dev: false
+
+  /@babylonjs/loaders@9.23.0(@babylonjs/core@9.23.0)(babylonjs-gltf2interface@9.23.0):
+    resolution: {integrity: sha512-4qNxiHmi2udyZmTsVL3iUUfVF4BKecgmFpp1//wBoZ6RhTWlkbBT4CIJLVPeibXZeJliZ5vII8rvZqDPgGiotw==}
+    peerDependencies:
+      '@babylonjs/core': ^9.0.0
+      babylonjs-gltf2interface: ^9.0.0
+    dependencies:
+      '@babylonjs/core': 9.23.0
+      babylonjs-gltf2interface: 9.23.0
     dev: false
 
   /@emnapi/core@1.10.0:
@@ -1788,6 +1801,10 @@ packages:
     resolution: {integrity: sha512-qIj0G9wZbMGNLjLmg1PT6v2mE9AH2zlnADJD/2tC6E00hgmhUOfEB6greHPAfLRSufHqROIUTkw6E+M3lH0PTQ==}
     engines: {node: '>= 0.4'}
     dev: true
+
+  /babylonjs-gltf2interface@9.23.0:
+    resolution: {integrity: sha512-oD9rkfCafvGACikVWhVVl1Iy9bDuBVlI7zmeiDXI8y5gw7UOmQMffpvrl/ujoiw5agcsEAaQuF6Dbjfb+Cpaiw==}
+    dev: false
 
   /balanced-match@1.0.2:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
