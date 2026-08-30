@@ -36,13 +36,14 @@ export function interiorRoomAt(point: WalkPoint): InteriorRoomId {
 export function canWalkInside(
   point: WalkPoint,
   obstacles: readonly WalkBounds[],
+  limits: WalkBounds = INTERIOR_LIMITS,
 ) {
   if (!Number.isFinite(point.x) || !Number.isFinite(point.z)) return false;
   if (
-    point.x < INTERIOR_LIMITS.minX ||
-    point.x > INTERIOR_LIMITS.maxX ||
-    point.z < INTERIOR_LIMITS.minZ ||
-    point.z > INTERIOR_LIMITS.maxZ
+    point.x < limits.minX ||
+    point.x > limits.maxX ||
+    point.z < limits.minZ ||
+    point.z > limits.maxZ
   )
     return false;
   return !obstacles.some(
@@ -60,6 +61,7 @@ export function stepInterior(
   input: WalkInput,
   seconds: number,
   obstacles: readonly WalkBounds[],
+  limits: WalkBounds = INTERIOR_LIMITS,
 ): WalkPose {
   const dt = Number.isFinite(seconds)
     ? Math.max(0, Math.min(seconds, 0.05))
@@ -77,8 +79,10 @@ export function stepInterior(
   const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.06));
   let { x, z } = pose;
   for (let i = 0; i < steps; i++) {
-    if (canWalkInside({ x: x + dx / steps, z }, obstacles)) x += dx / steps;
-    if (canWalkInside({ x, z: z + dz / steps }, obstacles)) z += dz / steps;
+    if (canWalkInside({ x: x + dx / steps, z }, obstacles, limits))
+      x += dx / steps;
+    if (canWalkInside({ x, z: z + dz / steps }, obstacles, limits))
+      z += dz / steps;
   }
   return { x, z, yaw };
 }

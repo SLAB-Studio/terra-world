@@ -9,21 +9,54 @@ import {
   ROOM_STARTS,
   stepInterior,
 } from "./interior-navigation";
-import type { WalkBounds, WalkInput } from "./walking";
+import type { WalkBounds, WalkInput, WalkPoint, WalkPose } from "./walking";
 
 export type InteriorCommand = "forward" | "back" | "left" | "right";
 export type InteriorWalker = ReturnType<typeof createInteriorWalker>;
-export type InteriorWalkCallbacks = {
-  onRoomChange?(room: InteriorRoomId): void;
-  onNearbyChange?(room: InteriorRoomId | null): void;
-  onInteract?(room: InteriorRoomId): void;
+export type IndoorCallbacks<Area extends string> = {
+  onRoomChange?(room: Area): void;
+  onNearbyChange?(room: Area | null): void;
+  onInteract?(room: Area): void;
 };
+export type InteriorWalkCallbacks = IndoorCallbacks<InteriorRoomId>;
 
 export function createInteriorWalker(
   scene: Scene,
   canvas: HTMLCanvasElement | null,
   obstacles: () => readonly WalkBounds[],
   callbacks: InteriorWalkCallbacks = {},
+) {
+  return createIndoorWalker(
+    scene,
+    canvas,
+    obstacles,
+    {
+      starts: ROOM_STARTS,
+      roomAt: interiorRoomAt,
+      nearbyAt: nearbyInteriorTask,
+      step: stepInterior,
+    },
+    callbacks,
+  );
+}
+
+/** Shared first-person controls; each building supplies its own navigable layout. */
+export function createIndoorWalker<Area extends string>(
+  scene: Scene,
+  canvas: HTMLCanvasElement | null,
+  obstacles: () => readonly WalkBounds[],
+  navigation: {
+    starts: Record<Area, WalkPose>;
+    roomAt(point: WalkPoint): Area;
+    nearbyAt(point: WalkPoint): Area | null;
+    step(
+      pose: WalkPose,
+      input: WalkInput,
+      seconds: number,
+      obstacles: readonly WalkBounds[],
+    ): WalkPose;
+  },
+  callbacks: IndoorCallbacks<Area> = {},
 ) {
   const camera = new UniversalCamera(
     "interior-walking-camera",
@@ -36,8 +69,8 @@ export function createInteriorWalker(
   camera.fov = 1.2;
   camera.inertia = 0;
   let active = false;
-  let currentRoom: InteriorRoomId | null = null;
-  let nearby: InteriorRoomId | null = null;
+  let currentRoom: Area | null = null;
+  let nearby: Area | null = null;
   const keys = new Set<string>();
   const holds = new Set<InteriorCommand>();
   let look: { id: number; x: number; y: number } | null = null;
@@ -52,12 +85,12 @@ export function createInteriorWalker(
       canvas.closest("[inert]") !== null ||
       canvas.closest("dialog")?.open === false);
   const publish = () => {
-    const next = interiorRoomAt(camera.position);
+    const next = navigation.roomAt(camera.position);
     if (next !== currentRoom) {
       currentRoom = next;
       callbacks.onRoomChange?.(next);
     }
-    const task = nearbyInteriorTask(camera.position);
+    const task = navigation.nearbyAt(camera.position);
     if (task !== nearby) {
       nearby = task;
       callbacks.onNearbyChange?.(task);
@@ -65,7 +98,7 @@ export function createInteriorWalker(
   };
   const move = (input: WalkInput, dt: number) => {
     if (!active || blocked()) return;
-    const pose = stepInterior(
+    const pose = navigation.step(
       { x: camera.position.x, z: camera.position.z, yaw: camera.rotation.y },
       input,
       dt,
@@ -185,10 +218,10 @@ export function createInteriorWalker(
     get nearby() {
       return nearby;
     },
-    enter(room: InteriorRoomId) {
+    enter(room: Area) {
       if (active && currentRoom === room) return; // React room updates must not teleport the walker.
       clearInput();
-      const start = ROOM_STARTS[room];
+      const start = navigation.starts[room];
       camera.position.set(start.x, INTERIOR_EYE_HEIGHT, start.z);
       camera.rotation.set(0.12, start.yaw, 0);
       active = true;
