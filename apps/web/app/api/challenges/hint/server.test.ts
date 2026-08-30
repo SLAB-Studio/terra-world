@@ -15,11 +15,11 @@ const VALID_BODY = {
 describe("challenge hint API", () => {
   it("returns a validated private 0G hint", async () => {
     const callProvider = vi.fn().mockResolvedValue({
-      message: "Let us look for the home that needs clean light.",
+      message: "Inspect Sunny House's missing power service.",
       hints: [
-        "Look for dark windows.",
-        "Ayo needs clean electricity.",
-        "Add Sun light to Sunny House.",
+        "Inspect Sunny House.",
+        "Solar power is the missing service.",
+        "Add solar power to Sunny House.",
       ],
     });
     const handler = createChallengeHintPostHandler({ callProvider });
@@ -27,11 +27,11 @@ describe("challenge hint API", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      message: "Let us look for the home that needs clean light.",
+      message: "Inspect Sunny House's missing power service.",
       hints: [
-        "Look for dark windows.",
-        "Ayo needs clean electricity.",
-        "Add Sun light to Sunny House.",
+        "Inspect Sunny House.",
+        "Solar power is the missing service.",
+        "Add solar power to Sunny House.",
       ],
       source: "private-compute",
     });
@@ -43,10 +43,17 @@ describe("challenge hint API", () => {
       callProvider: vi.fn().mockRejectedValue(new Error("offline")),
     });
     const response = await handler(requestFor(VALID_BODY));
-    const body = (await response.json()) as { source: string; hints: string[] };
+    const body = (await response.json()) as {
+      source: string;
+      message: string;
+      hints: string[];
+    };
 
     expect(response.status).toBe(200);
     expect(body.source).toBe("authored-server");
+    expect(body.message).toBe(
+      "Inspect the property services, then address the missing upgrades.",
+    );
     expect(body.hints).toHaveLength(3);
   });
 
@@ -81,18 +88,18 @@ describe("challenge hint API", () => {
     expect(callProvider).not.toHaveBeenCalled();
   });
 
-  it("requires private, TEE-verified Compute output", async () => {
+  it("requests grounded adult advice from Leo with private Compute verification", async () => {
     const createChatCompletion = vi.fn().mockResolvedValue({
       payload: {
         choices: [
           {
             message: {
               content: JSON.stringify({
-                message: "Try one small town clue.",
+                message: "Inspect the missing service at Sunny House.",
                 hints: [
-                  "Look at the windows.",
+                  "Inspect the property services.",
                   "Find the missing power.",
-                  "Add Sun light to Sunny House.",
+                  "Add solar power to Sunny House.",
                 ],
               }),
             },
@@ -113,7 +120,43 @@ describe("challenge hint API", () => {
     expect(createChatCompletion).toHaveBeenCalledWith(
       expect.objectContaining({ maxTokens: 220, temperature: 0.2 }),
     );
+    const call = createChatCompletion.mock.calls[0]?.[0] as {
+      messages: { role: string; content: string }[];
+    };
+    const systemPrompt = call.messages[0]?.content;
+    expect(systemPrompt).toContain("You are Leo");
+    expect(systemPrompt).toContain("game for adults set in Rivergate");
+    expect(systemPrompt).toContain("Use only the verified challenge facts");
+    expect(systemPrompt).toContain("Do not invent budgets");
+    expect(systemPrompt).toContain(
+      "Never ask for or mention a player's identity",
+    );
+    expect(systemPrompt).not.toMatch(/children aged|tiny nudge/iu);
   });
+
+  it.each([
+    { trustMode: "standard", teeVerificationRequested: true },
+    { trustMode: "private", teeVerificationRequested: false },
+  ])(
+    "retains authored advice when the Compute privacy boundary fails: %j",
+    async (privacy) => {
+      const provider = createPrivateZeroGChallengeHintProvider({
+        createChatCompletion: vi.fn().mockResolvedValue({
+          ...privacy,
+          payload: {},
+        }),
+      });
+      const handler = createChallengeHintPostHandler({
+        callProvider: provider,
+      });
+      const response = await handler(requestFor(VALID_BODY));
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual(
+        expect.objectContaining({ source: "authored-server" }),
+      );
+    },
+  );
 });
 
 function requestFor(value: unknown): Request {
