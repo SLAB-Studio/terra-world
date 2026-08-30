@@ -17,6 +17,111 @@
   touch-action: none;
 }
 
+.stage canvas:focus-visible {
+  outline: 3px solid #075fc7;
+  outline-offset: -4px;
+}
+
+.walking canvas {
+  cursor: grab;
+}
+.walking canvas:active {
+  cursor: grabbing;
+}
+.walking .overviewButton {
+  top: 14px;
+  bottom: auto;
+  min-height: 44px;
+}
+
+.walkHelp {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  max-width: calc(100% - 190px);
+  padding: 10px 12px;
+  display: grid;
+  gap: 2px;
+  border-radius: 12px;
+  background: #fff9e8;
+  box-shadow: 0 5px 12px rgb(43 25 15 / 18%);
+  pointer-events: none;
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+.walkHelp small {
+  color: #5f4433;
+}
+.walkControls {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, 66px);
+  grid-template-areas: ". forward ." "left back right";
+  gap: 5px;
+}
+.forward {
+  grid-area: forward;
+}
+.back {
+  grid-area: back;
+}
+.left {
+  grid-area: left;
+}
+.right {
+  grid-area: right;
+}
+.walkControls button,
+.nearbyTask button {
+  min-height: 48px;
+  padding: 8px 5px;
+  color: #2b190f;
+  background: #fff9e8;
+  border: 2px solid #2b190f;
+  border-radius: 12px;
+  box-shadow: 0 5px 12px rgb(43 25 15 / 18%);
+  font: inherit;
+  font-size: 0.73rem;
+  font-weight: 850;
+  line-height: 1.15;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+.walkControls button:hover,
+.walkControls button:active,
+.nearbyTask button {
+  background: #ffd24a;
+}
+.nearbyTask button:hover {
+  background: #ffe991;
+}
+.walkControls button:focus-visible,
+.nearbyTask button:focus-visible {
+  outline: 3px solid #075fc7;
+  outline-offset: 3px;
+}
+.nearbyTask {
+  position: absolute;
+  bottom: 14px;
+  right: 14px;
+  max-width: calc(100% - 246px);
+}
+.nearbyTask p {
+  margin: 0;
+  padding: 9px 12px;
+  background: #fff9e8;
+  border-radius: 12px;
+  font-size: 0.77rem;
+  line-height: 1.35;
+  box-shadow: 0 5px 12px rgb(43 25 15 / 18%);
+}
+.nearbyTask button {
+  padding: 10px 14px;
+}
+
 .roomPickLayer {
   position: absolute;
   z-index: 2;
@@ -47,7 +152,9 @@
   font-weight: 900;
   opacity: 0;
   transform: translateY(4px);
-  transition: opacity 150ms ease, transform 150ms ease;
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
 }
 
 .roomPickLayer button:hover span {
@@ -230,6 +337,36 @@
   .hint {
     right: 9px;
     bottom: 9px;
+  }
+
+  .walking,
+  .walking canvas {
+    height: 470px;
+    min-height: 470px;
+  }
+  .walkHelp {
+    top: 65px;
+    left: 9px;
+    right: 9px;
+    max-width: none;
+    padding: 8px 10px;
+  }
+  .walkHelp small {
+    display: none;
+  }
+  .walking .overviewButton {
+    top: 9px;
+  }
+  .walkControls {
+    left: 9px;
+    bottom: 9px;
+  }
+  .nearbyTask {
+    bottom: 119px;
+    left: 9px;
+    right: 9px;
+    max-width: none;
+    width: fit-content;
   }
 }
 

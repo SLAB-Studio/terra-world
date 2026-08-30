@@ -9,6 +9,8 @@ import {
   type InteriorUpgradeId,
 } from "../../lib/immersive-town/house-interior-world";
 import type { HouseId } from "./HouseDiagnostics";
+import { ROOM_TASKS } from "../../lib/immersive-town/interior-navigation";
+import type { InteriorCommand } from "../../lib/immersive-town/interior-walker";
 import styles from "./HouseInterior3D.module.css";
 
 type HouseInterior3DProps = Readonly<{
@@ -16,6 +18,7 @@ type HouseInterior3DProps = Readonly<{
   upgrades: readonly InteriorUpgradeId[];
   selectedRoomId: InteriorRoomId | null;
   onRoomSelect: (roomId: InteriorRoomId | null) => void;
+  onRepair: (upgradeId: InteriorUpgradeId) => void;
 }>;
 
 type InteriorRuntime = Readonly<{
@@ -29,11 +32,16 @@ function HouseInterior3D({
   upgrades,
   selectedRoomId,
   onRoomSelect,
+  onRepair,
 }: HouseInterior3DProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const runtimeRef = useRef<InteriorRuntime | null>(null);
   const upgradesRef = useRef(upgrades);
   const selectedRoomIdRef = useRef(selectedRoomId);
+  const callbacksRef = useRef({ onRoomSelect, onRepair });
+  callbacksRef.current = { onRoomSelect, onRepair };
+  const pressStarted = useRef(new Map<number, number>());
+  const [nearbyRoom, setNearbyRoom] = useState<InteriorRoomId | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "failed">(
     "loading",
   );
@@ -78,11 +86,17 @@ function HouseInterior3D({
           engine,
           houseId,
           upgradesRef.current,
+          {
+            onRoomChange: (room) => callbacksRef.current.onRoomSelect(room),
+            onNearbyChange: setNearbyRoom,
+            onInteract: (roomId) => {
+              const room = INTERIOR_ROOMS.find((entry) => entry.id === roomId);
+              if (room && !upgradesRef.current.includes(room.upgradeId))
+                callbacksRef.current.onRepair(room.upgradeId);
+            },
+          },
         );
-        world.focusRoom(
-          selectedRoomIdRef.current,
-          reducedMotionQuery.matches,
-        );
+        world.focusRoom(selectedRoomIdRef.current, reducedMotionQuery.matches);
         const renderFrame = () => world.scene.render();
         engine.runRenderLoop(renderFrame);
         const resizeObserver = new ResizeObserver(() => engine.resize());
@@ -127,18 +141,60 @@ function HouseInterior3D({
   useEffect(() => {
     const runtime = runtimeRef.current;
     if (runtime === null) return;
-    runtime.world.focusRoom(
-      selectedRoomId,
-      runtime.reducedMotionQuery.matches,
-    );
+    runtime.world.focusRoom(selectedRoomId, runtime.reducedMotionQuery.matches);
   }, [selectedRoomId]);
+
+  const walking = selectedRoomId !== null && status === "ready";
+  const currentRoom = INTERIOR_ROOMS.find((room) => room.id === selectedRoomId);
+  const near = INTERIOR_ROOMS.find((room) => room.id === nearbyRoom);
+  const movementButton = (command: InteriorCommand, label: string) => (
+    <button
+      key={command}
+      className={styles[command]}
+      type="button"
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        pressStarted.current.set(event.pointerId, performance.now());
+        event.currentTarget.focus({ preventScroll: true });
+        event.currentTarget.setPointerCapture(event.pointerId);
+        runtimeRef.current?.world.walker.hold(command, true);
+      }}
+      onPointerUp={(event) => {
+        runtimeRef.current?.world.walker.hold(command, false);
+        const start = pressStarted.current.get(event.pointerId);
+        if (start !== undefined && performance.now() - start < 160)
+          runtimeRef.current?.world.walker.nudge(command);
+        pressStarted.current.delete(event.pointerId);
+      }}
+      onPointerCancel={(event) => {
+        pressStarted.current.delete(event.pointerId);
+        runtimeRef.current?.world.walker.hold(command, false);
+      }}
+      onLostPointerCapture={() =>
+        runtimeRef.current?.world.walker.hold(command, false)
+      }
+      onClick={(event) => {
+        if (event.detail === 0) runtimeRef.current?.world.walker.nudge(command);
+      }}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <section
       aria-label="Walk through the 3D rooms"
-      className={styles.stage}
+      className={`${styles.stage}${walking ? ` ${styles.walking}` : ""}`}
     >
-      <canvas aria-hidden="true" ref={canvasRef} />
+      <canvas
+        aria-label={
+          walking
+            ? "Inside the house. W A S D to walk, arrow keys to turn, drag to look, E to repair a nearby object."
+            : "3D house overview. Choose a room to enter."
+        }
+        tabIndex={0}
+        ref={canvasRef}
+      />
       {status === "ready" && selectedRoomId === null ? (
         <div className={styles.roomPickLayer}>
           {INTERIOR_ROOMS.map((room) => (
@@ -168,25 +224,68 @@ function HouseInterior3D({
         </div>
       ) : null}
 
-      <nav aria-label="Rooms in this home" className={styles.roomNav}>
-        {INTERIOR_ROOMS.map((room) => {
-          const healthy = upgrades.includes(room.upgradeId);
-          const selected = selectedRoomId === room.id;
-          return (
-            <button
-              aria-pressed={selected}
-              className={`${styles.roomButton}${selected ? ` ${styles.selected}` : ""}${healthy ? ` ${styles.healthy}` : ""}`}
-              key={room.id}
-              onClick={() => onRoomSelect(room.id)}
-              type="button"
-            >
-              <span aria-hidden="true" className={styles.roomDot} />
-              <span>{room.shortLabel}</span>
-              <small>{healthy ? "Ready" : "Needs help"}</small>
-            </button>
-          );
-        })}
-      </nav>
+      {!walking ? (
+        <nav aria-label="Rooms in this home" className={styles.roomNav}>
+          {INTERIOR_ROOMS.map((room) => {
+            const healthy = upgrades.includes(room.upgradeId);
+            const selected = selectedRoomId === room.id;
+            return (
+              <button
+                aria-pressed={selected}
+                className={`${styles.roomButton}${selected ? ` ${styles.selected}` : ""}${healthy ? ` ${styles.healthy}` : ""}`}
+                key={room.id}
+                onClick={() => onRoomSelect(room.id)}
+                type="button"
+              >
+                <span aria-hidden="true" className={styles.roomDot} />
+                <span>{room.shortLabel}</span>
+                <small>{healthy ? "Ready" : "Needs help"}</small>
+              </button>
+            );
+          })}
+        </nav>
+      ) : null}
+
+      {walking ? (
+        <>
+          <div className={styles.walkHelp}>
+            <strong>{currentRoom?.label}</strong>
+            <span>Drag to look. Walk through the open doors.</span>
+            <small>W A S D to move · arrows to turn · E to repair</small>
+          </div>
+          <div
+            aria-label="Walk inside the house"
+            className={styles.walkControls}
+          >
+            {movementButton("forward", "Forward")}
+            {movementButton("left", "Turn left")}
+            {movementButton("back", "Back")}
+            {movementButton("right", "Turn right")}
+          </div>
+          <div className={styles.nearbyTask} aria-live="polite">
+            {near ? (
+              upgrades.includes(near.upgradeId) ? (
+                <p>{near.healthy}</p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => runtimeRef.current?.world.walker.interact()}
+                >
+                  Help the {ROOM_TASKS[near.id].label}
+                </button>
+              )
+            ) : (
+              <p>
+                Walk closer to the{" "}
+                {currentRoom
+                  ? ROOM_TASKS[currentRoom.id].label
+                  : "room’s objects"}
+                .
+              </p>
+            )}
+          </div>
+        </>
+      ) : null}
 
       {selectedRoomId !== null ? (
         <button

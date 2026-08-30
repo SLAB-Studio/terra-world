@@ -324,6 +324,7 @@ export default function HouseDiagnostics({
             <HouseInterior3D
               houseId={houseId}
               onRoomSelect={setSelectedRoomId}
+              onRepair={onChooseUpgrade}
               selectedRoomId={selectedRoomId}
               upgrades={interiorUpgrades}
             />
@@ -378,7 +379,7 @@ export default function HouseDiagnostics({
               </div>
               <p className={styles.roomInstruction}>
                 {selectedRoom === null
-                  ? "Tap a room in the 3D house. The camera will walk inside and show its problem."
+                  ? "Choose a room, then walk inside. Use the open doorways to explore the whole home."
                   : selectedRoomHealthy
                     ? selectedRoom.healthy
                     : selectedRoom.problem}
@@ -442,7 +443,7 @@ export default function HouseDiagnostics({
                         ? "Every room is working well. Nice caring!"
                         : "Walk into any room that needs help."
                       : selectedRoomHealthy
-                        ? "Look around, then return to the whole house to choose another room."
+                        ? "Keep exploring through the open doorways, or use See all rooms to choose where to go."
                         : "Apply the right improvement and watch the 3D room change."}
                   </p>
                 </div>
