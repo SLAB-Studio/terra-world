@@ -24,6 +24,16 @@ export function loadResidentAsset(
   id: ResidentModelId,
   detail: ResidentDetail,
 ): Promise<AssetContainer> {
+  return loadLocalSceneAsset(scene, residentAsset(id, detail).url);
+}
+
+/** Shared, bounded local asset queue for residents, vehicles, and vegetation. */
+export function loadLocalSceneAsset(
+  scene: Scene,
+  url: string,
+): Promise<AssetContainer> {
+  if (!/^\/models\/[a-z0-9/-]+\.glb$/.test(url))
+    return Promise.reject(new Error("Unsupported local model URL"));
   let library = libraries.get(scene);
   if (!library) {
     library = {
@@ -47,7 +57,7 @@ export function loadResidentAsset(
       libraries.delete(scene);
     });
   }
-  const key = `${id}-${detail}`;
+  const key = url;
   const cached = library.assets.get(key);
   if (cached) return cached;
   const owned = library;
@@ -61,7 +71,7 @@ export function loadResidentAsset(
       try {
         if (scene.isDisposed || owned.abort.signal.aborted)
           throw new Error("Resident scene disposed");
-        const response = await fetch(residentAsset(id, detail).url, {
+        const response = await fetch(url, {
           signal: timeout.signal,
         });
         if (!response.ok)

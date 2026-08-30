@@ -15,6 +15,7 @@ import {
 } from "./road";
 import { createTownDistricts } from "./town-districts";
 import type { TownHouseMetadata } from "./types";
+import { addRoadDetail } from "./streetscape";
 
 export type TownEnvironment = Readonly<{
   root: TransformNode;
@@ -218,6 +219,7 @@ export function createTownEnvironment(
 
   createBridge(scene, root, 0.283, materials, shadows, roadMeshes, "north");
   createBridge(scene, root, 0.705, materials, shadows, roadMeshes, "south");
+  roadMeshes.push(...addRoadDetail(scene, root, materials));
 
   for (const [index, t, side] of Array.from(
     { length: 24 },

@@ -35,6 +35,69 @@ export type TownSurface =
   "brick" | "stone" | "slate" | "wood" | "grass" | "asphalt" | "fabric";
 export const SURFACE_TEXTURE_SIZE = 128;
 const SURFACE_CACHE = new WeakMap<Scene, Map<TownSurface, RawTexture>>();
+const PHOTO_SURFACES = new WeakMap<
+  Scene,
+  Map<
+    TownSurface,
+    { texture: Texture; users: Set<StandardMaterial>; ready: boolean }
+  >
+>();
+
+function loadPhotographedSurface(
+  scene: Scene,
+  material: StandardMaterial,
+  kind: TownSurface,
+) {
+  if (
+    typeof window === "undefined" ||
+    !scene.getEngine().getRenderingCanvas() ||
+    kind === "wood" ||
+    kind === "fabric"
+  )
+    return;
+  let library = PHOTO_SURFACES.get(scene);
+  if (!library) {
+    library = new Map();
+    PHOTO_SURFACES.set(scene, library);
+  }
+  const apply = (m: StandardMaterial, texture: Texture) => {
+    if (!scene.materials.includes(m)) return;
+    m.diffuseTexture = texture;
+    // Photographed maps already carry surface colour; do not tint them twice.
+    m.diffuseColor = Color3.White().scale(kind === "grass" ? 0.78 : 0.95);
+  };
+  let entry = library.get(kind);
+  if (!entry) {
+    const users = new Set<StandardMaterial>([material]);
+    const texture = new Texture(
+      `/models/city/${kind}.jpg`,
+      scene,
+      false,
+      false,
+      Texture.TRILINEAR_SAMPLINGMODE,
+      () => {
+        if (scene.isDisposed) return;
+        const loaded = library!.get(kind);
+        if (!loaded) return;
+        loaded.ready = true;
+        users.forEach((m) => apply(m, texture));
+      },
+      () => {
+        /* Retain the generated surface when offline or a request fails. */
+      },
+    );
+    texture.name = `rivergate-photo-${kind}`;
+    texture.uScale = kind === "grass" ? 20 : kind === "asphalt" ? 1 : 2;
+    texture.vScale = texture.uScale;
+    texture.wrapU = texture.wrapV = Texture.WRAP_ADDRESSMODE;
+    texture.anisotropicFilteringLevel = 2;
+    entry = { texture, users, ready: false };
+    library.set(kind, entry);
+  } else {
+    entry.users.add(material);
+    if (entry.ready) apply(material, entry.texture);
+  }
+}
 
 /** Small deterministic material studies, generated once: no downloads or canvas. */
 export function createSurfacePixels(kind: TownSurface): Uint8Array {
@@ -107,6 +170,7 @@ export function applyTownSurface(
     cache.set(kind, texture);
   }
   material.diffuseTexture = texture;
+  loadPhotographedSurface(scene, material, kind);
   material.specularColor = Color3.White().scale(
     kind === "slate" ? 0.09 : 0.025,
   );
