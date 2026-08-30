@@ -1,0 +1,348 @@
+.screen {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: 76px minmax(0, 1fr);
+  background: #111c22;
+  color: #eef2ed;
+  font-family: var(--font-game-body);
+}
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 4vw;
+  gap: 14px;
+  border-bottom: 1px solid #354a55;
+}
+.brandLockup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.brandMark {
+  width: 27px;
+  height: 32px;
+  border: 2px solid #e4bb7b;
+  border-radius: 2px;
+  display: grid;
+  place-items: center;
+}
+.brandMark span {
+  width: 9px;
+  height: 14px;
+  border: 1px solid #e4bb7b;
+}
+.brandLockup strong {
+  display: block;
+  font:
+    600 1.5rem/1 "Barlow City",
+    sans-serif;
+}
+.brandLockup > div:last-child > span {
+  display: block;
+  margin-top: 5px;
+  color: #b8c8cd;
+  font-size: 0.7rem;
+}
+.soundButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid #48606b;
+  border-radius: 5px;
+  background: transparent;
+  color: #d7e2e4;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.soundButton:hover {
+  background: #253943;
+}
+.gameFrame {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(330px, 0.8fr) minmax(0, 1.3fr);
+}
+.welcome {
+  padding: clamp(32px, 5vw, 76px) clamp(24px, 5vw, 72px);
+  align-self: center;
+}
+.titleGroup h1 {
+  margin: 0;
+  max-width: 12ch;
+  font:
+    600 clamp(2.9rem, 4.4vw, 5rem)/1.03 "Barlow City",
+    sans-serif;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+.titleGroup p {
+  max-width: 45ch;
+  margin: 24px 0 0;
+  color: #b8c8cd;
+  font-size: 0.97rem;
+  line-height: 1.7;
+}
+.nameField {
+  display: grid;
+  gap: 9px;
+  margin-top: 30px;
+}
+.nameField > span {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.nameField input {
+  min-height: 48px;
+  width: 100%;
+  border: 1px solid #48606b;
+  border-radius: 5px;
+  padding: 12px 14px;
+  color: #eef2ed;
+  background: #1a2931;
+  font-size: 0.93rem;
+  caret-color: #e4bb7b;
+}
+.nameField input::placeholder {
+  color: #abbcc3;
+  opacity: 1;
+}
+.nameField small {
+  color: #b8c8cd;
+  font-size: 0.69rem;
+  line-height: 1.4;
+}
+.nameField .nameError {
+  color: #f2ada0;
+}
+.saveSummary {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 22px;
+  padding: 14px 0;
+  border-block: 1px solid #354a55;
+}
+.saveIcon {
+  display: grid;
+  place-items: center;
+  color: #d0b38a;
+}
+.saveIcon svg {
+  width: 22px;
+  height: 22px;
+}
+.saveSummary strong,
+.saveSummary span {
+  display: block;
+}
+.saveSummary strong {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.saveSummary span {
+  margin-top: 5px;
+  color: #b8c8cd;
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+.saveNumbers {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.saveNumbers strong {
+  color: #d8c19b;
+}
+.actions {
+  margin-top: 24px;
+  display: grid;
+  gap: 10px;
+}
+.primaryAction,
+.secondaryAction,
+.confirmation button {
+  min-height: 46px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.primaryAction {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 64px;
+  text-align: left;
+  color: #16242c;
+  background: #e4bb7b;
+  transition: background 150ms ease-out;
+}
+.primaryAction strong,
+.primaryAction small {
+  display: block;
+}
+.primaryAction strong {
+  font-size: 0.97rem;
+}
+.primaryAction small {
+  margin-top: 5px;
+  font-size: 0.7rem;
+  font-weight: 400;
+}
+.primaryAction:hover {
+  background: #f1ce98;
+}
+.secondaryAction {
+  border: 1px solid #48606b;
+  color: #d7e2e4;
+  background: transparent;
+  font-size: 0.78rem;
+}
+.secondaryAction:hover {
+  background: #253943;
+}
+.primaryAction:disabled,
+.secondaryAction:disabled,
+.confirmation button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.confirmation {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 6px;
+  background: #3a3030;
+}
+.confirmation p {
+  margin: 0;
+  color: #ecd3cc;
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+.confirmation strong {
+  display: block;
+}
+.confirmation > div {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.confirmation button {
+  background: #e4bb7b;
+  color: #16242c;
+  font-size: 0.74rem;
+}
+.confirmation button:last-child {
+  background: #253943;
+  color: #eef2ed;
+}
+.safetyNote {
+  margin: 18px 0 0;
+  max-width: 50ch;
+  color: #b8c8cd;
+  font-size: 0.68rem;
+  line-height: 1.6;
+}
+.entryError {
+  padding: 14px;
+  color: #ffd6cc;
+  background: #59392f;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  border-radius: 5px;
+}
+.world {
+  position: relative;
+  min-height: 620px;
+  overflow: hidden;
+  background: #172a3c;
+}
+.worldPromise {
+  position: absolute;
+  z-index: 2;
+  bottom: 40px;
+  left: 32px;
+  right: 32px;
+  color: #fff3df;
+  text-shadow: 0 2px 8px #071322;
+  pointer-events: none;
+}
+.worldPromise p {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.worldPromise strong {
+  display: block;
+  margin-bottom: 7px;
+  font:
+    600 2.4rem/1.1 "Barlow City",
+    sans-serif;
+}
+@media (max-width: 900px) {
+  .gameFrame {
+    grid-template-columns: minmax(320px, 0.95fr) minmax(0, 1fr);
+  }
+  .welcome {
+    padding: 36px 24px;
+  }
+  .worldPromise {
+    left: 20px;
+    right: 20px;
+  }
+  .worldPromise strong {
+    font-size: 1.8rem;
+  }
+}
+@media (max-width: 620px) {
+  .screen {
+    grid-template-rows: 66px minmax(0, 1fr);
+  }
+  .header {
+    padding: 12px 18px;
+  }
+  .brandLockup strong {
+    font-size: 1.3rem;
+  }
+  .brandLockup > div:last-child > span {
+    display: none;
+  }
+  .gameFrame {
+    display: flex;
+    flex-direction: column;
+  }
+  .welcome {
+    padding: 34px 24px;
+    width: 100%;
+  }
+  .titleGroup h1 {
+    max-width: 13ch;
+    font-size: 3.1rem;
+  }
+  .titleGroup p {
+    margin-top: 16px;
+    font-size: 0.87rem;
+  }
+  .nameField {
+    margin-top: 24px;
+  }
+  .world {
+    min-height: 320px;
+  }
+  .worldPromise {
+    bottom: 24px;
+  }
+  .worldPromise strong {
+    font-size: 1.8rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .primaryAction {
+    transition: none;
+  }
+}

@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import type { ChallengeWelcomeProgress } from "../../lib/challenges/welcome-progress";
 import { normalisePlayerName, playerDisplayName } from "../../lib/player-name";
 import { GameIcon } from "./GameIcon";
-import styles from "./GameLanding.module.css";
+import TownPreview from "./TownPreview";
+import styles from "./GameEntrance.module.css";
 
 type GameLandingProps = Readonly<{
   errorMessage: string | null;
@@ -26,7 +27,6 @@ export default function GameLanding({
   hasSavedGame,
   loading,
   playerName,
-  playerRoleLabel,
   progress,
   soundOn,
   onContinue,
@@ -79,7 +79,7 @@ export default function GameLanding({
           </div>
           <div>
             <strong>Terra World</strong>
-            <span>Build a kinder, greener city</span>
+            <span>A city worth looking after</span>
           </div>
         </div>
         <button
@@ -97,17 +97,19 @@ export default function GameLanding({
         <section className={styles.welcome} aria-labelledby="landing-heading">
           <div className={styles.titleGroup}>
             <h1 id="landing-heading">
-              Welcome{hasSavedGame ? " back" : ""}, {welcomeName}!
+              {hasSavedGame
+                ? `Welcome back, ${welcomeName}.`
+                : "The city is yours to change."}
             </h1>
             <p>
-              Rivergate is already busy with families, buses, shops, gardens,
-              and wildlife. Explore with Leo and discover how one small choice
-              can ripple through the whole town.
+              Walk the streets of Rivergate. Step inside its buildings. Restore
+              essential services and see your decisions change the neighbourhood
+              around you.
             </p>
           </div>
 
           <label className={styles.nameField} htmlFor="builder-name">
-            <span>What should Leo call you?</span>
+            <span>Your name in Rivergate</span>
             <input
               aria-describedby="builder-name-help builder-name-error"
               autoComplete="nickname"
@@ -117,7 +119,7 @@ export default function GameLanding({
                 onPlayerNameChange(event.target.value);
                 if (event.target.value.trim().length > 0) setNameError(false);
               }}
-              placeholder="Your builder nickname"
+              placeholder="Choose a player name"
               ref={nameInputRef}
               value={playerName}
             />
@@ -130,7 +132,7 @@ export default function GameLanding({
               id="builder-name-error"
               role="alert"
             >
-              Pick a builder nickname before entering Rivergate.
+              Choose a player name before entering Rivergate.
             </small>
           </label>
 
@@ -140,7 +142,7 @@ export default function GameLanding({
                 <GameIcon name="home" size={30} />
               </div>
               <div>
-                <strong>Your town is ready</strong>
+                <strong>Continue your story</strong>
                 <span>
                   Stage {progress.stage} · {progress.activeTitle}
                 </span>
@@ -149,7 +151,7 @@ export default function GameLanding({
                 <strong>
                   {progress.completedCount}/{progress.totalCount}
                 </strong>
-                <span>challenges</span>
+                <span>objectives</span>
               </div>
             </section>
           )}
@@ -166,7 +168,7 @@ export default function GameLanding({
               >
                 <span>
                   <strong>Continue Game</strong>
-                  <small>Jump back into Rivergate</small>
+                  <small>Return to your saved city</small>
                 </span>
                 <GameIcon name="play" size={27} />
               </button>
@@ -183,7 +185,7 @@ export default function GameLanding({
                   <strong>
                     {loading ? "Getting Rivergate ready…" : "Start Game"}
                   </strong>
-                  <small>A busy town and your first mystery are waiting</small>
+                  <small>Your first assignment is waiting</small>
                 </span>
                 <GameIcon name="play" size={27} />
               </button>
@@ -243,94 +245,11 @@ export default function GameLanding({
         </section>
 
         <section className={styles.world} aria-label="A preview of Rivergate">
-          <div className={styles.sun} aria-hidden="true" />
-          <div
-            className={`${styles.cloud} ${styles.cloudOne}`}
-            aria-hidden="true"
-          />
-          <div
-            className={`${styles.cloud} ${styles.cloudTwo}`}
-            aria-hidden="true"
-          />
-          <div className={styles.hills} aria-hidden="true" />
-          <div className={styles.river} aria-hidden="true">
-            <span />
-            <span />
-          </div>
-
-          <div
-            className={`${styles.home} ${styles.homeOne}`}
-            aria-hidden="true"
-          >
-            <span className={styles.roof} />
-            <span className={styles.door} />
-            <span className={styles.window} />
-          </div>
-          <div
-            className={`${styles.home} ${styles.homeTwo}`}
-            aria-hidden="true"
-          >
-            <span className={styles.roof} />
-            <span className={styles.door} />
-            <span className={styles.window} />
-          </div>
-          <div
-            className={`${styles.home} ${styles.homeThree}`}
-            aria-hidden="true"
-          >
-            <span className={styles.roof} />
-            <span className={styles.door} />
-            <span className={styles.window} />
-          </div>
-          <div
-            className={`${styles.home} ${styles.homeFour}`}
-            aria-hidden="true"
-          >
-            <span className={styles.roof} />
-            <span className={styles.door} />
-            <span className={styles.window} />
-          </div>
-          <div
-            className={`${styles.home} ${styles.homeFive}`}
-            aria-hidden="true"
-          >
-            <span className={styles.roof} />
-            <span className={styles.door} />
-            <span className={styles.window} />
-          </div>
-          <div
-            className={`${styles.tree} ${styles.treeOne}`}
-            aria-hidden="true"
-          />
-          <div
-            className={`${styles.tree} ${styles.treeTwo}`}
-            aria-hidden="true"
-          />
-
-          <div className={styles.riverGuide} aria-hidden="true">
-            <span className={styles.guideEyeOne} />
-            <span className={styles.guideEyeTwo} />
-            <span className={styles.guideSmile} />
-          </div>
-          <p className={styles.guideBubble}>
-            {hasSavedGame
-              ? `I kept your place, ${welcomeName}! I’m Leo—ready to see what changed?`
-              : safePlayerName.length > 0
-                ? `Hi ${welcomeName}! I’m Leo. Rivergate is busy, beautiful… and a little mixed-up.`
-                : `Choose a nickname, ${playerRoleLabel}. Then explore Rivergate with Leo!`}
-          </p>
-
-          <ul className={styles.townActivity} aria-label="Rivergate is active">
-            <li>School open</li>
-            <li>Market busy</li>
-            <li>Buses moving</li>
-          </ul>
-
+          <TownPreview />
           <div className={styles.worldPromise}>
-            <GameIcon name="spark" size={24} />
             <p>
-              <strong>Explore it. Try it. Watch it respond.</strong>
-              The 3D town shows what changed before Leo helps explain why.
+              <strong>Rivergate, after hours.</strong>
+              Homes. Neighbours. A city that responds to you.
             </p>
           </div>
         </section>
