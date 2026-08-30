@@ -210,13 +210,10 @@ export function createTownEnvironment(
   createBridge(scene, root, 0.283, materials, shadows, roadMeshes, "north");
   createBridge(scene, root, 0.705, materials, shadows, roadMeshes, "south");
 
-  for (const [index, t, side] of [
-    [0, 0.11, -1],
-    [1, 0.28, 1],
-    [2, 0.47, -1],
-    [3, 0.72, 1],
-    [4, 0.89, -1],
-  ] as const) {
+  for (const [index, t, side] of Array.from(
+    { length: 24 },
+    (_, index) => [index, (index + 0.5) / 24, index % 2 ? 1 : -1] as const,
+  )) {
     const frame = sampleRoadFrame(t);
     const offset = new Vector3(
       frame.lateral.x * side * 7.25,

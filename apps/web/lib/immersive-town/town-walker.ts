@@ -37,8 +37,10 @@ export function createTownWalker(
   const obstacles = [
     ...world.houses.map((house) => boundsForMesh(house.pickMesh)),
     ...world.scene.meshes
-      .filter((mesh) =>
-        /^(school-main-building|clinic-building)$|trunk$/.test(mesh.name),
+      .filter(
+        (mesh) =>
+          /^(school-main-building|clinic-building)$|trunk$/.test(mesh.name) ||
+          mesh.metadata?.blocksWalking === true,
       )
       .map(boundsForMesh),
   ];

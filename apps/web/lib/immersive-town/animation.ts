@@ -48,7 +48,9 @@ export function createTownAnimationController(
     targets.playgroundSpinners.forEach((spinner) => {
       spinner.rotation.y = 0;
     });
-    targets.riverMaterial.emissiveColor.copyFrom(riverBase);
+    targets.riverMaterial.emissiveColor.copyFrom(
+      riverBase.scale(scene.metadata?.timeOfDay === "night" ? 0.25 : 1),
+    );
   };
 
   const observer = scene.onBeforeRenderObservable.add(() => {
@@ -79,7 +81,9 @@ export function createTownAnimationController(
       targets.playgroundSpinners.forEach((spinner, index) => {
         spinner.rotation.y = elapsedSeconds * (0.22 + index * 0.04);
       });
-      const riverGlow = 1 + Math.sin(elapsedSeconds * 0.58) * 0.22;
+      const riverGlow =
+        (1 + Math.sin(elapsedSeconds * 0.58) * 0.22) *
+        (scene.metadata?.timeOfDay === "night" ? 0.25 : 1);
       targets.riverMaterial.emissiveColor.copyFrom(
         new Color3(
           riverBase.r * riverGlow,

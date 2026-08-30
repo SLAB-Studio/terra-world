@@ -12,6 +12,7 @@ export type TownCompoundId =
   | "rivergate-neighborhood";
 
 export type TownQuality = "low" | "medium" | "high";
+export type TownTimeOfDay = "day" | "night";
 
 export type TownHouseMetadata = Readonly<{
   id: string;
@@ -61,6 +62,8 @@ export interface ImmersiveTownWorld {
   readonly compounds: readonly TownCompoundMetadata[];
   readonly houses: readonly TownHouseMetadata[];
   readonly animation: TownAnimationController;
+  readonly timeOfDay: TownTimeOfDay;
+  setTimeOfDay(mode: TownTimeOfDay): void;
   getHouseFromMesh(mesh: AbstractMesh | null): TownHouseMetadata | null;
   render(): void;
   resize(): void;

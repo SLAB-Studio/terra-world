@@ -101,6 +101,16 @@ export const DEFAULT_VEHICLES: readonly VehicleDefinition[] = [
     cruiseSpeedMetersPerSecond: 7.9,
     lengthMeters: 5.6,
   },
+  ...Array.from({ length: 12 }, (_, index): VehicleDefinition => ({
+    id:
+      index === 0 || index === 7 ? `metro-bus-${index}` : `metro-car-${index}`,
+    laneId: index < 6 ? "clockwise" : "counter-clockwise",
+    startProgress: [
+      0.14, 0.24, 0.46, 0.57, 0.81, 0.92, 0.06, 0.28, 0.39, 0.62, 0.73, 0.95,
+    ][index]!,
+    cruiseSpeedMetersPerSecond: 7.4 + (index % 4) * 0.35,
+    lengthMeters: index === 0 || index === 7 ? 5.8 : 4.1,
+  })),
 ] as const;
 
 export function createTrafficSimulation(

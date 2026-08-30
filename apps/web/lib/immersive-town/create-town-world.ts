@@ -13,6 +13,8 @@ import { createTownCompounds } from "./compounds";
 import { createTownEnvironment } from "./environment";
 import { createTownMaterials, TOWN_PALETTE } from "./materials";
 import { createTownDetails } from "./town-details";
+import { createMetropolis } from "./metropolis";
+import { createTimeOfDay } from "./time-of-day";
 import type {
   CreateTownWorldOptions,
   ImmersiveTownWorld,
@@ -107,6 +109,15 @@ export function createImmersiveTownWorld(
   const environment = createTownEnvironment(scene, materials, shadows);
   const compoundWorld = createTownCompounds(scene, materials, shadows);
   const details = createTownDetails(scene, materials, shadows);
+  const metropolis = createMetropolis(scene, materials, shadows);
+  const daylight = createTimeOfDay(
+    scene,
+    ambient,
+    sun,
+    materials,
+    metropolis.litWindows,
+    environment.cloudRoots,
+  );
   const houses = [
     ...compoundWorld.houses,
     ...details.houses,
@@ -120,7 +131,7 @@ export function createImmersiveTownWorld(
       cloudRoots: environment.cloudRoots,
       lampBulbs: environment.lampBulbs,
       riverMaterial: materials.river,
-      ambientActors: details.ambientActors,
+      ambientActors: [...details.ambientActors, ...metropolis.ambientActors],
       playgroundSpinners: details.playgroundSpinners,
     },
     options.reducedMotion ?? false,
@@ -145,6 +156,12 @@ export function createImmersiveTownWorld(
     compounds: compoundWorld.compounds,
     houses,
     animation,
+    get timeOfDay() {
+      return daylight.current;
+    },
+    setTimeOfDay(mode) {
+      if (!disposed) daylight.setTimeOfDay(mode);
+    },
     getHouseFromMesh(mesh) {
       if (mesh === null) return null;
       const indexedHouse = housesByMeshId.get(mesh.uniqueId);

@@ -10,6 +10,7 @@ import {
   sampleFootstep,
   samplePedestrianRoute,
   solvePedestrianLeg,
+  type PedestrianRoute,
 } from "./pedestrian-motion";
 
 export type TownCharacterAge = "adult" | "child";
@@ -32,6 +33,7 @@ export type TownCharacterProfile = Readonly<{
   rotation: number;
   phase: number;
   pathRadius?: number;
+  walkingRoute?: PedestrianRoute;
   glasses?: boolean;
   accent?: string;
   storyRole?: "leo" | "malik" | "maya" | "mr-sam" | "nia";
@@ -682,7 +684,7 @@ export function applyTownCharacterMotion(
   rig.leftAnkle.rotation.x = -motion.leftLeg - motion.leftKnee;
   rig.rightAnkle.rotation.x = -motion.rightLeg - motion.rightKnee;
 
-  const route = PEDESTRIAN_ROUTES[rig.profile.id];
+  const route = rig.profile.walkingRoute ?? PEDESTRIAN_ROUTES[rig.profile.id];
   if (route !== undefined) {
     const place = samplePedestrianRoute(
       route,
