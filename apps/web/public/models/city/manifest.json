@@ -41,42 +41,42 @@
   },
   {
     "id": "crossover-near",
-    "triangles": 11998,
+    "triangles": 11997,
     "dimensions": [
       1.8109834790229797,
       4.20353627204895,
       1.112329512834549
     ],
-    "bytes": 717316
+    "bytes": 723752
   },
   {
     "id": "crossover-far",
-    "triangles": 7996,
+    "triangles": 7995,
     "dimensions": [
       1.8065429329872131,
       4.201362133026123,
-      1.1207154393196106
+      1.1207229495048523
     ],
-    "bytes": 504600
+    "bytes": 513340
   },
   {
     "id": "shuttlebus-near",
-    "triangles": 4616,
+    "triangles": 5632,
     "dimensions": [
       2.0999999046325684,
       5.564500093460083,
       2.8499999046325684
     ],
-    "bytes": 148176
+    "bytes": 180356
   },
   {
     "id": "shuttlebus-far",
-    "triangles": 1788,
+    "triangles": 1786,
     "dimensions": [
-      2.092795968055725,
+      2.0820999145507812,
       5.556109666824341,
       2.8572663962841034
     ],
-    "bytes": 69476
+    "bytes": 74472
   }
 ]

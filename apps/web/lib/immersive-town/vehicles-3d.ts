@@ -16,6 +16,12 @@ import { applyVehicleTransform } from "./babylon-adapter";
 import { renderedRoadHeight } from "./road";
 import type { VehicleTransform } from "./traffic";
 import { softenLightPool } from "./light-pool";
+import {
+  applyBoardingDoor,
+  findBoardingDoor,
+  nextBoardingDoorProgress,
+  type BoardingDoor,
+} from "./vehicle-doors";
 
 type VehicleRig = {
   root: TransformNode;
@@ -29,10 +35,14 @@ type VehicleRig = {
   lastTime: number;
   disposed: boolean;
   length: number;
+  door: BoardingDoor | null;
+  doorProgress: number;
 };
 
 export type VehicleFleet = Readonly<{
   setNight(night: boolean): void;
+  /** Snapshot of stopped pickups/dropoffs; call before sync on each frame. */
+  setBoardingDoors(vehicleIds: readonly string[]): void;
   sync(transforms: readonly VehicleTransform[], elapsedSeconds: number): void;
   dispose(): void;
 }>;
@@ -51,6 +61,7 @@ export function createVehicleFleet(
   vehicleIds: readonly string[],
 ): VehicleFleet {
   const rigs = new Map<string, VehicleRig>();
+  let boardingVehicleIds = new Set<string>();
   const load = async (rig: VehicleRig, id: string, detail: "near" | "far") => {
     if (rig.disposed || rig.pending || (detail === "near" && rig.failedNear))
       return;
@@ -97,6 +108,8 @@ export function createVehicleFleet(
             node instanceof TransformNode &&
             /:Wheel(Front|Rear)[LR]$/.test(node.name),
         ) as TransformNode[];
+      rig.door = findBoardingDoor(model.root, rig.root);
+      applyBoardingDoor(rig.door, rig.doorProgress);
       if (previous) disposeCityModel(previous);
       else
         rig.root
@@ -110,6 +123,7 @@ export function createVehicleFleet(
         ...rig.root.metadata,
         cityModel: kind,
         modelDetail: detail,
+        boardingDoorSupported: rig.door !== null,
       };
     } catch {
       if (detail === "near") rig.failedNear = true;
@@ -131,6 +145,9 @@ export function createVehicleFleet(
   });
 
   return {
+    setBoardingDoors(ids) {
+      boardingVehicleIds = new Set(ids);
+    },
     setNight(night) {
       vehicleIds.forEach((id) => {
         const lamps = scene.getMaterialByName(
@@ -160,6 +177,16 @@ export function createVehicleFleet(
         rig.root.position.y = renderedRoadHeight(transform.position.y) + 0.13;
         const delta = Math.max(0, Math.min(0.2, elapsedSeconds - rig.lastTime));
         rig.lastTime = elapsedSeconds;
+        rig.doorProgress = nextBoardingDoorProgress(
+          rig.doorProgress,
+          boardingVehicleIds.has(transform.id),
+          transform.speedMetersPerSecond,
+          delta,
+        );
+        applyBoardingDoor(rig.door, rig.doorProgress);
+        rig.root.metadata ??= {};
+        rig.root.metadata.boardingDoorOpen =
+          rig.door !== null ? rig.doorProgress : 0;
         rig.distance += delta * transform.speedMetersPerSecond;
         const wheelTurn = rig.distance / 0.36;
         const wheels = rig.model ? rig.modelWheels : rig.wheels;
@@ -167,7 +194,8 @@ export function createVehicleFleet(
           wheel.rotationQuaternion = null;
           wheel.rotation.x = wheelTurn;
         });
-        if (rig.model && scene.activeCamera) {
+        // Preserve the active doorway while a passenger crosses it.
+        if (rig.model && rig.doorProgress === 0 && scene.activeCamera) {
           const distance = Vector3.Distance(
             scene.activeCamera.globalPosition,
             rig.root.position,
@@ -330,6 +358,8 @@ function createVehicleRig(
     lastTime: 0,
     disposed: false,
     length,
+    door: null,
+    doorProgress: 0,
   };
 }
 

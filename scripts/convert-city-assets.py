@@ -1,5 +1,5 @@
 """Offline city asset compiler: bpy 4.3, numpy<2. Sources in fetch-city-assets.mjs.
-Usage: python scripts/convert-city-assets.py SOURCE PUBLIC/models/city
+Usage: python scripts/convert-city-assets.py SOURCE PUBLIC/models/city [--vehicles-only]
 Exports compact, self-contained GLBs. No Blender/runtime CDN requirement.
 """
 import bpy
@@ -10,6 +10,7 @@ from pathlib import Path
 from mathutils import Matrix, Vector
 
 source, output = Path(sys.argv[1]), Path(sys.argv[2])
+vehicles_only = '--vehicles-only' in sys.argv[3:]
 output.mkdir(parents=True, exist_ok=True)
 
 def clear():
@@ -46,6 +47,7 @@ def simplify(objects, budget):
         mod.ratio = ratio
         bpy.context.view_layer.objects.active = o
         bpy.ops.object.modifier_apply(modifier=mod.name)
+        o.data.validate(clean_customdata=False)
 
 def compact_materials():
     for m in bpy.data.materials:
@@ -83,8 +85,10 @@ def export(key, objects):
     print('ASSET', record, flush=True)
     return record
 
-manifest=[]
-for key, name in [('broadleaf','island_tree_02'),('fir','fir_sapling')]:
+manifest = json.loads((output/'manifest.json').read_text()) if vehicles_only else []
+if vehicles_only:
+    manifest = [entry for entry in manifest if not entry['id'].startswith(('crossover-', 'shuttlebus-'))]
+for key, name in ([] if vehicles_only else [('broadleaf','island_tree_02'),('fir','fir_sapling')]):
     clear(); bpy.ops.import_scene.gltf(filepath=str(source/name/'source.gltf'))
     objects=[o for o in bpy.data.objects if o.type=='MESH']
     if key=='fir':
@@ -107,13 +111,20 @@ for key, name in [('broadleaf','island_tree_02'),('fir','fir_sapling')]:
     manifest.append(export(key+'-far',objects))
 
 clear(); bpy.ops.import_scene.gltf(filepath=str(source/'car/source.glb'))
+# Source colour variants otherwise restore textured original door materials at
+# export, overriding our opaque traffic palette and reintroducing extensions.
+bpy.context.preferences.addons['io_scene_gltf2'].preferences.KHR_materials_variants_ui = False
 objects=[o for o in bpy.data.objects if o.type=='MESH']
-# Remember the complete wheel assemblies before flattening their hierarchy.
+# Remember complete wheel and door assemblies before flattening their hierarchy.
 for o in objects:
     ancestor=o
     while ancestor:
         if ancestor.name in ['WheelFrontL','WheelFrontR','WheelRearL','WheelRearR']:
             o['wheel_group']=ancestor.name
+            break
+        if ancestor.name in ['BodyDoorLColor1','BodyDoorRColor1']:
+            o['door_group']=ancestor.name
+            o['door_pivot']=list(ancestor.matrix_world.translation)
             break
         ancestor=ancestor.parent
 # Deep unseen mechanical/interior detail and trademarks are not needed by traffic.
@@ -144,17 +155,24 @@ front=Vector(((hood_lo[0]+hood_hi[0])/2-center.x,(hood_lo[1]+hood_hi[1])/2-cente
 rotation=Matrix.Rotation(math.atan2(front.x,front.y),4,'Z')
 for o in objects:
     for v in o.data.vertices: v.co=rotation@(v.co-center)
+    if 'door_pivot' in o:
+        o['door_pivot']=list(rotation@(Vector(o['door_pivot'])-center))
     o.data.update()
 lo,hi=bounds(objects); scale=4.2/(hi[1]-lo[1])
 for o in objects:
     for v in o.data.vertices:
         v.co*=scale
         v.co.x*=1.8/((hi[0]-lo[0])*scale)
+    if 'door_pivot' in o:
+        pivot=Vector(o['door_pivot'])*scale
+        pivot.x*=1.8/((hi[0]-lo[0])*scale)
+        o['door_pivot']=list(pivot)
     o.data.update()
-# Merge the body and each wheel assembly. Preserve each wheel's centre for rolling.
+# Retain real source doors, including their interior, glass and handles. The
+# authored source pivot is the hinge, so closed geometry stays exactly in place.
 groups={}
 for o in objects:
-    category='lighting' if o.name in ['BodyHeadlights','BodyTaillights'] else o.get('wheel_group','body')
+    category='lighting' if o.name in ['BodyHeadlights','BodyTaillights'] else o.get('wheel_group',o.get('door_group','body'))
     groups.setdefault(category,[]).append(o)
 merged=[]
 for key,parts in groups.items():
@@ -164,6 +182,11 @@ for key,parts in groups.items():
     o=parts[0]; o.name=key
     if key=='lighting': o['preserve_geometry']=True
     if key.startswith('Wheel'): bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY',center='BOUNDS')
+    if key.startswith('BodyDoor'):
+        pivot=Vector(o['door_pivot'])
+        o.name='BoardingDoorRight' if pivot.x>0 else 'BoardingDoorLeft'
+        bpy.context.scene.cursor.location=pivot
+        bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
     merged.append(o)
 simplify(merged,12000); manifest.append(export('crossover-near',merged))
 simplify(merged,8000); manifest.append(export('crossover-far',merged))
@@ -186,21 +209,50 @@ def box(name,location,scale,material,bevel=0):
         bpy.ops.object.modifier_apply(modifier=mod.name)
         for p in o.data.polygons:p.use_smooth=True
     bus_parts.append(o); return o
-box('body',(0,0,1.52),(1.72,5.5,2.32),paint,.16)
+body_shell=box('body',(0,0,1.52),(1.72,5.5,2.32),paint,.16)
+# Hollow coachwork and a genuine left-curb aperture, not a glass panel on a
+# solid cube. Dark floor/seat surfaces remain visible through the open doorway.
+def cut_box(target, name, location, dimensions):
+    bpy.ops.mesh.primitive_cube_add(size=1,location=location)
+    cutter=bpy.context.object; cutter.name=name; cutter.dimensions=dimensions
+    bpy.ops.object.transform_apply(location=False,rotation=False,scale=True)
+    mod=target.modifiers.new(name,'BOOLEAN'); mod.operation='DIFFERENCE'; mod.object=cutter
+    bpy.context.view_layer.objects.active=target
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    bpy.data.objects.remove(cutter,do_unlink=True)
+cut_box(body_shell,'Coach interior',(0,0,1.57),(1.5,5.12,2.08))
+# The central entrance stays behind the front wheel, leaving a real footwell.
+door_center=.6
+cut_box(body_shell,'Passenger doorway',(-.84,door_center,1.33),(.5,1.05,1.96))
+box('interior-floor',(0,0,.55),(1.49,5.07,.05),trim)
+for y in [-1.8,-.8,.2]:
+    box('passenger-seat',(.37,y,.92),(.61,.52,.16),trim,.04)
+    box('seat-back',(.37,y-.21,1.23),(.61,.12,.65),trim,.04)
 box('roof',(0,-.05,2.76),(1.69,5.22,.18),paint,.08)
 box('windscreen',(0,2.772,1.96),(1.44,.035,1.16),glass,.07)
 box('lower-grille',(0,2.76,.77),(1.05,.04,.27),trim,.04)
 box('route-display',(0,2.737,2.56),(.98,.035,.14),trim,.025)
 for side in [-1,1]:
-    for y in [-1.85,-.68,.49]: box('side-window',(side*.867,y,2.02),(.024,1.01,.99),glass,.045)
-    box('driver-window',(side*.867,1.67,2.02),(.024,.92,.99),glass,.045)
-    box('waist-line',(side*.873,0,1.43),(.025,5.04,.07),trim)
+    for y in [-1.85,-.68,.49]:
+        if side<0 and y==.49: continue
+        box('side-window',(side*.867,y,2.02),(.024,1.01,.99),glass,.045)
+    box('driver-window',(side*.867,1.86 if side<0 else 1.67,2.02),(.024,1.22 if side<0 else .92,.99),glass,.045)
+    if side>0: box('waist-line',(side*.873,0,1.43),(.025,5.04,.07),trim)
+    else:
+        box('waist-line',(-.873,-1.2375,1.43),(.025,2.565,.07),trim)
+        box('waist-line',(-.873,1.8375,1.43),(.025,1.365,.07),trim)
     box('mirror-arm',(side*.93,2.35,2.0),(.18,.07,.06),metal)
     box('mirror',(side*1.0,2.33,1.95),(.1,.17,.28),trim,.04)
     box('headlamp',(side*.6,2.762,.94),(.36,.04,.18),front_lamp,.035)
     box('taillamp',(side*.62,-2.755,1.04),(.2,.04,.5),rear_lamp,.025)
-box('passenger-door',(0.883,1.28,1.29),(.03,.99,1.79),glass,.035)
-box('door-rail',(0.904,1.28,1.26),(.02,.035,1.8),metal)
+door=box('passenger-door',(-0.883,door_center,1.33),(.055,1.025,1.93),glass,.025)
+rail=box('door-rail',(-0.914,door_center,1.33),(.025,.035,1.88),metal)
+for part in [door,rail]: bus_parts.remove(part)
+bpy.ops.object.select_all(action='DESELECT')
+door.select_set(True); rail.select_set(True); bpy.context.view_layer.objects.active=door
+bpy.ops.object.join(); door.name='BoardingDoorLeft'
+bpy.context.scene.cursor.location=(-.883,door_center+.5125,.365)
+bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
 box('rear-window',(0,-2.753,2.0),(1.38,.025,.83),glass,.06)
 for x in [-.77,.77]:
     for y in [-1.71,1.69]:
@@ -218,11 +270,11 @@ for x in [-.77,.77]:
 bpy.ops.object.select_all(action='DESELECT')
 for o in bus_parts:o.select_set(True)
 bpy.context.view_layer.objects.active=bus_parts[0];bpy.ops.object.join();body=bus_parts[0];body.name='body'
-bus=[body,*bus_wheels]
+bus=[body,door,*bus_wheels]
 manifest.append(export('shuttlebus-near',bus));simplify(bus,1800);manifest.append(export('shuttlebus-far',bus))
 
 # Compress photographed surfaces; keep originals outside the shipped directory.
-for name in ['asphalt','brick','stone','slate','grass']:
+for name in ([] if vehicles_only else ['asphalt','brick','stone','slate','grass']):
     image=bpy.data.images.load(str(source/'surfaces'/(name+'.jpg')))
     image.scale(512,512); image.file_format='JPEG'; image.filepath_raw=str(output/(name+'.jpg')); image.save()
 (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
