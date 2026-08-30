@@ -120,6 +120,8 @@ describe("Rivergate walking camera", () => {
       onEnterHouse: vi.fn(),
     });
     expect(walker.doors).toHaveLength(28);
+    expect(canWalkAt({ x: 39, z: 26 }, walker.obstacles)).toBe(false);
+    expect(canWalkAt({ x: -3.5, z: 24 }, walker.obstacles)).toBe(false);
     for (const door of walker.doors) {
       expect(canWalkAt(door.approach, walker.obstacles), door.id).toBe(true);
       expect(nearbyWalkDoor(door.approach, walker.doors)?.id, door.id).toBe(

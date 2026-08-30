@@ -38,7 +38,7 @@ export function createTownWalker(
     ...world.houses.map((house) => boundsForMesh(house.pickMesh)),
     ...world.scene.meshes
       .filter((mesh) =>
-        /^(school-building|clinic-building)$|trunk$/.test(mesh.name),
+        /^(school-main-building|clinic-building)$|trunk$/.test(mesh.name),
       )
       .map(boundsForMesh),
   ];
