@@ -43,13 +43,6 @@
   padding: 16px 22px;
   border-bottom: 2px solid #d9d4bf;
 }
-.header p {
-  margin: 0 0 2px;
-  font-size: 0.65rem;
-  font-weight: 850;
-  letter-spacing: 0.1em;
-  color: #557570;
-}
 .header h2 {
   margin: 0;
   font-size: clamp(1.2rem, 2.5vw, 1.8rem);

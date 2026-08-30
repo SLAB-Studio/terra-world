@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   TOWN_VENUES,
+  venueFloorDescription,
   type TownVenue,
 } from "../../lib/immersive-town/venue-catalog";
 import type { TownTimeOfDay } from "../../lib/immersive-town/types";
@@ -173,13 +174,6 @@ export default function BuildingVisit3D({
     >
       <header className={styles.header}>
         <div>
-          <p>
-            {venue
-              ? venue.outdoor
-                ? "OUT AND ABOUT"
-                : "COME ON IN"
-              : "EXPLORE RIVERGATE"}
-          </p>
           <h2 id="visit-title">{venue?.name ?? "Where shall we go?"}</h2>
         </div>
         <button type="button" onClick={onClose}>
@@ -282,7 +276,9 @@ export default function BuildingVisit3D({
               </>
             )}
           </section>
-          <p className={styles.description}>{venue.description}</p>
+          <p className={styles.description}>
+            {venueFloorDescription(venue, floorIndex)}
+          </p>
         </>
       ) : (
         <div className={styles.directory}>

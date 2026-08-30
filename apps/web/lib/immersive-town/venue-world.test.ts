@@ -1,10 +1,29 @@
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine";
 import { describe, expect, it, vi } from "vitest";
-import { TOWN_VENUES } from "./venue-catalog";
+import { TOWN_VENUES, venueFloorDescription } from "./venue-catalog";
 import { createVenueWorld, VENUE_LIMITS, VENUE_START } from "./venue-world";
 import { canWalkInside, stepInterior } from "./interior-navigation";
 
 describe("purpose-built public interiors", () => {
+  it("describes the actual floor and gives repeated layouts honest shared-use names", () => {
+    for (const venue of TOWN_VENUES) {
+      const labelsByUse = new Map<string, Set<string>>();
+      venue.floors.forEach((floor, index) => {
+        const names = labelsByUse.get(floor.use) ?? new Set<string>();
+        names.add(floor.label.replace(/^\d+ · /, ""));
+        labelsByUse.set(floor.use, names);
+        if (floor.use === "roof") {
+          expect(venueFloorDescription(venue, index)).toContain(
+            "open-air terrace",
+          );
+          expect(venueFloorDescription(venue, index)).not.toContain(
+            "bookshelves",
+          );
+        }
+      });
+      for (const names of labelsByUse.values()) expect(names.size).toBe(1);
+    }
+  });
   it("builds every advertised floor with safe spawn, an uninterrupted entrance-to-lift route and bounded movement", () => {
     const engine = new NullEngine();
     try {

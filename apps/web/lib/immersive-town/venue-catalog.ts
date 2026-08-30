@@ -35,7 +35,7 @@ const tower = (
   name: string,
   height: number,
   description: string,
-  rooms: readonly string[],
+  roomName: string,
 ): TownVenue => ({
   id,
   name,
@@ -46,7 +46,7 @@ const tower = (
   floors: [
     { label: "Ground · Welcome", use: "lobby" },
     ...Array.from({ length: Math.floor((height - 3.5) / 2.8) }, (_, i) => ({
-      label: `${i + 1} · ${rooms[i % rooms.length]}`,
+      label: `${i + 1} · ${roomName}`,
       use: id,
     })),
     { label: "Roof · Sky garden", use: "roof" },
@@ -59,56 +59,56 @@ export const TOWN_VENUES: readonly TownVenue[] = [
     "City Library",
     15,
     "Find a quiet reading corner, explore the bookshelves and discover how stories are shared.",
-    ["Children’s library", "Reading room", "Reference library"],
+    "Library & reading room",
   ),
   tower(
     "science",
     "Science Centre",
     27,
-    "Explore the laboratory benches, planet displays and renewable-energy exhibits.",
-    ["Discovery lab", "Planet gallery", "Energy laboratory"],
+    "Explore the laboratory benches, microscopes and colourful planet models.",
+    "Discovery lab",
   ),
   tower(
     "studios",
     "River Studios",
     20,
-    "Step behind the microphone and explore how music, films and radio are made.",
-    ["Recording studio", "Film studio", "Sound workshop"],
+    "Step behind the microphone and explore the mixing desk and recording area.",
+    "Recording studio",
   ),
   tower(
     "hub",
     "City Hub",
     31,
-    "Visit the people who plan Rivergate, explore their offices and look out from the roof.",
-    ["City planning", "Community meeting room", "Town offices"],
+    "Explore Rivergate’s offices, desks and shared workspaces.",
+    "Town offices",
   ),
   tower(
     "bookshop",
     "Books & Stories",
     14,
     "Browse colourful books and visit the storytelling corner.",
-    ["Bookshop", "Storytelling room"],
+    "Bookshop & reading room",
   ),
   tower(
     "arts",
     "Arts Centre",
     22,
     "Wander through the gallery and discover paintings and sculptures.",
-    ["Painting gallery", "Sculpture gallery", "Community art room"],
+    "Art & sculpture gallery",
   ),
   tower(
     "cafe",
     "Sunshine Cafe",
     13,
     "Pull up a chair in the cafe and explore the counter and dining spaces.",
-    ["Cafe & bakery", "Neighbourhood dining"],
+    "Cafe & bakery",
   ),
   tower(
     "workshop",
     "Makers Market",
     18,
     "Explore the workbenches and learn how things can be repaired and reused.",
-    ["Repair workshop", "Design workshop"],
+    "Repair workshop",
   ),
   {
     id: "school",
@@ -141,7 +141,7 @@ export const TOWN_VENUES: readonly TownVenue[] = [
     floors: [
       { label: "Ground · Lobby & mailboxes", use: "lobby" },
       { label: "1 · Family apartments", use: "apartments" },
-      { label: "2 · Garden apartments", use: "apartments" },
+      { label: "2 · Family apartments", use: "apartments" },
       { label: "Roof · Residents’ terrace", use: "roof" },
     ],
   })),
@@ -193,3 +193,16 @@ export const TOWN_VENUES: readonly TownVenue[] = [
 
 export const findTownVenue = (id: string) =>
   TOWN_VENUES.find((venue) => venue.id === id);
+
+export function venueFloorDescription(venue: TownVenue, index: number): string {
+  const floor = venue.floors[index];
+  if (floor?.use === "roof")
+    return "Explore the open-air terrace, planted corners and seating. Stay behind the safety rails, then take the lift back downstairs.";
+  if (venue.kind === "apartments")
+    return floor?.use === "lobby"
+      ? "Explore the reception, mailboxes and shared seating. Take the lift to visit a furnished apartment."
+      : "Walk along the entrance hall to the living room, bedroom, dining area and kitchen.";
+  if (venue.kind === "hub" && floor?.use === "lobby")
+    return "Explore City Hub’s reception and waiting area. Take the lift upstairs to visit the town offices.";
+  return venue.description;
+}
