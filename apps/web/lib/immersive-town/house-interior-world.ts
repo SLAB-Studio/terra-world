@@ -15,11 +15,15 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { Scene } from "@babylonjs/core/scene";
 import type { Engine } from "@babylonjs/core/Engines/engine";
 
+import {
+  createInteriorWalker,
+  type InteriorWalker,
+  type InteriorWalkCallbacks,
+} from "./interior-walker";
+import type { WalkBounds } from "./walking";
+
 export type InteriorRoomId =
-  | "living-room"
-  | "kitchen"
-  | "garden-room"
-  | "utility-room";
+  "living-room" | "kitchen" | "garden-room" | "utility-room";
 
 export type InteriorUpgradeId = "light" | "water" | "garden" | "recycle";
 
@@ -78,6 +82,7 @@ type RoomRig = Readonly<{
 export type HouseInteriorWorld = Readonly<{
   scene: Scene;
   camera: ArcRotateCamera;
+  walker: InteriorWalker;
   rooms: readonly RoomRig[];
   getRoomFromMesh(mesh: AbstractMesh | null): InteriorRoomId | null;
   focusRoom(roomId: InteriorRoomId | null, reducedMotion?: boolean): void;
@@ -96,6 +101,7 @@ export function createHouseInteriorWorld(
   engine: Engine,
   houseId: "sunny" | "bluebell" | "mango",
   initialUpgrades: readonly InteriorUpgradeId[],
+  callbacks: InteriorWalkCallbacks = {},
 ): HouseInteriorWorld {
   const scene = new Scene(engine);
   scene.clearColor = Color4.FromHexString("#8FC3DEFF");
@@ -117,7 +123,7 @@ export function createHouseInteriorWorld(
   camera.upperBetaLimit = 1.28;
   camera.wheelPrecision = 42;
   camera.panningSensibility = 0;
-  const canvas = engine.getRenderingCanvas();
+  const canvas = engine.getRenderingCanvas() ?? null;
   if (canvas !== null) camera.attachControl(canvas, true);
 
   const ambient = new HemisphericLight(
@@ -125,7 +131,7 @@ export function createHouseInteriorWorld(
     new Vector3(0.1, 1, -0.2),
     scene,
   );
-  ambient.intensity = 0.46;
+  ambient.intensity = 0.6;
   ambient.diffuse = Color3.FromHexString("#FFE8B6");
   ambient.groundColor = Color3.FromHexString("#46584A");
 
@@ -145,7 +151,7 @@ export function createHouseInteriorWorld(
   shadows.normalBias = 0.02;
 
   const palette = createInteriorMaterials(scene, houseId);
-  createHouseShell(scene, palette, shadows);
+  const enclosure = createHouseShell(scene, palette, shadows);
 
   const roomRigs: RoomRig[] = [
     createLivingRoom(scene, palette, shadows),
@@ -158,61 +164,43 @@ export function createHouseInteriorWorld(
     room.meshes.forEach((mesh) => meshRooms.set(mesh.uniqueId, room.id));
   });
 
-  let cameraAnimationObserver: null | ReturnType<
-    typeof scene.onBeforeRenderObservable.add
-  > = null;
-  const cancelCameraAnimation = () => {
-    if (cameraAnimationObserver !== null) {
-      scene.onBeforeRenderObservable.remove(cameraAnimationObserver);
-      cameraAnimationObserver = null;
-    }
-  };
+  const collisionMeshes = scene.meshes.filter(
+    (mesh) =>
+      /^interior-wall-/.test(mesh.name) ||
+      /^(living-sofa|living-table|living-lamp-pole|kitchen-counter|kitchen-island|garden-planter|garden-bench|utility-bin|utility-shelf|utility-sorting-stand)/.test(
+        mesh.name,
+      ),
+  );
+  const obstacles = (): WalkBounds[] =>
+    collisionMeshes
+      .filter((mesh) => mesh.isEnabled())
+      .flatMap((mesh) => {
+        mesh.computeWorldMatrix(true);
+        const { minimumWorld: min, maximumWorld: max } =
+          mesh.getBoundingInfo().boundingBox;
+        // Overhead lintels and shelves do not block feet.
+        return min.y > 2.9
+          ? []
+          : [{ minX: min.x, maxX: max.x, minZ: min.z, maxZ: max.z }];
+      });
+  const walker = createInteriorWalker(scene, canvas, obstacles, callbacks);
 
-  function focusRoom(roomId: InteriorRoomId | null, reducedMotion = false) {
-    const room = roomId === null
-      ? null
-      : roomRigs.find((candidate) => candidate.id === roomId) ?? null;
-    roomRigs.forEach((candidate) =>
-      candidate.selection.setEnabled(candidate.id === roomId),
-    );
-    const destination = room === null
-      ? {
-          alpha: -Math.PI / 2,
-          beta: 1.02,
-          radius: 27,
-          target: new Vector3(0, 1.6, 0),
-        }
-      : {
-          alpha: room.center.x < 0 ? -1.42 : -1.72,
-          beta: 1.08,
-          radius: 10.8,
-          target: room.center.add(new Vector3(0, 1.55, 0)),
-        };
-    cancelCameraAnimation();
-    if (reducedMotion) {
-      camera.alpha = destination.alpha;
-      camera.beta = destination.beta;
-      camera.radius = destination.radius;
-      camera.target.copyFrom(destination.target);
+  function focusRoom(roomId: InteriorRoomId | null) {
+    roomRigs.forEach((room) => room.selection.setEnabled(false));
+    if (roomId !== null) {
+      camera.detachControl();
+      enclosure.forEach((mesh) => mesh.setEnabled(true));
+      walker.enter(roomId);
       return;
     }
-    const start = {
-      alpha: camera.alpha,
-      beta: camera.beta,
-      radius: camera.radius,
-      target: camera.target.clone(),
-    };
-    let elapsed = 0;
-    cameraAnimationObserver = scene.onBeforeRenderObservable.add(() => {
-      elapsed += Math.min(engine.getDeltaTime(), 50);
-      const raw = Math.min(1, elapsed / 680);
-      const amount = 1 - Math.pow(1 - raw, 4);
-      camera.alpha = start.alpha + (destination.alpha - start.alpha) * amount;
-      camera.beta = start.beta + (destination.beta - start.beta) * amount;
-      camera.radius = start.radius + (destination.radius - start.radius) * amount;
-      camera.target.copyFrom(Vector3.Lerp(start.target, destination.target, amount));
-      if (raw >= 1) cancelCameraAnimation();
-    });
+    walker.stop();
+    enclosure.forEach((mesh) => mesh.setEnabled(false));
+    scene.activeCamera = camera;
+    camera.alpha = -Math.PI / 2;
+    camera.beta = 1.02;
+    camera.radius = 27;
+    camera.target.set(0, 1.6, 0);
+    if (canvas) camera.attachControl(canvas, true);
   }
 
   function setInstalled(upgrades: readonly InteriorUpgradeId[]) {
@@ -225,12 +213,13 @@ export function createHouseInteriorWorld(
   }
 
   setInstalled(initialUpgrades);
-  focusRoom(null, true);
+  focusRoom(null);
 
   return {
     scene,
     camera,
     rooms: roomRigs,
+    walker,
     getRoomFromMesh(mesh) {
       if (mesh === null) return null;
       let current: AbstractMesh | null = mesh;
@@ -244,7 +233,7 @@ export function createHouseInteriorWorld(
     focusRoom,
     setInstalled,
     dispose() {
-      cancelCameraAnimation();
+      walker.dispose();
       camera.detachControl();
       scene.dispose();
     },
@@ -307,15 +296,81 @@ function createHouseShell(
     ["back", [17.4, 6.6, 0.45], [0, 3.2, 6.05]],
     ["left", [0.45, 6.6, 12.2], [-8.48, 3.2, 0]],
     ["right", [0.45, 6.6, 12.2], [8.48, 3.2, 0]],
-    ["middle-x", [0.28, 4.35, 11.7], [0, 2.05, 0]],
-    ["middle-z-left", [8.1, 4.35, 0.28], [-4.18, 2.05, 0]],
-    ["middle-z-right", [8.1, 4.35, 0.28], [4.18, 2.05, 0]],
+    ["middle-x-front", [0.28, 4.35, 1.5], [0, 2.45, -5.1]],
+    ["middle-x-center", [0.28, 4.35, 4.7], [0, 2.45, 0]],
+    ["middle-x-back", [0.28, 4.35, 1.5], [0, 2.45, 5.1]],
+    ["middle-x-door-front", [0.28, 1.1, 2], [0, 4.08, -3.35]],
+    ["middle-x-door-back", [0.28, 1.1, 2], [0, 4.08, 3.35]],
+    ["middle-z-left", [5.85, 4.35, 0.28], [-5.325, 2.45, 0]],
+    ["middle-z-left-edge", [0.26, 4.35, 0.28], [-0.27, 2.45, 0]],
+    ["middle-z-right", [5.85, 4.35, 0.28], [5.325, 2.45, 0]],
+    ["middle-z-right-edge", [0.26, 4.35, 0.28], [0.27, 2.45, 0]],
+    ["middle-z-door-left", [2, 1.1, 0.28], [-1.4, 4.08, 0]],
+    ["middle-z-door-right", [2, 1.1, 0.28], [1.4, 4.08, 0]],
   ] as const) {
     const wall = box(scene, `interior-wall-${name}`, size, position);
     wall.material = materials.wall;
     wall.receiveShadows = true;
     shadows.addShadowCaster(wall);
   }
+  // The cutaway stays open from above; walking reveals a complete enclosed house.
+  const front = box(
+    scene,
+    "interior-wall-front",
+    [17.4, 6.6, 0.45],
+    [0, 3.2, -6.05],
+  );
+  front.material = materials.wall;
+  const ceiling = box(
+    scene,
+    "interior-ceiling",
+    [17.4, 0.25, 12.6],
+    [0, 6.55, 0],
+  );
+  ceiling.material = materials.paper;
+  const entrance = box(
+    scene,
+    "interior-front-door",
+    [2.3, 3.7, 0.12],
+    [-1.4, 2.12, -5.79],
+  );
+  entrance.material = materials.accent;
+  const knob = MeshBuilder.CreateSphere(
+    "interior-door-handle",
+    { diameter: 0.16 },
+    scene,
+  );
+  knob.position.set(-0.65, 1.95, -5.67);
+  knob.material = materials.metal;
+  for (const side of [-1, 1]) {
+    for (const z of [-2.7, 2.7]) {
+      const frame = box(
+        scene,
+        `interior-window-frame-${side}-${z}`,
+        [0.12, 2.3, 2.65],
+        [side * 8.19, 3.8, z],
+      );
+      frame.material = materials.wood;
+      const glass = box(
+        scene,
+        `interior-window-glass-${side}-${z}`,
+        [0.14, 1.96, 2.31],
+        [side * 8.1, 3.8, z],
+      );
+      glass.material = materials.blue;
+      const mullion = box(
+        scene,
+        `interior-window-mullion-${side}-${z}`,
+        [0.16, 2, 0.1],
+        [side * 8.02, 3.8, z],
+      );
+      mullion.material = materials.paper;
+    }
+  }
+  [front, ceiling].forEach((mesh) => {
+    mesh.receiveShadows = true;
+  });
+  return [front, ceiling, entrance, knob];
 }
 
 function createLivingRoom(
@@ -328,31 +383,57 @@ function createLivingRoom(
   sofa.material = materials.accent;
   register(sofa, rig, shadows);
   for (const x of [-5.65, -2.55]) {
-    const arm = box(scene, `living-sofa-arm-${x}`, [0.55, 1.75, 1.8], [x, 1.15, -4.4]);
+    const arm = box(
+      scene,
+      `living-sofa-arm-${x}`,
+      [0.55, 1.75, 1.8],
+      [x, 1.15, -4.4],
+    );
     arm.material = materials.accent;
     register(arm, rig, shadows);
   }
   const rug = box(scene, "living-rug", [5.7, 0.12, 3.4], [-4.1, 0.42, -2.1]);
   rug.material = materials.blue;
   register(rug, rig);
-  const table = box(scene, "living-table", [2.7, 0.34, 1.7], [-4.1, 1.02, -1.7]);
+  const table = box(
+    scene,
+    "living-table",
+    [2.7, 0.34, 1.7],
+    [-4.1, 1.02, -1.7],
+  );
   table.material = materials.wood;
   register(table, rig, shadows);
-  const lampPole = MeshBuilder.CreateCylinder("living-lamp-pole", { height: 3.2, diameter: 0.2, tessellation: 12 }, scene);
+  const lampPole = MeshBuilder.CreateCylinder(
+    "living-lamp-pole",
+    { height: 3.2, diameter: 0.2, tessellation: 12 },
+    scene,
+  );
   lampPole.position.set(-6.8, 1.95, -1.6);
   lampPole.material = materials.metal;
   register(lampPole, rig, shadows);
-  const darkBulb = MeshBuilder.CreateSphere("living-dark-bulb", { diameter: 0.75, segments: 12 }, scene);
+  const darkBulb = MeshBuilder.CreateSphere(
+    "living-dark-bulb",
+    { diameter: 0.75, segments: 12 },
+    scene,
+  );
   darkBulb.position.set(-6.8, 3.65, -1.6);
   darkBulb.material = materials.dark;
   darkBulb.parent = rig.problem;
   register(darkBulb, rig);
-  const brightBulb = MeshBuilder.CreateSphere("living-bright-bulb", { diameter: 0.82, segments: 12 }, scene);
+  const brightBulb = MeshBuilder.CreateSphere(
+    "living-bright-bulb",
+    { diameter: 0.82, segments: 12 },
+    scene,
+  );
   brightBulb.position.set(-6.8, 3.65, -1.6);
   brightBulb.material = materials.yellow;
   brightBulb.parent = rig.healthy;
   register(brightBulb, rig);
-  const glow = new PointLight("living-room-glow", new Vector3(-5.6, 3.3, -2.2), scene);
+  const glow = new PointLight(
+    "living-room-glow",
+    new Vector3(-5.6, 3.3, -2.2),
+    scene,
+  );
   glow.diffuse = Color3.FromHexString("#FFD75B");
   glow.intensity = 0.42;
   glow.range = 5.5;
@@ -366,31 +447,54 @@ function createKitchen(
   shadows: ShadowGenerator,
 ): RoomRig {
   const rig = createRoomBase(scene, "kitchen", "water", materials);
-  const counter = box(scene, "kitchen-counter", [6.5, 1.65, 1.25], [4.2, 1.12, -5.05]);
+  const counter = box(
+    scene,
+    "kitchen-counter",
+    [6.5, 1.65, 1.25],
+    [4.2, 1.12, -5.05],
+  );
   counter.material = materials.counter;
   register(counter, rig, shadows);
   const sink = box(scene, "kitchen-sink", [2.1, 0.18, 1.05], [4.2, 2, -5.05]);
   sink.material = materials.metal;
   register(sink, rig);
-  const tap = MeshBuilder.CreateTorus("kitchen-tap", { diameter: 1.05, thickness: 0.17, tessellation: 20 }, scene);
+  const tap = MeshBuilder.CreateTorus(
+    "kitchen-tap",
+    { diameter: 1.05, thickness: 0.17, tessellation: 20 },
+    scene,
+  );
   tap.position.set(4.2, 2.55, -5.1);
   tap.rotation.x = Math.PI / 2;
   tap.material = materials.metal;
   register(tap, rig);
-  const drySign = box(scene, "kitchen-dry-tap", [1.25, 0.18, 0.18], [4.2, 2.35, -4.42]);
+  const drySign = box(
+    scene,
+    "kitchen-dry-tap",
+    [1.25, 0.18, 0.18],
+    [4.2, 2.35, -4.42],
+  );
   drySign.rotation.z = 0.7;
   drySign.material = materials.red;
   drySign.parent = rig.problem;
   register(drySign, rig);
   for (const y of [1.9, 1.55, 1.2]) {
-    const drop = MeshBuilder.CreateSphere(`kitchen-water-drop-${y}`, { diameter: 0.38, segments: 10 }, scene);
+    const drop = MeshBuilder.CreateSphere(
+      `kitchen-water-drop-${y}`,
+      { diameter: 0.38, segments: 10 },
+      scene,
+    );
     drop.position.set(4.2, y, -4.45);
     drop.scaling.y = 1.35;
     drop.material = materials.water;
     drop.parent = rig.healthy;
     register(drop, rig);
   }
-  const island = box(scene, "kitchen-island", [3.1, 1.25, 2.1], [4.25, 1, -1.9]);
+  const island = box(
+    scene,
+    "kitchen-island",
+    [3.1, 1.25, 2.1],
+    [4.25, 1, -1.9],
+  );
   island.material = materials.accent;
   register(island, rig, shadows);
   return finishRoom(rig);
@@ -403,20 +507,38 @@ function createGardenRoom(
 ): RoomRig {
   const rig = createRoomBase(scene, "garden-room", "garden", materials);
   for (const x of [-6.1, -4.1, -2.1]) {
-    const planter = box(scene, `garden-planter-${x}`, [1.55, 0.72, 2.5], [x, 0.75, 3.1]);
+    const planter = box(
+      scene,
+      `garden-planter-${x}`,
+      [1.55, 0.72, 2.5],
+      [x, 0.75, 3.1],
+    );
     planter.material = materials.wood;
     register(planter, rig, shadows);
-    const soil = box(scene, `garden-soil-${x}`, [1.3, 0.15, 2.2], [x, 1.17, 3.1]);
+    const soil = box(
+      scene,
+      `garden-soil-${x}`,
+      [1.3, 0.15, 2.2],
+      [x, 1.17, 3.1],
+    );
     soil.material = materials.soil;
     register(soil, rig);
-    const emptyMarker = MeshBuilder.CreateTorus(`garden-empty-${x}`, { diameter: 0.85, thickness: 0.16, tessellation: 16 }, scene);
+    const emptyMarker = MeshBuilder.CreateTorus(
+      `garden-empty-${x}`,
+      { diameter: 0.85, thickness: 0.16, tessellation: 16 },
+      scene,
+    );
     emptyMarker.position.set(x, 1.4, 3.1);
     emptyMarker.rotation.x = Math.PI / 2;
     emptyMarker.material = materials.red;
     emptyMarker.parent = rig.problem;
     register(emptyMarker, rig);
     for (const z of [2.55, 3.55]) {
-      const plant = MeshBuilder.CreateSphere(`garden-plant-${x}-${z}`, { diameter: 1.05, segments: 10 }, scene);
+      const plant = MeshBuilder.CreateSphere(
+        `garden-plant-${x}-${z}`,
+        { diameter: 1.05, segments: 10 },
+        scene,
+      );
       plant.position.set(x, 1.85, z);
       plant.scaling.y = 1.35;
       plant.material = x === -4.1 ? materials.greenLight : materials.green;
@@ -450,7 +572,11 @@ function createUtilityRoom(
     [2, 5.2, 2.35],
     [3, 6.1, 3.25],
   ] as const) {
-    const rubbish = MeshBuilder.CreateCylinder(`utility-mixed-${index}`, { height: 1.2, diameter: 0.58, tessellation: 10 }, scene);
+    const rubbish = MeshBuilder.CreateCylinder(
+      `utility-mixed-${index}`,
+      { height: 1.2, diameter: 0.58, tessellation: 10 },
+      scene,
+    );
     rubbish.position.set(x, 1, z);
     rubbish.rotation.z = index % 2 === 0 ? 0.45 : -0.65;
     rubbish.material = index % 2 === 0 ? materials.red : materials.blue;
@@ -462,7 +588,22 @@ function createUtilityRoom(
     [1, 4.2, materials.green],
     [2, 6, materials.yellow],
   ] as const) {
-    const bin = box(scene, `utility-bin-${index}`, [1.35, 2.15, 1.35], [x, 1.35, 2.9]);
+    // Visible stands reserve the space before bins appear, preventing a repair
+    // from creating a solid obstacle around the player.
+    const stand = box(
+      scene,
+      `utility-sorting-stand-${index}`,
+      [1.35, 0.35, 1.35],
+      [x, 0.45, 2.9],
+    );
+    stand.material = materials.wood;
+    register(stand, rig, shadows);
+    const bin = box(
+      scene,
+      `utility-bin-${index}`,
+      [1.35, 2.15, 1.35],
+      [x, 1.35, 2.9],
+    );
     bin.material = material;
     bin.parent = rig.healthy;
     register(bin, rig, shadows);
