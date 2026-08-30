@@ -5,8 +5,13 @@ import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 import type { HouseUpgradeVisuals } from "../../lib/immersive-town/house-upgrades-3d";
 import type { ImmersiveTownWorld } from "../../lib/immersive-town/types";
+import type {
+  TownWalker,
+  WalkCommand,
+} from "../../lib/immersive-town/town-walker";
 import type { VehicleFleet } from "../../lib/immersive-town/vehicles-3d";
 import type { HouseId, HouseUpgradeId } from "./HouseDiagnostics";
+import "./TownWalking.css";
 
 export type NeighborhoodHouseSelection = Readonly<{
   id: string;
@@ -18,6 +23,7 @@ type ImmersiveTownMapProps = Readonly<{
   houses: Readonly<Record<HouseId, readonly HouseUpgradeId[]>>;
   onHouseDrop: (houseId: HouseId, upgradeId: HouseUpgradeId) => void;
   onHouseSelect: (houseId: HouseId) => void;
+  onWalkStart: () => void;
   onNeighborhoodHouseDrop: (
     house: NeighborhoodHouseSelection,
     upgradeId: HouseUpgradeId,
@@ -32,6 +38,7 @@ type RuntimeHandle = Readonly<{
   upgrades: HouseUpgradeVisuals;
   vehicles: VehicleFleet;
   world: ImmersiveTownWorld;
+  walker: TownWalker;
   cancelCameraAnimation(): void;
   resetCamera(): void;
   focusHouse(houseId: string): void;
@@ -47,6 +54,7 @@ function ImmersiveTownMap({
   houses,
   onHouseDrop,
   onHouseSelect,
+  onWalkStart,
   onNeighborhoodHouseDrop,
   onNeighborhoodHouseSelect,
   selectedNeighborhoodHouseId,
@@ -54,6 +62,10 @@ function ImmersiveTownMap({
 }: ImmersiveTownMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const runtimeRef = useRef<RuntimeHandle | null>(null);
+  const walkPressStartedRef = useRef(0);
+  const [viewMode, setViewMode] = useState<"town" | "walk">("town");
+  const [nearbyHouse, setNearbyHouse] =
+    useState<NeighborhoodHouseSelection | null>(null);
   const propsRef = useRef({
     activeUpgradeId,
     houses,
@@ -96,6 +108,7 @@ function ImmersiveTownMap({
           vehicleTools,
           upgradeTools,
           adapterTools,
+          walkingTools,
         ] = await Promise.all([
           import("../../lib/immersive-town/babylon-runtime"),
           import("../../lib/immersive-town"),
@@ -104,6 +117,7 @@ function ImmersiveTownMap({
           import("../../lib/immersive-town/vehicles-3d"),
           import("../../lib/immersive-town/house-upgrades-3d"),
           import("../../lib/immersive-town/babylon-adapter"),
+          import("../../lib/immersive-town/town-walker"),
         ]);
         if (cancelled) return;
 
@@ -135,6 +149,29 @@ function ImmersiveTownMap({
           reducedMotion: reducedMotionQuery.matches,
         });
         adapterTools.configureKidFriendlyCamera(world.camera);
+        const walker = walkingTools.createTownWalker(world, canvas, {
+          isBlocked: () =>
+            propsRef.current.selectedHouseId !== null ||
+            propsRef.current.selectedNeighborhoodHouseId !== null ||
+            propsRef.current.activeUpgradeId !== null,
+          onNearbyHouse: (house) =>
+            setNearbyHouse(
+              house === null
+                ? null
+                : {
+                    id: house.id,
+                    displayName: house.displayName,
+                  },
+            ),
+          onEnterHouse: (house) => {
+            if (isHouseId(house.id)) propsRef.current.onHouseSelect(house.id);
+            else
+              propsRef.current.onNeighborhoodHouseSelect({
+                id: house.id,
+                displayName: house.displayName,
+              });
+          },
+        });
         const upgrades = upgradeTools.createHouseUpgradeVisuals(
           world.scene,
           world.houses,
@@ -195,6 +232,10 @@ function ImmersiveTownMap({
           if (house === null) return;
           const active = propsRef.current.activeUpgradeId;
           if (active !== null) return;
+          if (walker.active) {
+            walker.enterHouse(house.id);
+            return;
+          }
           if (isHouseId(house.id)) {
             propsRef.current.onHouseSelect(house.id);
           } else {
@@ -263,6 +304,7 @@ function ImmersiveTownMap({
           );
         };
         const focusHouse = (houseId: string) => {
+          if (walker.active) return;
           const house = world.houses.find((item) => item.id === houseId);
           if (house === undefined) return;
           const target = cameraTools.cameraTargetForWorldPoint({
@@ -284,11 +326,13 @@ function ImmersiveTownMap({
           upgrades,
           vehicles,
           world,
+          walker,
           cancelCameraAnimation: () => cancelCameraAnimation(),
           resetCamera,
           focusHouse,
           dispose() {
             cancelCameraAnimation();
+            walker.dispose();
             setHoveredHouse(null);
             unsubscribeAnimation();
             if (pickObserver !== null)
@@ -317,6 +361,7 @@ function ImmersiveTownMap({
         const renderFrame = () => world.render();
         const syncPauseState = () => {
           const paused = !isOnscreen || !isPageVisible;
+          if (paused) walker.clearInput();
           world.animation.setPaused(paused);
           if (paused && isRendering) {
             engine.stopRenderLoop(renderFrame);
@@ -403,9 +448,56 @@ function ImmersiveTownMap({
     [],
   );
 
+  const switchView = (mode: "town" | "walk") => {
+    const runtime = runtimeRef.current;
+    if (runtime === null) return;
+    runtime.cancelCameraAnimation();
+    if (mode === "walk") onWalkStart();
+    runtime.walker.setActive(mode === "walk");
+    setViewMode(mode);
+  };
+
+  const movementButton = (command: WalkCommand, label: string) => (
+    <button
+      key={command}
+      type="button"
+      className={`walk-${command}`}
+      onPointerDown={(event) => {
+        walkPressStartedRef.current = performance.now();
+        event.currentTarget.focus({ preventScroll: true });
+        event.currentTarget.setPointerCapture(event.pointerId);
+        runtimeRef.current?.walker.hold(command, true);
+      }}
+      onPointerUp={() => runtimeRef.current?.walker.hold(command, false)}
+      onPointerCancel={() => runtimeRef.current?.walker.hold(command, false)}
+      onLostPointerCapture={() =>
+        runtimeRef.current?.walker.hold(command, false)
+      }
+      onClick={(event) => {
+        if (
+          event.detail === 0 ||
+          performance.now() - walkPressStartedRef.current < 160
+        )
+          runtimeRef.current?.walker.nudge(command);
+      }}
+    >
+      {label}
+    </button>
+  );
+
   return (
-    <div className="immersive-town-map">
-      <canvas aria-hidden="true" ref={canvasRef} />
+    <div
+      className={`immersive-town-map${viewMode === "walk" ? " is-walking" : ""}`}
+    >
+      <canvas
+        aria-label={
+          viewMode === "walk"
+            ? "Walk around Rivergate. W A S D to move, arrow keys to move or turn, E to enter a nearby home. Drag to look."
+            : "3D town view. Drag to turn, scroll to zoom."
+        }
+        tabIndex={0}
+        ref={canvasRef}
+      />
       {engineStatus === "loading" ? (
         <div className="immersive-town-status" role="status">
           <strong>Building your 3D town…</strong>
@@ -418,43 +510,102 @@ function ImmersiveTownMap({
           <span>You can still choose a home using the buttons below.</span>
         </div>
       ) : null}
-      <div aria-label="3D camera controls" className="town-camera-controls">
+      <div
+        aria-label="Choose your view"
+        className="town-view-switch"
+        role="group"
+      >
         <button
+          aria-pressed={viewMode === "town"}
           disabled={engineStatus !== "ready"}
-          onClick={() => changeCamera("left")}
+          onClick={() => switchView("town")}
           type="button"
         >
-          ↶ Turn left
+          Town view
         </button>
         <button
+          aria-pressed={viewMode === "walk"}
           disabled={engineStatus !== "ready"}
-          onClick={() => changeCamera("right")}
+          onClick={() => switchView("walk")}
           type="button"
         >
-          Turn right ↷
-        </button>
-        <button
-          disabled={engineStatus !== "ready"}
-          onClick={() => changeCamera("closer")}
-          type="button"
-        >
-          ＋ Closer
-        </button>
-        <button
-          disabled={engineStatus !== "ready"}
-          onClick={() => changeCamera("farther")}
-          type="button"
-        >
-          − Wider
-        </button>
-        <button
-          disabled={engineStatus !== "ready"}
-          onClick={() => changeCamera("home")}
-          type="button"
-        >
-          ⌂ Whole town
+          Walk around
         </button>
       </div>
+      {viewMode === "walk" ? (
+        <>
+          <div className="town-walk-help">
+            <strong>You’re walking in Rivergate</strong>
+            <span>Hold the buttons to walk. Drag the view to look.</span>
+            <span className="walk-keyboard-hint">
+              W A S D to move · arrows to turn · E to enter
+            </span>
+          </div>
+          <div
+            aria-label="Walking controls"
+            className="town-walk-controls"
+            role="group"
+          >
+            {movementButton("forward", "Forward")}
+            {movementButton("left", "Turn left")}
+            {movementButton("back", "Back")}
+            {movementButton("right", "Turn right")}
+          </div>
+          <div className="town-walk-entry">
+            <p aria-live="polite" role="status">
+              {nearbyHouse === null
+                ? "Walk up to a front door to visit."
+                : nearbyHouse.displayName}
+            </p>
+            {nearbyHouse !== null ? (
+              <button
+                type="button"
+                onClick={() => runtimeRef.current?.walker.enterHouse()}
+              >
+                Enter home
+              </button>
+            ) : null}
+          </div>
+        </>
+      ) : (
+        <div aria-label="3D camera controls" className="town-camera-controls">
+          <button
+            disabled={engineStatus !== "ready"}
+            onClick={() => changeCamera("left")}
+            type="button"
+          >
+            ↶ Turn left
+          </button>
+          <button
+            disabled={engineStatus !== "ready"}
+            onClick={() => changeCamera("right")}
+            type="button"
+          >
+            Turn right ↷
+          </button>
+          <button
+            disabled={engineStatus !== "ready"}
+            onClick={() => changeCamera("closer")}
+            type="button"
+          >
+            ＋ Closer
+          </button>
+          <button
+            disabled={engineStatus !== "ready"}
+            onClick={() => changeCamera("farther")}
+            type="button"
+          >
+            − Wider
+          </button>
+          <button
+            disabled={engineStatus !== "ready"}
+            onClick={() => changeCamera("home")}
+            type="button"
+          >
+            ⌂ Whole town
+          </button>
+        </div>
+      )}
     </div>
   );
 }

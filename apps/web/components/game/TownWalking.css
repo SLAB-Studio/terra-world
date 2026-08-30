@@ -1,0 +1,200 @@
+/* Walking is part of the existing toy-town world, not another page. */
+.town-view-switch {
+  position: absolute;
+  z-index: 18;
+  top: 156px;
+  right: 18px;
+  display: flex;
+  gap: 3px;
+  padding: 4px;
+  border: 2px solid #2b190f;
+  border-radius: 14px;
+  background: #fff9e8;
+  box-shadow: 0 5px 12px #2b190f2e;
+}
+
+.town-view-switch button,
+.town-walk-controls button,
+.town-walk-entry button {
+  min-height: 48px;
+  padding: 10px 14px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  color: #2b190f;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 850;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+
+.town-view-switch button {
+  background: transparent;
+}
+.town-view-switch button[aria-pressed="true"] {
+  background: #ffd24a;
+  border-color: #2b190f;
+}
+.town-view-switch button:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.town-view-switch button:hover:not(:disabled) {
+  background: #ffe991;
+}
+.town-view-switch button:focus-visible,
+.town-walk-controls button:focus-visible,
+.town-walk-entry button:focus-visible,
+.immersive-town-map canvas:focus-visible {
+  outline: 3px solid #21644a;
+  outline-offset: 3px;
+}
+
+.is-walking .town-view-switch {
+  top: 18px;
+}
+.town-walk-help {
+  position: absolute;
+  top: 88px;
+  right: 18px;
+  max-width: 270px;
+  display: grid;
+  gap: 3px;
+  padding: 12px 15px;
+  border-radius: 12px;
+  background: #fff9e8;
+  color: #2b190f;
+  box-shadow: 0 5px 16px #2b190f26;
+  font-size: 0.75rem;
+  pointer-events: none;
+}
+.town-walk-help strong {
+  font-size: 0.9rem;
+}
+.walk-keyboard-hint {
+  color: #66503c;
+  font-size: 0.68rem;
+}
+.town-walk-controls {
+  position: absolute;
+  left: 18px;
+  bottom: 28px;
+  display: grid;
+  grid-template-columns: repeat(3, 76px);
+  grid-template-areas: ". forward ." "left back right";
+  gap: 6px;
+}
+.town-walk-controls button {
+  border-color: #2b190f;
+  background: #fff9e8;
+  box-shadow: 0 5px 12px #2b190f2e;
+  padding: 10px 5px;
+  font-size: 0.7rem;
+}
+.walk-forward {
+  grid-area: forward;
+}
+.walk-back {
+  grid-area: back;
+}
+.walk-left {
+  grid-area: left;
+}
+.walk-right {
+  grid-area: right;
+}
+.town-walk-controls button:active {
+  background: #ffd24a;
+}
+.town-walk-entry {
+  position: absolute;
+  bottom: 28px;
+  right: 18px;
+  max-width: min(280px, calc(100% - 285px));
+  display: grid;
+  gap: 7px;
+  justify-items: end;
+}
+.town-walk-entry p {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  color: #2b190f;
+  background: #fff9e8;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.town-walk-entry button {
+  border-color: #2b190f;
+  background: #ffd24a;
+}
+.town-walk-entry button:hover {
+  background: #ffe991;
+}
+
+/* Give eye-level exploration the map; lessons return with Town view. */
+.neighborhood-panel:has(.is-walking) .neighborhood-quest,
+.neighborhood-panel:has(.is-walking) .map-pan-hint,
+.neighborhood-panel:has(.is-walking) .neighborhood-actions,
+.world-canvas:has(.is-walking) .compound-grid {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .kid-workspace:has(.is-walking) .toy-box {
+    display: none;
+  }
+  .neighborhood-panel:has(.is-walking) {
+    height: calc(100svh - 174px);
+    min-height: 0;
+  }
+  .town-view-switch {
+    top: auto;
+    right: 12px;
+    bottom: 180px;
+  }
+  .is-walking .town-view-switch {
+    top: 12px;
+    bottom: auto;
+  }
+  .town-view-switch button {
+    font-size: 0.73rem;
+    padding: 8px 10px;
+  }
+  .town-walk-help {
+    top: 82px;
+    right: 12px;
+    left: 12px;
+    max-width: none;
+  }
+  .walk-keyboard-hint {
+    display: none;
+  }
+  .town-walk-controls {
+    left: 12px;
+    bottom: 18px;
+    grid-template-columns: repeat(3, 68px);
+  }
+  .town-walk-entry {
+    bottom: 136px;
+    left: 12px;
+    right: 12px;
+    max-width: none;
+    justify-items: start;
+  }
+}
+
+@media (max-width: 760px) and (max-height: 650px) {
+  .town-walk-help {
+    display: none;
+  }
+  .town-walk-entry {
+    left: auto;
+    bottom: 18px;
+    max-width: calc(100% - 252px);
+  }
+  .town-walk-entry p {
+    font-size: 0.7rem;
+  }
+}

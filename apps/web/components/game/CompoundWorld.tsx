@@ -813,6 +813,15 @@ export default function CompoundWorld({
               <ImmersiveTownMap
                 activeUpgradeId={dragPiece?.id ?? armedUpgrade}
                 houses={compounds}
+                onWalkStart={() => {
+                  dragPieceRef.current = null;
+                  dragPointerIdRef.current = null;
+                  dragOriginRef.current = null;
+                  dragMovedRef.current = false;
+                  setDragPiece(null);
+                  setHoveredCompound(null);
+                  setArmedUpgrade(null);
+                }}
                 onHouseDrop={addUpgrade}
                 onHouseSelect={(houseId) => {
                   setSelectedNeighborhoodHouse(null);
