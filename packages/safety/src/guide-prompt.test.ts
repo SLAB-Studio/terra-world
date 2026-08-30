@@ -125,6 +125,8 @@ describe("Leo guide completion construction", () => {
       for (const completion of [younger, older]) {
         const system = completion.messages[0]!.content;
         expect(system).toContain("You are Leo, the grounded city advisor");
+        expect(system).toContain("female virtual dog companion");
+        expect(system).toContain("replies appear in a speech bubble");
         expect(system).toContain("adult city restoration and management game");
         expect(system).toContain("ageBand is a legacy safety bound");
         expect(system).toContain("Use only the verified facts");
