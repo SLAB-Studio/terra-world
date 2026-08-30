@@ -17,7 +17,7 @@ describe("challenge welcome progress", () => {
     );
 
     expect(result).toEqual({
-      activeTitle: "The Sorting Mystery",
+      activeTitle: "Mango Recycling Provision",
       stage: 1,
       completedCount: 2,
       totalCount: 15,
