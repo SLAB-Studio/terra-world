@@ -319,6 +319,11 @@ export function createBuildingTraversal(
     get scene() {
       return interior?.scene ?? world.scene;
     },
+    get nearbyActivity() {
+      return phase === "inside" && interior
+        ? interior.life.nearbyAt(interior.walker.camera.position)
+        : null;
+    },
     get walker() {
       return interior?.walker ?? street;
     },

@@ -23,6 +23,8 @@ import {
 import type { WalkBounds } from "./walking";
 import { applyTownSurface } from "./materials";
 import { createArchitecturalBatch } from "./geometry";
+import { createInteriorLife, type InteriorLife } from "./interior-life";
+import { homeLifePlan } from "./interior-life-plan";
 
 export type InteriorRoomId =
   "living-room" | "kitchen" | "garden-room" | "utility-room";
@@ -86,6 +88,7 @@ export type HouseInteriorWorld = Readonly<{
   camera: ArcRotateCamera;
   walker: InteriorWalker;
   rooms: readonly RoomRig[];
+  life: InteriorLife;
   getRoomFromMesh(mesh: AbstractMesh | null): InteriorRoomId | null;
   focusRoom(roomId: InteriorRoomId | null, reducedMotion?: boolean): void;
   setInstalled(upgrades: readonly InteriorUpgradeId[]): void;
@@ -169,6 +172,13 @@ export function createHouseInteriorWorld(
   roomRigs.forEach((room) => {
     room.meshes.forEach((mesh) => meshRooms.set(mesh.uniqueId, room.id));
   });
+  const life = createInteriorLife(
+    scene,
+    homeLifePlan(),
+    () => callbacks.isBlocked?.() ?? false,
+    shadows,
+    ["sunny", "bluebell", "mango"].indexOf(houseId),
+  );
 
   const collisionMeshes = scene.meshes.filter(
     (mesh) =>
@@ -188,7 +198,8 @@ export function createHouseInteriorWorld(
         return min.y > 2.9
           ? []
           : [{ minX: min.x, maxX: max.x, minZ: min.z, maxZ: max.z }];
-      });
+      })
+      .concat(life.obstacles);
   const walker = createInteriorWalker(scene, canvas, obstacles, callbacks);
 
   function focusRoom(roomId: InteriorRoomId | null) {
@@ -211,6 +222,7 @@ export function createHouseInteriorWorld(
 
   function setInstalled(upgrades: readonly InteriorUpgradeId[]) {
     const installed = new Set(upgrades);
+    life.setPowered(installed.has("light"));
     roomRigs.forEach((room) => {
       const fixed = installed.has(room.upgradeId);
       room.problem.setEnabled(!fixed);
@@ -225,6 +237,7 @@ export function createHouseInteriorWorld(
     scene,
     camera,
     rooms: roomRigs,
+    life,
     walker,
     enterDoor() {
       camera.detachControl();

@@ -111,6 +111,11 @@ function ImmersiveTownMap({
   const [entryError, setEntryError] = useState<string | null>(null);
   const [requestedVisit, setRequestedVisit] = useState<string | null>(null);
   const [nearExit, setNearExit] = useState(false);
+  const [indoorActivity, setIndoorActivity] = useState<{
+    name: string;
+    role: string;
+    text: string;
+  } | null>(null);
   const floorSelectRef = useRef<HTMLSelectElement>(null);
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const [allHomes, setAllHomes] = useState<NeighborhoodHouseSelection[]>([]);
@@ -549,6 +554,7 @@ function ImmersiveTownMap({
         let measuredFrames = 0;
         let measuredDrawCalls = 0;
         let previousNearExit = false;
+        let previousIndoorActivity = "";
         const resetMeasurements = () => {
           lastFrameAt = 0;
           measuredMs = 0;
@@ -568,6 +574,14 @@ function ImmersiveTownMap({
           if (traversal?.nearExit !== previousNearExit) {
             previousNearExit = traversal?.nearExit ?? false;
             setNearExit(previousNearExit);
+          }
+          const activity = traversal?.nearbyActivity ?? null;
+          const activityKey = activity
+            ? `${activity.name}:${activity.text}`
+            : "";
+          if (activityKey !== previousIndoorActivity) {
+            previousIndoorActivity = activityKey;
+            setIndoorActivity(activity);
           }
           if (showFrameRateRef.current && frameMs > 0 && frameMs <= 1000) {
             measuredMs += frameMs;
@@ -1006,9 +1020,11 @@ function ImmersiveTownMap({
                           ? installed.includes(activeRoom.upgradeId)
                             ? activeRoom.healthy
                             : activeRoom.problem
-                          : apartment && visit.floor === 0
-                            ? "Resident repairs · walk to the reception desk."
-                            : "Explore the rooms. Approach an object to interact."
+                          : indoorActivity && conversationsEnabled
+                            ? `${indoorActivity.name} · ${indoorActivity.role}: “${indoorActivity.text}”`
+                            : apartment && visit.floor === 0
+                              ? "Resident repairs · walk to the reception desk."
+                              : "Explore the rooms. Approach an object to interact."
                 : (nearbyVenue?.name ??
                   nearbyHouse?.displayName ??
                   "Walk up to a front door to visit.")}
