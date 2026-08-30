@@ -1,6 +1,15 @@
 # Terra World
 
-Terra World is a local-first city-building learning game. The browser game uses a deterministic simulation so a city can be replayed and verified without AI or network services.
+Terra World is a local-first 3D city game set in Rivergate. Its new adult-facing
+direction is a living city shaped by decisions, residents and emerging stories,
+with Leo as the companion. The existing playable foundation includes residential
+repairs, town exploration, resident routines and deterministic simulation.
+
+The new bridge, economic, relationship and generative-story systems are planned,
+not yet implemented. [Read the story bible](storyline.md) and
+[the 0G-backed architecture and delivery gates](docs/living-city-architecture.md).
+0G Compute, encrypted Storage and a genuine city Agentic NFT have distinct roles;
+core play remains wallet-free and local-first.
 
 ## Getting started
 
