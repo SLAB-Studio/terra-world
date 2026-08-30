@@ -65,43 +65,43 @@ const UPGRADES: readonly {
   {
     id: "light",
     group: "energy",
-    label: "Sun light",
-    hint: "Lights the home",
+    label: "Solar power",
+    hint: "Supply clean electricity",
     icon: "energy",
   },
   {
     id: "water",
     group: "water",
     label: "Clean water",
-    hint: "Helps plants grow",
+    hint: "Restore the water supply",
     icon: "water",
   },
   {
     id: "garden",
     group: "nature",
     label: "Garden",
-    hint: "Gives nature a home",
+    hint: "Restore green space",
     icon: "nature",
   },
   {
     id: "recycle",
     group: "care",
-    label: "Recycle bin",
-    hint: "Keeps the yard clean",
+    label: "Recycling",
+    hint: "Sort household waste",
     icon: "recycle",
   },
   {
     id: "rain-tank",
     group: "water",
-    label: "Rain barrel",
-    hint: "Saves water for dry days",
+    label: "Rainwater tank",
+    hint: "Store water for dry spells",
     icon: "rain",
   },
   {
     id: "compost",
     group: "nature",
-    label: "Compost box",
-    hint: "Turns scraps into plant food",
+    label: "Composter",
+    hint: "Recover organic waste",
     icon: "compost",
   },
   {
@@ -115,45 +115,45 @@ const UPGRADES: readonly {
     id: "bike-rack",
     group: "travel",
     label: "Bike rack",
-    hint: "Makes clean trips easier",
+    hint: "Support low-carbon travel",
     icon: "bike",
   },
   {
     id: "insulation",
     group: "energy",
-    label: "Cozy walls",
-    hint: "Keeps heat in or out",
+    label: "Insulation",
+    hint: "Reduce heating demand",
     icon: "warm",
   },
   {
     id: "bird-home",
     group: "nature",
-    label: "Bird home",
-    hint: "Welcomes tiny neighbours",
+    label: "Bird habitat",
+    hint: "Support urban wildlife",
     icon: "bird",
   },
   {
     id: "first-aid",
     group: "care",
     label: "Safety kit",
-    hint: "Helps families stay ready",
+    hint: "Prepare for emergencies",
     icon: "first-aid",
   },
   {
     id: "repair-kit",
     group: "care",
-    label: "Fix-it kit",
-    hint: "Mends small home problems",
+    label: "Repair kit",
+    hint: "Maintain home equipment",
     icon: "tools",
   },
 ] as const;
 
 const UPGRADE_GROUPS = [
-  { id: "energy", label: "Power & comfort" },
-  { id: "water", label: "Water helpers" },
-  { id: "nature", label: "Nature helpers" },
-  { id: "care", label: "Clean & safe" },
-  { id: "travel", label: "Getting around" },
+  { id: "energy", label: "Energy" },
+  { id: "water", label: "Water systems" },
+  { id: "nature", label: "Environment" },
+  { id: "care", label: "Maintenance" },
+  { id: "travel", label: "Transport" },
 ] as const;
 
 const COMPOUNDS: readonly {
@@ -674,8 +674,8 @@ export default function CompoundWorld({
             <GameIcon name="tools" size={25} />
           </span>
           <div>
-            <h1 id="toy-box-heading">Things to add</h1>
-            <p>12 helpers for your town</p>
+            <h1 id="toy-box-heading">City tools</h1>
+            <p>12 ways to improve Rivergate</p>
           </div>
         </div>
         <div className="toy-shelf">
@@ -722,9 +722,8 @@ export default function CompoundWorld({
           ))}
         </div>
         <p className="toy-box-tip">
-          <span aria-hidden="true">☝</span>
-          Drag a helper—or tap it, then tap a home. Tap a home alone for its
-          check-up.
+          Drag an upgrade to a home, or select it and then select a home. Select
+          a home alone to inspect it.
         </p>
       </aside>
 
@@ -762,7 +761,7 @@ export default function CompoundWorld({
               type="button"
             >
               <GameIcon name="spark" size={19} />
-              Trail
+              Objectives
             </button>
           </div>
           <div
@@ -780,17 +779,17 @@ export default function CompoundWorld({
               {nextAction === null ? "3" : guidedPieceReady ? "2" : "1"}
             </span>
             <span className="quest-next-copy">
-              <small>Do this next</small>
+              <small>Next action</small>
               <strong>
                 {nextAction === null
-                  ? "Watch what changed"
+                  ? "Review the outcome"
                   : guidedPieceReady
                     ? `Tap ${nextActionHouse?.name ?? "the highlighted house"}`
                     : `Choose ${nextActionUpgrade?.label ?? "the highlighted helper"}`}
               </strong>
               <span>
                 {nextAction === null
-                  ? "Press Watch the town and look for the difference."
+                  ? "Select Review changes to see the outcome."
                   : guidedPieceReady
                     ? `${nextActionUpgrade?.label ?? "The helper"} is ready to add.`
                     : `Then tap ${nextActionHouse?.name ?? "the highlighted house"}.`}
@@ -954,7 +953,7 @@ export default function CompoundWorld({
           <p aria-live="polite">
             {completedActions === 0
               ? "Start with one small change."
-              : `${completedActions} kind change${completedActions === 1 ? "" : "s"} added to the neighborhood.`}
+              : `${completedActions} improvement${completedActions === 1 ? "" : "s"} made to the neighborhood.`}
           </p>
           <button
             className={nextAction === null ? "is-guided-target" : undefined}
@@ -962,7 +961,7 @@ export default function CompoundWorld({
             type="button"
           >
             <GameIcon name="play" size={22} />
-            Watch the town!
+            Review changes
           </button>
           <button
             className="neighbor-call-button"

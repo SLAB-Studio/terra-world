@@ -1,0 +1,1026 @@
+@font-face {
+  font-family: "Barlow City";
+  src: url("/fonts/BarlowSemiCondensed-SemiBold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+/* Rivergate: the world is the playing surface. Legacy map/fallback classes stay
+   intact so existing saves, accessible controls and interaction contracts survive. */
+body[data-world="rivergate"][data-design-contract] {
+  --city-base: #111c22;
+  --city-panel: #1a2931;
+  --city-raised: #253943;
+  --city-line: #48606b;
+  --city-text: #eef2ed;
+  --city-muted: #b8c8cd;
+  --city-accent: #e4bb7b;
+  --font-game-body: "Segoe UI", system-ui, sans-serif;
+  color: var(--city-text);
+  background: var(--city-base);
+  font-family: var(--font-game-body);
+  color-scheme: dark;
+  scrollbar-color: #607985 var(--city-panel);
+}
+body[data-world="rivergate"][data-design-contract] ::selection {
+  color: #142229;
+  background: #e4bb7b;
+}
+body[data-world="rivergate"][data-design-contract]
+  :is(button, input, select, textarea) {
+  font-family: var(--font-game-body);
+}
+body[data-world="rivergate"][data-design-contract]
+  :is(button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid #e4bb7b;
+  outline-offset: 3px;
+}
+
+body[data-world="rivergate"][data-design-contract] .game-shell {
+  --night-surface: var(--city-panel);
+  --night-raised: var(--city-raised);
+  --night-ink: var(--city-text);
+  --night-muted: var(--city-muted);
+  --focus: var(--city-accent);
+  display: grid;
+  grid-template-rows: 60px minmax(0, 1fr);
+  gap: 0;
+  padding: 0;
+  height: 100dvh;
+  min-height: 0;
+  color: var(--city-text);
+  background: var(--city-base);
+}
+body[data-world="rivergate"][data-design-contract] .game-shell .game-header {
+  min-height: 60px;
+  height: 60px;
+  padding: 8px 20px;
+  border: 0;
+  border-bottom: 1px solid var(--city-line);
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--city-base);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+body[data-world="rivergate"][data-design-contract] .game-shell .brand-mark {
+  width: 30px;
+  height: 36px;
+  border: 0;
+  border-radius: 3px;
+  transform: none;
+  background: transparent;
+}
+body[data-world="rivergate"][data-design-contract]
+  .game-shell
+  .brand-mark
+  > span {
+  width: 24px;
+  height: 28px;
+  border: 2px solid var(--city-accent);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--city-accent);
+}
+body[data-world="rivergate"][data-design-contract]
+  .game-shell
+  .brand-lockup
+  strong {
+  color: var(--city-text);
+  font-family: "Barlow City", sans-serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1;
+}
+body[data-world="rivergate"][data-design-contract]
+  .game-shell
+  .brand-lockup
+  span {
+  color: var(--city-muted);
+  font-size: 0.7rem;
+  font-weight: 400;
+}
+body[data-world="rivergate"][data-design-contract] .game-header-controls {
+  gap: 7px;
+}
+body[data-world="rivergate"][data-design-contract]
+  .game-shell
+  :is(.adult-entry, .town-sound-entry, .town-time-switch) {
+  min-height: 38px;
+  border: 1px solid var(--city-line);
+  border-radius: 5px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--city-text);
+  font-size: 0.74rem;
+  font-weight: 500;
+  padding: 5px 10px;
+}
+body[data-world="rivergate"][data-design-contract] .town-time-switch {
+  padding: 2px;
+}
+body[data-world="rivergate"][data-design-contract] .town-time-switch button {
+  min-height: 32px;
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 3px;
+  color: var(--city-muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+body[data-world="rivergate"][data-design-contract]
+  .town-time-switch
+  button[aria-pressed="true"] {
+  background: var(--city-raised);
+  color: var(--city-accent);
+}
+body[data-world="rivergate"][data-design-contract] .kid-workspace {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 188px minmax(0, 1fr);
+  gap: 0;
+}
+body[data-world="rivergate"][data-design-contract]
+  .kid-workspace
+  :is(.toy-box, .neighborhood-panel, .planning-panel) {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--city-panel);
+}
+body[data-world="rivergate"][data-design-contract] .toy-box {
+  border-right: 1px solid var(--city-line);
+}
+body[data-world="rivergate"][data-design-contract] .toy-box-heading {
+  min-height: 70px;
+  padding: 16px 14px;
+  gap: 8px;
+  color: var(--city-text);
+  background: transparent;
+  border-bottom: 1px solid var(--city-line);
+}
+body[data-world="rivergate"][data-design-contract] .toy-box-heading > span {
+  display: none;
+}
+body[data-world="rivergate"][data-design-contract] .toy-box-heading h1 {
+  font:
+    600 1.3rem/1.1 "Barlow City",
+    sans-serif;
+}
+body[data-world="rivergate"][data-design-contract] .toy-box-heading p {
+  margin-top: 6px;
+  color: var(--city-muted);
+  font-size: 0.7rem;
+  font-weight: 400;
+}
+body[data-world="rivergate"][data-design-contract] .toy-shelf {
+  padding: 12px 9px;
+  gap: 22px;
+  scrollbar-color: #607985 var(--city-panel);
+}
+body[data-world="rivergate"][data-design-contract] .toy-shelf-group h2 {
+  margin: 0 5px 8px;
+  color: var(--city-muted);
+  font: 500 0.66rem/1.4 var(--font-game-body);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+body[data-world="rivergate"][data-design-contract] .toy-shelf-items {
+  gap: 5px;
+}
+body[data-world="rivergate"][data-design-contract] .toy-piece {
+  min-height: 64px;
+  padding: 9px 7px;
+  gap: 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--city-text);
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+}
+body[data-world="rivergate"][data-design-contract] .toy-piece:hover {
+  background: var(--city-raised);
+}
+body[data-world="rivergate"][data-design-contract]
+  .toy-piece[aria-pressed="true"] {
+  border-color: var(--city-accent);
+  background: #34413d;
+}
+body[data-world="rivergate"][data-design-contract] .toy-piece strong {
+  font: 600 0.82rem/1.2 var(--font-game-body);
+}
+body[data-world="rivergate"][data-design-contract] .toy-piece small {
+  margin-top: 4px;
+  color: var(--city-muted);
+  font: 400 0.65rem/1.35 var(--font-game-body);
+}
+body[data-world="rivergate"][data-design-contract] .toy-piece-icon {
+  width: 34px;
+  height: 38px;
+  border: 0;
+  border-radius: 4px;
+  color: #e4bb7b;
+  background: #30423f;
+}
+body[data-world="rivergate"][data-design-contract] .toy-piece-icon svg {
+  width: 24px;
+  height: 24px;
+}
+body[data-world="rivergate"][data-design-contract]
+  :is(.toy-water, .toy-rain-tank, .toy-bike-rack)
+  .toy-piece-icon {
+  color: #acd0e0;
+  background: #29434e;
+}
+body[data-world="rivergate"][data-design-contract]
+  :is(.toy-garden, .toy-shade-tree, .toy-bird-home)
+  .toy-piece-icon {
+  color: #bbd4ab;
+  background: #304338;
+}
+body[data-world="rivergate"][data-design-contract] .toy-box-tip {
+  margin: 0;
+  padding: 12px;
+  border: 0;
+  border-top: 1px solid var(--city-line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--city-muted);
+  font: 400 0.67rem/1.5 var(--font-game-body);
+  box-shadow: none;
+}
+body[data-world="rivergate"][data-design-contract] .toy-box-tip > span {
+  display: none;
+}
+body[data-world="rivergate"][data-design-contract] .toy-piece.is-guided-target {
+  outline: 1px solid var(--city-accent);
+  outline-offset: -1px;
+  animation: none;
+  background: #354039;
+}
+body[data-world="rivergate"][data-design-contract] .neighborhood-panel {
+  position: relative;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+body[data-world="rivergate"][data-design-contract]
+  .neighborhood-quest.challenge-quest {
+  top: 18px;
+  left: 18px;
+  right: auto;
+  width: min(480px, calc(100% - 36px));
+  min-height: 0;
+  padding: 13px 15px;
+  gap: 9px;
+  border: 0;
+  border-radius: 8px;
+  background: #17262fee;
+  color: var(--city-text);
+  box-shadow: 0 8px 24px #060e1752;
+}
+body[data-world="rivergate"][data-design-contract] .quest-kicker {
+  display: none;
+}
+body[data-world="rivergate"][data-design-contract] .challenge-quest h2 {
+  font:
+    600 1.22rem/1.12 "Barlow City",
+    sans-serif;
+  white-space: normal;
+  color: var(--city-text);
+}
+body[data-world="rivergate"][data-design-contract]
+  .challenge-quest-instruction {
+  margin-top: 6px;
+  color: var(--city-muted);
+  font-size: 0.73rem;
+  font-weight: 400;
+  white-space: normal;
+  line-height: 1.4;
+}
+body[data-world="rivergate"][data-design-contract] .challenge-goal-count {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--city-muted);
+}
+body[data-world="rivergate"][data-design-contract]
+  .challenge-goal-count
+  strong {
+  color: #c7d9b1;
+  font: 600 1rem/1 var(--font-game-body);
+}
+body[data-world="rivergate"][data-design-contract] .challenge-goal-count small {
+  font-size: 0.55rem;
+  font-weight: 500;
+}
+body[data-world="rivergate"][data-design-contract] .challenge-quest-actions {
+  flex-direction: column-reverse;
+  gap: 7px;
+}
+body[data-world="rivergate"][data-design-contract]
+  .challenge-quest-actions
+  button {
+  min-height: 36px;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--city-raised);
+  color: var(--city-text);
+  font: 500 0.72rem/1 var(--font-game-body);
+}
+body[data-world="rivergate"][data-design-contract] .quest-next-move {
+  grid-template-columns: 1fr;
+  padding-top: 9px;
+  border-top: 1px solid var(--city-line);
+  background: transparent;
+  box-shadow: none;
+}
+body[data-world="rivergate"][data-design-contract] .quest-next-number {
+  display: none;
+}
+body[data-world="rivergate"][data-design-contract] .quest-next-copy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+body[data-world="rivergate"][data-design-contract] .quest-next-copy small {
+  color: #dbb681;
+  font-size: 0.6rem;
+  font-weight: 500;
+}
+body[data-world="rivergate"][data-design-contract] .quest-next-copy strong {
+  color: var(--city-text);
+  font: 500 0.72rem/1.3 var(--font-game-body);
+}
+body[data-world="rivergate"][data-design-contract] .quest-next-copy > span {
+  display: none;
+}
+body[data-world="rivergate"][data-design-contract] .town-view-switch {
+  top: 18px;
+  right: 18px;
+  padding: 3px;
+  border: 0;
+  border-radius: 5px;
+  background: #17262ff2;
+  box-shadow: 0 5px 14px #06101b40;
+}
+body[data-world="rivergate"][data-design-contract] .town-view-switch button {
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 3px;
+  color: var(--city-muted);
+  background: transparent;
+  font-weight: 500;
+  font-size: 0.72rem;
+}
+body[data-world="rivergate"][data-design-contract]
+  .town-view-switch
+  button[aria-pressed="true"] {
+  color: #1b272a;
+  background: var(--city-accent);
+}
+body[data-world="rivergate"][data-design-contract] .town-camera-controls {
+  top: auto;
+  bottom: 76px;
+  left: 18px;
+  width: auto;
+  flex-direction: row;
+  gap: 4px;
+}
+body[data-world="rivergate"][data-design-contract]
+  .town-camera-controls
+  button {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 4px;
+  color: var(--city-text);
+  background: #17262fe8;
+  box-shadow: none;
+  font-size: 0.66rem;
+  font-weight: 500;
+}
+body[data-world="rivergate"][data-design-contract]
+  .town-camera-controls
+  button:hover {
+  transform: none;
+  color: #142229;
+  background: var(--city-accent);
+}
+body[data-world="rivergate"][data-design-contract] .neighborhood-actions {
+  left: 18px;
+  right: auto;
+  bottom: 20px;
+  gap: 8px;
+}
+body[data-world="rivergate"][data-design-contract]
+  .neighborhood-actions
+  button {
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 5px;
+  color: #142229;
+  background: var(--city-accent);
+  box-shadow: 0 4px 14px #08132030;
+  font: 600 0.72rem/1.3 var(--font-game-body);
+}
+body[data-world="rivergate"][data-design-contract]
+  .neighborhood-actions
+  .neighbor-call-button {
+  color: var(--city-text);
+  background: #17262fe8;
+}
+body[data-world="rivergate"][data-design-contract]
+  .neighborhood-actions
+  button.is-guided-target {
+  outline: 2px solid #f3d5a4;
+  outline-offset: 2px;
+  animation: none;
+}
+body[data-world="rivergate"][data-design-contract] .map-pan-hint {
+  bottom: 27px;
+  right: 18px;
+  transform: none;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--city-text);
+  background: transparent;
+  text-shadow: 0 1px 5px #000;
+  box-shadow: none;
+  font: 400 0.65rem/1.2 var(--font-game-body);
+}
+body[data-world="rivergate"][data-design-contract] .world-canvas::after {
+  box-shadow: none;
+}
+body[data-world="rivergate"][data-design-contract]
+  .world-canvas
+  .compound-grid {
+  right: 18px;
+  bottom: 76px;
+  left: auto;
+  top: auto;
+}
+body[data-world="rivergate"][data-design-contract] .world-canvas .compound {
+  border: 1px solid var(--city-line);
+  border-radius: 5px;
+  color: var(--city-text);
+  background: #17262fe8;
+  box-shadow: none;
+  min-height: 38px;
+}
+body[data-world="rivergate"][data-design-contract] .compound-name strong {
+  font: 600 0.65rem/1.3 var(--font-game-body);
+}
+body[data-world="rivergate"][data-design-contract] .compound-name small {
+  color: var(--city-muted);
+  font: 400 0.58rem/1.3 var(--font-game-body);
+}
+body[data-world="rivergate"][data-design-contract] .toy-drag-ghost {
+  width: 100px;
+  min-height: 90px;
+  padding: 12px;
+  border: 1px solid var(--city-accent);
+  border-radius: 8px;
+  background: var(--city-panel);
+  color: var(--city-text);
+  box-shadow: 0 10px 24px #06101866;
+  font: 600 0.8rem/1.2 var(--font-game-body);
+}
+body[data-world="rivergate"][data-design-contract] .challenge-complete-toast {
+  border: 0;
+  border-radius: 8px;
+  background: var(--city-panel);
+  color: var(--city-text);
+  box-shadow: 0 10px 28px #06101866;
+}
+body[data-world="rivergate"][data-design-contract]
+  .challenge-complete-toast
+  :is(strong, span, button) {
+  font-family: var(--font-game-body);
+}
+body[data-world="rivergate"][data-design-contract]
+  .challenge-complete-toast
+  div
+  > span {
+  color: var(--city-muted);
+}
+
+/* Leo remains available without occupying the exploration viewport. */
+body[data-world="rivergate"][data-design-contract]
+  .kid-workspace
+  .planning-panel {
+  display: none;
+}
+body[data-world="rivergate"][data-design-contract] .mobile-expert-jump {
+  position: fixed;
+  top: auto;
+  left: auto;
+  width: auto;
+  height: auto;
+  display: flex;
+  z-index: 55;
+  bottom: 26px;
+  right: 22px;
+  min-height: 42px;
+  border: 1px solid var(--city-line);
+  border-radius: 5px;
+  color: var(--city-text);
+  background: var(--city-panel);
+  box-shadow: 0 6px 18px #07111855;
+  font: 600 0.76rem/1 var(--font-game-body);
+}
+body[data-world="rivergate"][data-design-contract]
+  .kid-workspace
+  .planning-panel.expert-drawer-open {
+  position: fixed;
+  inset: 72px 14px 14px auto;
+  z-index: 120;
+  width: min(340px, calc(100vw - 28px));
+  display: flex;
+  border: 1px solid var(--city-line);
+  border-radius: 10px;
+  box-shadow: 0 18px 40px #060e1880;
+}
+body[data-world="rivergate"][data-design-contract] .expert-drawer-backdrop {
+  position: fixed;
+  display: block;
+  z-index: 115;
+  inset: 60px 0 0;
+  border: 0;
+  background: #07121b66;
+}
+body[data-world="rivergate"][data-design-contract] .expert-drawer-close {
+  display: flex;
+  margin-left: auto;
+  padding: 10px;
+  border: 0;
+  color: var(--city-muted);
+  background: transparent;
+}
+body[data-world="rivergate"][data-design-contract]
+  .kid-workspace
+  .expert-panel {
+  height: 100%;
+  min-height: 0;
+  padding: 16px;
+  background: var(--city-panel);
+}
+body[data-world="rivergate"][data-design-contract] .kid-workspace .expert-hero {
+  min-height: 82px;
+  padding: 12px 0;
+  display: flex;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+}
+body[data-world="rivergate"][data-design-contract] .kid-workspace .expert-face {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border: 1px solid var(--city-line);
+  border-radius: 6px;
+  color: var(--city-accent);
+  background: var(--city-raised);
+  font:
+    600 1.3rem/1 "Barlow City",
+    sans-serif;
+}
+body[data-world="rivergate"][data-design-contract] .expert-hero h2 {
+  color: var(--city-text);
+  font:
+    600 1.4rem/1 "Barlow City",
+    sans-serif;
+}
+body[data-world="rivergate"][data-design-contract] .expert-hero p {
+  color: var(--city-muted);
+  font-size: 0.7rem;
+  font-weight: 400;
+}
+body[data-world="rivergate"][data-design-contract] .expert-online {
+  display: none;
+}
+body[data-world="rivergate"][data-design-contract] .kid-workspace .expert-chat {
+  flex: 1;
+  min-height: 100px;
+  padding: 10px 0;
+  overflow-y: auto;
+  background: transparent;
+}
+body[data-world="rivergate"][data-design-contract] .kid-workspace .chat-bubble {
+  padding: 12px;
+  margin: 0 0 10px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--city-text);
+  background: var(--city-raised);
+  box-shadow: none;
+  font: 400 0.8rem/1.55 var(--font-game-body);
+}
+body[data-world="rivergate"][data-design-contract]
+  .kid-workspace
+  .expert-prompts
+  button {
+  border: 1px solid var(--city-line);
+  border-radius: 4px;
+  color: var(--city-muted);
+  background: transparent;
+  box-shadow: none;
+  font: 400 0.72rem/1.3 var(--font-game-body);
+}
+body[data-world="rivergate"][data-design-contract]
+  .kid-workspace
+  .expert-form
+  input {
+  border: 1px solid var(--city-line);
+  border-radius: 5px;
+  color: var(--city-text);
+  background: var(--city-base);
+  font: 400 0.8rem/1.3 var(--font-game-body);
+}
+body[data-world="rivergate"][data-design-contract]
+  .kid-workspace
+  .expert-form
+  input::placeholder {
+  color: var(--city-muted);
+}
+body[data-world="rivergate"][data-design-contract]
+  .kid-workspace
+  .expert-form
+  button {
+  border: 0;
+  border-radius: 5px;
+  color: #142229;
+  background: var(--city-accent);
+}
+body[data-world="rivergate"][data-design-contract] .expert-safety {
+  color: var(--city-muted);
+  font-size: 0.65rem;
+  font-weight: 400;
+}
+body[data-world="rivergate"][data-design-contract] .river-learning-card {
+  display: none;
+}
+
+body[data-world="rivergate"][data-design-contract]
+  :is(.town-walk-help, .town-walk-entry p, .town-walk-controls button) {
+  border: 0;
+  border-radius: 5px;
+  color: var(--city-text);
+  background: #17262fee;
+  box-shadow: 0 4px 12px #06101b40;
+  font-weight: 400;
+}
+body[data-world="rivergate"][data-design-contract] .town-walk-help {
+  top: 76px;
+  font-size: 0.7rem;
+}
+body[data-world="rivergate"][data-design-contract] .walk-keyboard-hint {
+  color: var(--city-muted);
+}
+body[data-world="rivergate"][data-design-contract] .town-walk-entry button {
+  border: 0;
+  border-radius: 5px;
+  color: #142229;
+  background: var(--city-accent);
+}
+body[data-world="rivergate"][data-design-contract] .town-render-settings {
+  position: absolute;
+  z-index: 44;
+  top: 68px;
+  right: 18px;
+  max-width: 244px;
+  padding: 8px 11px;
+  border-radius: 5px;
+  color: var(--city-text);
+  background: #17262ff5;
+  box-shadow: 0 5px 14px #06101b40;
+  font-size: 0.7rem;
+}
+body[data-world="rivergate"][data-design-contract]
+  .town-render-settings
+  summary {
+  cursor: pointer;
+  min-height: 24px;
+  align-content: center;
+}
+body[data-world="rivergate"][data-design-contract] .town-render-settings[open] {
+  padding: 12px;
+}
+body[data-world="rivergate"][data-design-contract] .town-render-settings label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+body[data-world="rivergate"][data-design-contract]
+  .town-render-settings
+  select {
+  min-height: 36px;
+  border: 1px solid var(--city-line);
+  border-radius: 4px;
+  padding: 5px;
+  color: var(--city-text);
+  background: var(--city-raised);
+}
+body[data-world="rivergate"][data-design-contract]
+  .town-render-settings
+  :is(p, output) {
+  color: var(--city-muted);
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+body[data-world="rivergate"][data-design-contract]
+  .is-walking
+  .town-render-settings {
+  top: auto;
+  bottom: 20px;
+  right: 20px;
+}
+body[data-world="rivergate"][data-design-contract]
+  .is-walking
+  .town-walk-entry {
+  bottom: 100px;
+}
+.landing-live-world {
+  position: absolute;
+  inset: 0;
+}
+.landing-live-world canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.landing-world-loading {
+  position: absolute;
+  top: 45%;
+  left: 10%;
+  right: 10%;
+  color: #cfdae0;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  text-align: center;
+}
+.landing-preview-pause {
+  position: absolute;
+  right: 18px;
+  top: 18px;
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid #48606b;
+  border-radius: 5px;
+  color: #eef2ed;
+  background: #17262fee;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+@media (max-width: 1280px) {
+  body[data-world="rivergate"][data-design-contract] .town-view-switch {
+    top: auto;
+    bottom: 122px;
+  }
+  body[data-world="rivergate"][data-design-contract] .town-render-settings {
+    top: 18px;
+  }
+  body[data-world="rivergate"][data-design-contract]
+    .neighborhood-quest.challenge-quest {
+    width: min(450px, calc(100% - 144px));
+  }
+  body[data-world="rivergate"][data-design-contract] .map-pan-hint {
+    display: none;
+  }
+  body[data-world="rivergate"][data-design-contract]
+    .is-walking
+    .town-view-switch {
+    top: 18px;
+    bottom: auto;
+  }
+}
+@media (max-width: 760px) {
+  body[data-world="rivergate"][data-design-contract] .game-shell {
+    grid-template-rows: 64px minmax(0, 1fr);
+    overflow: hidden;
+  }
+  body[data-world="rivergate"][data-design-contract] .game-shell .game-header {
+    height: 64px;
+    min-height: 64px;
+    padding: 7px 10px;
+  }
+  body[data-world="rivergate"][data-design-contract] .game-shell .brand-mark {
+    display: none;
+  }
+  body[data-world="rivergate"][data-design-contract]
+    .game-shell
+    .brand-lockup
+    strong {
+    font-size: 1.22rem;
+  }
+  body[data-world="rivergate"][data-design-contract]
+    .game-shell
+    .brand-lockup
+    span {
+    font-size: 0.6rem;
+  }
+  body[data-world="rivergate"][data-design-contract]
+    .game-shell
+    .town-sound-entry {
+    width: 34px;
+    padding: 6px;
+    font-size: 0;
+  }
+  body[data-world="rivergate"][data-design-contract] .game-shell .adult-entry {
+    padding: 5px 7px;
+    font-size: 0.65rem;
+  }
+  body[data-world="rivergate"][data-design-contract]
+    .game-shell
+    .adult-entry
+    svg {
+    display: none;
+  }
+  body[data-world="rivergate"][data-design-contract] .town-time-switch button {
+    padding: 6px;
+    font-size: 0.65rem;
+  }
+  body[data-world="rivergate"][data-design-contract]
+    .town-time-switch
+    button
+    svg {
+    display: none;
+  }
+  body[data-world="rivergate"][data-design-contract] .kid-workspace {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  body[data-world="rivergate"][data-design-contract]
+    .kid-workspace
+    .neighborhood-panel {
+    order: 0;
+    flex: 1;
+    min-height: 380px;
+    height: auto;
+  }
+  body[data-world="rivergate"][data-design-contract] .kid-workspace .toy-box {
+    order: 1;
+    height: 106px;
+    min-height: 106px;
+    border-top: 1px solid var(--city-line);
+    border-right: 0;
+  }
+  body[data-world="rivergate"][data-design-contract] .toy-box-heading,
+  body[data-world="rivergate"][data-design-contract] .toy-box-tip {
+    display: none;
+  }
+  body[data-world="rivergate"][data-design-contract] .toy-shelf {
+    display: flex;
+    flex-direction: row;
+    padding: 8px;
+    gap: 12px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  body[data-world="rivergate"][data-design-contract] .toy-shelf-group {
+    flex: 0 0 auto;
+  }
+  body[data-world="rivergate"][data-design-contract] .toy-shelf-group h2 {
+    font-size: 0.55rem;
+    margin-bottom: 5px;
+  }
+  body[data-world="rivergate"][data-design-contract] .toy-shelf-items {
+    display: flex;
+  }
+  body[data-world="rivergate"][data-design-contract] .toy-piece {
+    width: 128px;
+    min-width: 128px;
+    min-height: 55px;
+    padding: 6px;
+    gap: 7px;
+  }
+  body[data-world="rivergate"][data-design-contract] .toy-piece strong {
+    font-size: 0.68rem;
+  }
+  body[data-world="rivergate"][data-design-contract] .toy-piece small {
+    display: none;
+  }
+  body[data-world="rivergate"][data-design-contract]
+    .neighborhood-quest.challenge-quest {
+    top: 10px;
+    left: 10px;
+    width: calc(100% - 20px);
+    padding: 10px 12px;
+  }
+  body[data-world="rivergate"][data-design-contract] .challenge-quest h2 {
+    font-size: 1rem;
+  }
+  body[data-world="rivergate"][data-design-contract]
+    .challenge-quest-instruction {
+    font-size: 0.65rem;
+  }
+  body[data-world="rivergate"][data-design-contract] .town-view-switch {
+    bottom: 112px;
+    right: 10px;
+    left: auto;
+  }
+  body[data-world="rivergate"][data-design-contract] .town-view-switch button {
+    min-height: 38px;
+    font-size: 0.66rem;
+  }
+  body[data-world="rivergate"][data-design-contract] .town-render-settings {
+    top: 150px;
+    right: 10px;
+  }
+  body[data-world="rivergate"][data-design-contract] .town-camera-controls {
+    bottom: 61px;
+    left: 10px;
+    right: auto;
+    flex-wrap: nowrap;
+  }
+  body[data-world="rivergate"][data-design-contract]
+    .town-camera-controls
+    button {
+    padding: 7px;
+    font-size: 0.59rem;
+  }
+  body[data-world="rivergate"][data-design-contract] .neighborhood-actions {
+    bottom: 12px;
+    left: 10px;
+    right: 10px;
+    flex-direction: row;
+    align-items: center;
+  }
+  body[data-world="rivergate"][data-design-contract]
+    .neighborhood-actions
+    button {
+    width: auto;
+    min-height: 38px;
+    padding: 8px 10px;
+    font-size: 0.66rem;
+  }
+  body[data-world="rivergate"][data-design-contract]
+    .world-canvas
+    .compound-grid {
+    right: auto;
+    left: 10px;
+    bottom: 157px;
+  }
+  body[data-world="rivergate"][data-design-contract] .world-canvas .compound {
+    width: 90px;
+    min-width: 90px;
+    flex-basis: 90px;
+  }
+  body[data-world="rivergate"][data-design-contract] .mobile-expert-jump {
+    bottom: 122px;
+    right: 10px;
+    min-height: 38px;
+    padding: 7px;
+    font-size: 0.65rem;
+  }
+  body[data-world="rivergate"][data-design-contract]
+    .game-shell
+    .neighborhood-panel:has(.is-walking) {
+    height: 100%;
+    min-height: 0;
+  }
+  body[data-world="rivergate"][data-design-contract]
+    .is-walking
+    .town-view-switch {
+    top: 12px;
+    bottom: auto;
+  }
+  body[data-world="rivergate"][data-design-contract] .town-walk-help {
+    top: 72px;
+  }
+  body[data-world="rivergate"][data-design-contract]
+    .is-walking
+    .town-render-settings {
+    bottom: 120px;
+    right: 10px;
+    top: auto;
+  }
+  body[data-world="rivergate"][data-design-contract]
+    .is-walking
+    .town-walk-entry {
+    bottom: 194px;
+    left: 10px;
+    right: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  body[data-world="rivergate"][data-design-contract]
+    :is(.toy-piece, .neighborhood-actions button, .world-canvas, .compound) {
+    animation: none;
+    transition: none;
+  }
+}

@@ -865,7 +865,7 @@ export default function GameShell() {
               type="button"
             >
               <GameIcon name="shield" size={19} />
-              Grown-ups
+              Settings
             </button>
           </div>
         </header>
@@ -923,13 +923,11 @@ export default function GameShell() {
               )}
               <header className="expert-hero">
                 <div className="expert-face" aria-hidden="true">
-                  <span className="expert-eye expert-eye-left" />
-                  <span className="expert-eye expert-eye-right" />
-                  <span className="expert-smile" />
+                  L
                 </div>
                 <div>
-                  <h2 id="expert-heading">Ask Leo</h2>
-                  <p>Exploring with {playerDisplayName(playerName)}</p>
+                  <h2 id="expert-heading">Leo</h2>
+                  <p>City advisor · {playerDisplayName(playerName)}</p>
                   <span className="expert-online">Watching the town</span>
                 </div>
               </header>
@@ -959,7 +957,7 @@ export default function GameShell() {
                   onClick={() => askRiver("What did that teach me?")}
                   type="button"
                 >
-                  What did I learn?
+                  Explain the impact
                 </button>
               </div>
               <form
@@ -1038,18 +1036,19 @@ export default function GameShell() {
                   <span className="adult-gate-icon" aria-hidden="true">
                     <GameIcon name="shield" size={34} />
                   </span>
-                  <h2 id="adult-dialog-heading">Adult space</h2>
+                  <h2 id="adult-dialog-heading">Protected settings</h2>
                   <p>
-                    Backup, reset, learning notes, and technical proof live here
-                    so children can focus on building.
+                    Manage backups, accessibility, progress, and integration
+                    details. Your device code protects save and recovery
+                    actions.
                   </p>
                   <p className="adult-gate-note">
                     {adultPinConfigured
-                      ? "Ask the adult who set up this device for the private family code."
-                      : "An adult should create a private 4–8 digit family code before continuing."}
+                      ? "Enter the private code set up on this device. Existing family codes still work."
+                      : "Create a private 4–8 digit device code before continuing."}
                   </p>
                   <label htmlFor="adult-check">
-                    {adultPinConfigured ? "Family code" : "Create family code"}
+                    {adultPinConfigured ? "Device code" : "Create device code"}
                   </label>
                   <div className="adult-check-row">
                     <input
@@ -1068,7 +1067,7 @@ export default function GameShell() {
                     />
                     {!adultPinConfigured && (
                       <input
-                        aria-label="Confirm family code"
+                        aria-label="Confirm device code"
                         autoComplete="off"
                         inputMode="numeric"
                         maxLength={8}
@@ -1090,7 +1089,7 @@ export default function GameShell() {
                   {adultGateError && (
                     <p className="adult-gate-error" role="alert">
                       {adultPinConfigured
-                        ? "That family code did not match. Ask the adult who set it up."
+                        ? "That device code did not match. Try again."
                         : "Use 4–8 digits and enter the same code twice."}
                     </p>
                   )}
