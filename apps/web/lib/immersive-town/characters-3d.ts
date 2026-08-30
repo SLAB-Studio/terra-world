@@ -164,8 +164,8 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
     shirt: "#E49B35",
     bottoms: "#355D75",
     shoes: "#483127",
-    x: 53,
-    z: 17,
+    x: 50.2,
+    z: 15.2,
     rotation: 1.92,
     phase: 2.1,
   },
@@ -672,7 +672,8 @@ export function applyTownCharacterMotion(
       rig.root.rotation.y = place.yaw;
     } else {
       rig.root.position.set(rig.profile.x, rig.baseY, rig.profile.z);
-      rig.root.rotation.y = rig.profile.rotation;
+      rig.root.rotation.y =
+        rig.root.metadata?.conversationPose?.yaw ?? rig.profile.rotation;
     }
     updateRealisticResident(
       rig,

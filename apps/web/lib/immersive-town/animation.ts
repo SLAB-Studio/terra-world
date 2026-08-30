@@ -9,6 +9,7 @@ import {
   type TownCharacterRig,
 } from "./characters-3d";
 import type { TownAnimationController, TownAnimationListener } from "./types";
+import type { createCityConversations } from "./conversations-3d";
 
 type EnvironmentalAnimationTargets = Readonly<{
   ambientActors: readonly TownCharacterRig[];
@@ -18,6 +19,7 @@ type EnvironmentalAnimationTargets = Readonly<{
   lampBulbs: readonly Mesh[];
   riverMaterial: StandardMaterial;
   playgroundSpinners: readonly TransformNode[];
+  conversations?: ReturnType<typeof createCityConversations>;
 }>;
 
 export function createTownAnimationController(
@@ -26,6 +28,8 @@ export function createTownAnimationController(
   startsReduced: boolean,
 ): TownAnimationController {
   let elapsedSeconds = 0;
+  // Reading dialogue is independent of decorative movement, but pauses with play.
+  let dialogueSeconds = 0;
   let paused = false;
   let reducedMotion = startsReduced;
   let disposed = false;
@@ -56,6 +60,8 @@ export function createTownAnimationController(
   const observer = scene.onBeforeRenderObservable.add(() => {
     if (disposed || paused) return;
     const deltaSeconds = Math.min(scene.getEngine().getDeltaTime(), 50) / 1000;
+    dialogueSeconds += deltaSeconds;
+    targets.conversations?.update(dialogueSeconds, reducedMotion);
 
     if (!reducedMotion) {
       elapsedSeconds += deltaSeconds;

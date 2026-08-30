@@ -16,6 +16,9 @@ import { createTownDetails } from "./town-details";
 import { createMetropolis } from "./metropolis";
 import { createTimeOfDay } from "./time-of-day";
 import { registerTownVenues } from "./venues";
+import { createCityConversations } from "./conversations-3d";
+import { upgradeCityTrees } from "./city-models";
+import { addBuildingStreetDetail } from "./streetscape";
 import type {
   CreateTownWorldOptions,
   ImmersiveTownWorld,
@@ -111,6 +114,8 @@ export function createImmersiveTownWorld(
   const compoundWorld = createTownCompounds(scene, materials, shadows);
   const details = createTownDetails(scene, materials, shadows);
   const metropolis = createMetropolis(scene, materials, shadows);
+  addBuildingStreetDetail(scene, materials);
+  const disposeTreeModels = upgradeCityTrees(scene, shadows);
   const daylight = createTimeOfDay(
     scene,
     ambient,
@@ -125,6 +130,10 @@ export function createImmersiveTownWorld(
     ...details.houses,
     ...environment.houses,
   ];
+  const conversations = createCityConversations(scene, [
+    ...details.ambientActors,
+    ...metropolis.ambientActors,
+  ]);
   const animation = createTownAnimationController(
     scene,
     {
@@ -135,6 +144,7 @@ export function createImmersiveTownWorld(
       riverMaterial: materials.river,
       ambientActors: [...details.ambientActors, ...metropolis.ambientActors],
       playgroundSpinners: details.playgroundSpinners,
+      conversations,
     },
     options.reducedMotion ?? false,
   );
@@ -161,6 +171,7 @@ export function createImmersiveTownWorld(
     venues: destinations.venues,
     getVenueFromMesh: destinations.getVenueFromMesh,
     animation,
+    conversations,
     setRenderQuality(quality) {
       if (disposed || quality === renderQuality) return;
       renderQuality = quality;
@@ -200,6 +211,8 @@ export function createImmersiveTownWorld(
       disposed = true;
       camera.detachControl();
       animation.dispose();
+      conversations.dispose();
+      disposeTreeModels();
       scene.dispose();
     },
   };

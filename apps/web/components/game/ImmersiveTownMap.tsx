@@ -10,6 +10,7 @@ import type {
   WalkCommand,
 } from "../../lib/immersive-town/town-walker";
 import type { VehicleFleet } from "../../lib/immersive-town/vehicles-3d";
+import type { NearbyConversation } from "../../lib/immersive-town/conversations-3d";
 import type { HouseId, HouseUpgradeId } from "./HouseDiagnostics";
 import "./TownWalking.css";
 import BuildingVisit3D from "./BuildingVisit3D";
@@ -80,6 +81,9 @@ function ImmersiveTownMap({
   const [renderPreference, setRenderPreference] =
     useState<RenderQualityPreference>("auto");
   const [showFrameRate, setShowFrameRate] = useState(false);
+  const [conversationsEnabled, setConversationsEnabled] = useState(true);
+  const [nearbyConversation, setNearbyConversation] =
+    useState<NearbyConversation | null>(null);
   const showFrameRateRef = useRef(false);
   showFrameRateRef.current = showFrameRate;
   const frameRateRef = useRef<HTMLOutputElement>(null);
@@ -256,7 +260,14 @@ function ImmersiveTownMap({
           propsRef.current.selectedHouseId,
         );
 
+        let lastConversationKey = "";
         const unsubscribeAnimation = world.animation.subscribe((frame) => {
+          const nearby = world.conversations.current;
+          const key = nearby ? `${nearby.speaker}:${nearby.text}` : "";
+          if (key !== lastConversationKey) {
+            lastConversationKey = key;
+            setNearbyConversation(nearby);
+          }
           traffic = trafficTools.stepTraffic(traffic, frame.deltaSeconds, {
             reducedMotion: frame.reducedMotion,
           });
@@ -728,6 +739,26 @@ function ImmersiveTownMap({
             : renderPreference === "performance"
               ? "Lower resolution and no dynamic shadows. All places and people remain."
               : "Sharper detail and light shadows, with a bounded resolution."}
+        </p>
+        <label className="town-frame-rate-toggle">
+          <input
+            type="checkbox"
+            checked={conversationsEnabled}
+            disabled={engineStatus !== "ready"}
+            onChange={(event) => {
+              setConversationsEnabled(event.target.checked);
+              runtimeRef.current?.world.conversations.setEnabled(
+                event.target.checked,
+              );
+              if (!event.target.checked) setNearbyConversation(null);
+            }}
+          />
+          Resident conversations
+        </label>
+        <p className="town-conversation-transcript" aria-live="off">
+          {nearbyConversation
+            ? `${nearbyConversation.name}, ${nearbyConversation.place}: ${nearbyConversation.text}`
+            : "Nearby residents chat as you explore. Conversations are written local dialogue, with no microphone or network access."}
         </p>
         <label className="town-frame-rate-toggle">
           <input

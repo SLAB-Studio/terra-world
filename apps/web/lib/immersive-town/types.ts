@@ -5,6 +5,7 @@ import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 import type { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
 import type { TownVenueMetadata } from "./venues";
+import type { createCityConversations } from "./conversations-3d";
 
 export type TownCompoundId =
   | "sunflower-court"
@@ -64,6 +65,7 @@ export interface ImmersiveTownWorld {
   readonly houses: readonly TownHouseMetadata[];
   readonly venues: readonly TownVenueMetadata[];
   readonly animation: TownAnimationController;
+  readonly conversations: ReturnType<typeof createCityConversations>;
   readonly timeOfDay: TownTimeOfDay;
   setRenderQuality(quality: TownQuality): void;
   setTimeOfDay(mode: TownTimeOfDay): void;

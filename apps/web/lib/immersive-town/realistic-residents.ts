@@ -274,7 +274,13 @@ export function updateRealisticResident(
   state.reducedPoseApplied = reducedMotion;
   const instance = state.instance;
   if (rig.profile.activity !== "walk") rig.root.position.y = rig.baseY;
-  const clip = residentClipFor(rig.profile.activity, speed, reducedMotion);
+  const conversation = rig.root.metadata?.conversationPose;
+  const activity = conversation
+    ? conversation.speaking
+      ? "chat"
+      : "idle"
+    : rig.profile.activity;
+  const clip = residentClipFor(activity, speed, reducedMotion);
   if (clip !== state.clip) {
     state.transition = instance.poses.map(({ node }) => ({
       node,
