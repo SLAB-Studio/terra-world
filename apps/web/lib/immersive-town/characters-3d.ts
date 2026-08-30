@@ -662,6 +662,42 @@ export function applyTownCharacterMotion(
   elapsedSeconds: number,
   reducedMotion: boolean,
 ) {
+  const routine = rig.root.metadata?.routineMotion;
+  if (!routine)
+    return applyLegacyCharacterMotion(rig, elapsedSeconds, reducedMotion);
+  if (hasRealisticResident(rig)) {
+    updateRealisticResident(
+      rig,
+      elapsedSeconds,
+      reducedMotion,
+      routine.speed,
+      routine.travelled,
+    );
+    return;
+  }
+  const position = rig.root.position.clone(),
+    yaw = rig.root.rotation.y;
+  const profile = {
+    ...rig.profile,
+    id: `${rig.profile.id}-routine`,
+    activity: routine.activity,
+    pathRadius: 0,
+  };
+  delete profile.walkingRoute;
+  applyLegacyCharacterMotion(
+    { ...rig, profile },
+    elapsedSeconds,
+    reducedMotion,
+  );
+  rig.root.position.copyFrom(position);
+  rig.root.rotation.y = yaw;
+}
+
+function applyLegacyCharacterMotion(
+  rig: TownCharacterRig,
+  elapsedSeconds: number,
+  reducedMotion: boolean,
+) {
   if (hasRealisticResident(rig)) {
     const route = rig.profile.walkingRoute ?? PEDESTRIAN_ROUTES[rig.profile.id];
     const place = route

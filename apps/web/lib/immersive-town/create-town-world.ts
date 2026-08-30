@@ -19,6 +19,7 @@ import { registerTownVenues } from "./venues";
 import { createCityConversations } from "./conversations-3d";
 import { upgradeCityTrees } from "./city-models";
 import { addBuildingStreetDetail } from "./streetscape";
+import { createResidentRoutines } from "./resident-routines-3d";
 import type {
   CreateTownWorldOptions,
   ImmersiveTownWorld,
@@ -134,6 +135,13 @@ export function createImmersiveTownWorld(
     ...details.ambientActors,
     ...metropolis.ambientActors,
   ]);
+  const destinations = registerTownVenues(scene);
+  const residents = createResidentRoutines(
+    scene,
+    [...details.ambientActors, ...metropolis.ambientActors],
+    houses,
+    destinations.venues,
+  );
   const animation = createTownAnimationController(
     scene,
     {
@@ -145,12 +153,12 @@ export function createImmersiveTownWorld(
       ambientActors: [...details.ambientActors, ...metropolis.ambientActors],
       playgroundSpinners: details.playgroundSpinners,
       conversations,
+      residents,
     },
     options.reducedMotion ?? false,
   );
 
   const housesByMeshId = indexHouseMeshes(houses);
-  const destinations = registerTownVenues(scene);
   const housesById = new Map(houses.map((house) => [house.id, house] as const));
   scene.metadata = {
     ...(typeof scene.metadata === "object" && scene.metadata !== null
@@ -172,6 +180,7 @@ export function createImmersiveTownWorld(
     getVenueFromMesh: destinations.getVenueFromMesh,
     animation,
     conversations,
+    residents,
     setRenderQuality(quality) {
       if (disposed || quality === renderQuality) return;
       renderQuality = quality;
@@ -212,6 +221,7 @@ export function createImmersiveTownWorld(
       camera.detachControl();
       animation.dispose();
       conversations.dispose();
+      residents.dispose();
       disposeTreeModels();
       scene.dispose();
     },

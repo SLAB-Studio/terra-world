@@ -86,9 +86,10 @@ export function createTownDetails(
     [29, -45, -0.05],
     [45, -42, 0.07],
     [62, -38, -0.09],
-    [-51, 68, Math.PI - 0.04],
-    [-32, 68, Math.PI + 0.06],
-    [31, 68, Math.PI - 0.06],
+    // North-edge front doors face into town, not beyond the walkable border.
+    [-51, 68, -0.04],
+    [-32, 68, 0.06],
+    [31, 68, -0.06],
     [50, 67, Math.PI + 0.05],
   ] as const;
   neighborhoodHomes.forEach(([x, z, rotation], index) => {

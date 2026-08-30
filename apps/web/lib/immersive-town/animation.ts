@@ -10,6 +10,7 @@ import {
 } from "./characters-3d";
 import type { TownAnimationController, TownAnimationListener } from "./types";
 import type { createCityConversations } from "./conversations-3d";
+import type { createResidentRoutines } from "./resident-routines-3d";
 
 type EnvironmentalAnimationTargets = Readonly<{
   ambientActors: readonly TownCharacterRig[];
@@ -20,6 +21,7 @@ type EnvironmentalAnimationTargets = Readonly<{
   riverMaterial: StandardMaterial;
   playgroundSpinners: readonly TransformNode[];
   conversations?: ReturnType<typeof createCityConversations>;
+  residents?: ReturnType<typeof createResidentRoutines>;
 }>;
 
 export function createTownAnimationController(
@@ -61,6 +63,7 @@ export function createTownAnimationController(
     if (disposed || paused) return;
     const deltaSeconds = Math.min(scene.getEngine().getDeltaTime(), 50) / 1000;
     dialogueSeconds += deltaSeconds;
+    targets.residents?.update(deltaSeconds, reducedMotion);
     targets.conversations?.update(dialogueSeconds, reducedMotion);
 
     if (!reducedMotion) {

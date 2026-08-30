@@ -74,19 +74,32 @@ export function createCityConversations(
       let nearest = Infinity;
       let selected: NearbyConversation | null = null;
       let position: Vector3 | null = null;
+      for (const actor of actors)
+        if (actor.root.metadata) delete actor.root.metadata.conversationPose;
       for (const group of groups) {
-        const line = enabled
-          ? sampleConversation(
-              group,
-              seconds,
-              scene.metadata?.timeOfDay === "night",
-            )
-          : null;
         const pair = group.participants.map((id) => people.get(id)!);
+        const canChat =
+          pair.every(
+            (actor) =>
+              actor.root.isEnabled() &&
+              (!actor.root.metadata?.residentRoutine ||
+                actor.root.metadata.residentRoutine === "idle"),
+          ) &&
+          Vector3.Distance(pair[0]!.root.position, pair[1]!.root.position) <
+            3.5;
+        const line =
+          enabled && canChat
+            ? sampleConversation(
+                group,
+                seconds,
+                scene.metadata?.timeOfDay === "night",
+              )
+            : null;
+        if (!canChat || !enabled) continue;
         pair.forEach((actor, index) => {
           const other = pair[1 - index]!;
-          const dx = other.profile.x - actor.profile.x;
-          const dz = other.profile.z - actor.profile.z;
+          const dx = other.root.position.x - actor.root.position.x;
+          const dz = other.root.position.z - actor.root.position.z;
           actor.root.metadata = {
             ...actor.root.metadata,
             conversationPose: {

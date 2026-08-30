@@ -253,6 +253,7 @@ function ImmersiveTownMap({
           traffic.vehicles.map((vehicle) => vehicle.id),
         );
         vehicles.sync(trafficTools.getVehicleTransforms(traffic), 0);
+        world.residents.setTraffic(traffic);
         world.setTimeOfDay(timeOfDayRef.current);
         vehicles.setNight(timeOfDayRef.current === "night");
         upgrades.sync(
@@ -270,7 +271,10 @@ function ImmersiveTownMap({
           }
           traffic = trafficTools.stepTraffic(traffic, frame.deltaSeconds, {
             reducedMotion: frame.reducedMotion,
+            stops: world.residents.trafficStops,
           });
+          world.residents.setTraffic(traffic);
+          vehicles.setBoardingDoors(world.residents.boardingVehicles);
           vehicles.sync(
             trafficTools.getVehicleTransforms(traffic),
             traffic.elapsedSeconds,
