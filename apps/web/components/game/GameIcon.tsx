@@ -1,6 +1,8 @@
 type GameIconProps = {
   readonly name:
     | "home"
+    | "sun"
+    | "moon"
     | "road"
     | "water"
     | "energy"
@@ -53,6 +55,15 @@ export function GameIcon({ name, size = 22 }: GameIconProps) {
           <path d="m3 11 9-7 9 7" />
           <path d="M5 10v10h14V10M9 20v-6h6v6" />
         </>
+      )}
+      {name === "sun" && (
+        <>
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" />
+        </>
+      )}
+      {name === "moon" && (
+        <path d="M20.5 14A8.8 8.8 0 0 1 10 3.5 8.8 8.8 0 1 0 20.5 14Z" />
       )}
       {name === "road" && (
         <>

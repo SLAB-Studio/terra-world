@@ -1,0 +1,236 @@
+/* Night is a calm blue work surface, not a filter over the 3D game. */
+.town-time-switch {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  flex-shrink: 0;
+  border: 2px solid #2b190f;
+  border-radius: 14px;
+  background: #fff7d9;
+}
+.town-time-switch button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 44px;
+  padding: 7px 10px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: #2b190f;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+.town-time-switch button[aria-pressed="true"] {
+  background: #ffd24a;
+  border-color: #2b190f;
+}
+.town-time-switch button:hover {
+  background: #ffe99a;
+}
+.town-time-switch button:focus-visible {
+  outline: 3px solid #075fc7;
+  outline-offset: 3px;
+}
+
+.game-shell[data-time-of-day="night"] {
+  --night-surface: #20334e;
+  --night-raised: #2b4260;
+  --night-ink: #fff1d3;
+  --night-muted: #c4d8ec;
+  --focus: #ffd24a;
+  color-scheme: dark;
+  color: var(--night-ink);
+  background: #101d31;
+  --toy-paper: #20334e;
+  --toy-cream: #2b4260;
+}
+.game-shell[data-time-of-day="night"]
+  :is(
+    .game-header,
+    .toy-box,
+    .planning-panel,
+    .expert-panel,
+    .neighborhood-panel
+  ) {
+  background: var(--night-surface);
+  border-color: #0b1628;
+  box-shadow: 0 7px 12px #030a1699;
+}
+.game-shell[data-time-of-day="night"]
+  :is(
+    .brand-lockup strong,
+    .toy-shelf-group h2,
+    .expert-chat,
+    .expert-prompts,
+    .expert-form,
+    .expert-safety
+  ) {
+  color: var(--night-ink);
+}
+.game-shell[data-time-of-day="night"]
+  :is(.brand-lockup > div > span, .toy-shelf-group > h3) {
+  color: var(--night-muted);
+}
+.game-shell[data-time-of-day="night"] .brand-mark span {
+  color: #2b190f;
+  background: #ffd24a;
+}
+.game-shell[data-time-of-day="night"]
+  :is(
+    .neighborhood-quest,
+    .quest-next-move,
+    .map-pan-hint,
+    .town-view-switch,
+    .town-walk-help,
+    .town-walk-entry p,
+    .town-camera-controls button,
+    .town-walk-controls button,
+    .chat-bubble,
+    .expert-prompts button,
+    .expert-form input,
+    .toy-box-tip
+  ) {
+  background: var(--night-raised);
+  color: var(--night-ink);
+  border-color: #91abc8;
+  box-shadow: 0 4px 12px #030a1640;
+}
+.game-shell[data-time-of-day="night"]
+  :is(
+    .neighborhood-quest h2,
+    .challenge-quest-instruction,
+    .quest-next-copy,
+    .quest-next-copy strong,
+    .quest-next-copy span,
+    .walk-keyboard-hint,
+    .chat-bubble strong
+  ) {
+  color: var(--night-ink);
+}
+.game-shell[data-time-of-day="night"]
+  :is(.quest-kicker, .quest-next-copy small) {
+  color: #f6c982;
+}
+.game-shell[data-time-of-day="night"]
+  :is(.town-view-switch button, .expert-prompts button) {
+  color: var(--night-ink);
+}
+.game-shell[data-time-of-day="night"]
+  :is(
+    .town-view-switch button[aria-pressed="true"],
+    .town-view-switch button:hover,
+    .town-walk-controls button:active
+  ) {
+  color: #2b190f;
+  background: #ffd24a;
+}
+.game-shell[data-time-of-day="night"]
+  :is(
+    .toy-piece,
+    .toy-box-heading,
+    .neighborhood-actions button,
+    .challenge-goal-count,
+    .quest-next-number,
+    .challenge-complete-toast
+  ) {
+  color: #2b190f;
+}
+.game-shell[data-time-of-day="night"] .toy-piece {
+  background: #f5e7bd;
+}
+.game-shell[data-time-of-day="night"] .toy-piece.is-armed {
+  background: #ffd24a;
+}
+.game-shell[data-time-of-day="night"] .expert-hero {
+  background: #315783;
+}
+.game-shell[data-time-of-day="night"] .expert-chat {
+  background: var(--night-surface);
+}
+.game-shell[data-time-of-day="night"] .expert-hero .expert-online {
+  background: var(--night-surface);
+  color: var(--night-ink);
+  border-color: #91abc8;
+}
+.game-shell[data-time-of-day="night"] .expert-hero :is(h2, p, .expert-online) {
+  color: #fff1d3;
+}
+.game-shell[data-time-of-day="night"] .expert-form input::placeholder {
+  color: var(--night-muted);
+}
+.game-shell[data-time-of-day="night"] .expert-form input {
+  caret-color: #ffd24a;
+}
+.game-shell[data-time-of-day="night"] ::selection {
+  color: #152238;
+  background: #ffd24a;
+}
+.game-shell[data-time-of-day="night"] * {
+  scrollbar-color: #8aaccb #20334e;
+}
+.game-shell[data-time-of-day="night"] :focus-visible {
+  outline-color: #ffd24a;
+}
+.game-shell[data-time-of-day="night"] .town-time-switch {
+  background: #20334e;
+  border-color: #91abc8;
+}
+.game-shell[data-time-of-day="night"] .town-time-switch button {
+  color: #fff1d3;
+}
+.game-shell[data-time-of-day="night"]
+  .town-time-switch
+  button:is([aria-pressed="true"], :hover) {
+  color: #2b190f;
+  background: #ffd24a;
+}
+
+@media (max-width: 1100px) {
+  .game-shell .game-header {
+    gap: 10px;
+    padding-inline: 14px;
+  }
+  .game-header-controls {
+    gap: 8px;
+  }
+}
+@media (max-width: 760px) {
+  .game-shell .game-header {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-areas: "brand" "adult";
+    gap: 8px;
+  }
+  .game-header-controls {
+    justify-content: space-between;
+    width: 100%;
+  }
+  .game-shell .game-header :is(.town-sound-entry, .adult-entry) {
+    min-height: 44px;
+    padding: 6px 8px;
+    font-size: 0.66rem;
+    gap: 4px;
+  }
+  .town-time-switch button {
+    padding-inline: 7px;
+    font-size: 0.72rem;
+  }
+  .game-shell .game-header .town-sound-entry {
+    font-size: 0;
+    gap: 0;
+    flex-shrink: 0;
+  }
+  .game-shell .game-header .town-sound-entry svg {
+    flex-shrink: 0;
+  }
+  .game-shell .brand-lockup > div > span {
+    margin-top: 1px;
+  }
+  .neighborhood-panel:has(.is-walking) {
+    height: calc(100svh - 222px);
+  }
+}

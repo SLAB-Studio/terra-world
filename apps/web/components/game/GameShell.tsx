@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import type { TownTimeOfDay } from "../../lib/immersive-town/types";
+import "./TownAtmosphere.css";
 import type { SafeCityPersonality } from "../../../../packages/safety/src/city-guide";
 import {
   RIVERGATE_FOUNDATIONS_CAMPAIGN,
@@ -127,6 +129,7 @@ export default function GameShell() {
   const [highContrast, setHighContrast] = useState(false);
   const [muted, setMuted] = useState(true);
   const [audioReady, setAudioReady] = useState(false);
+  const [timeOfDay, setTimeOfDay] = useState<TownTimeOfDay>("day");
   const [backupKit, setBackupKit] = useState<AdultBackupKit | null>(null);
   const [backupKitImported, setBackupKitImported] = useState(false);
   const [backupState, setBackupState] = useState<BackupState>("idle");
@@ -802,6 +805,7 @@ export default function GameShell() {
       <TownSoundscape mode="town" muted={muted} onReadyChange={setAudioReady} />
       <main
         className={`game-shell theme-${colourTheme}${highContrast ? " high-contrast" : ""}`}
+        data-time-of-day={timeOfDay}
       >
         <header
           aria-hidden={adultPanelOpen || expertDrawerOpen || undefined}
@@ -818,6 +822,28 @@ export default function GameShell() {
             </div>
           </div>
           <div className="game-header-controls">
+            <div
+              className="town-time-switch"
+              role="group"
+              aria-label="City time of day"
+            >
+              <button
+                type="button"
+                aria-pressed={timeOfDay === "day"}
+                onClick={() => setTimeOfDay("day")}
+              >
+                <GameIcon name="sun" size={19} />
+                Day
+              </button>
+              <button
+                type="button"
+                aria-pressed={timeOfDay === "night"}
+                onClick={() => setTimeOfDay("night")}
+              >
+                <GameIcon name="moon" size={19} />
+                Night
+              </button>
+            </div>
             <button
               aria-label={
                 !muted && audioReady
@@ -865,6 +891,7 @@ export default function GameShell() {
           aria-label="Terra World neighborhood"
         >
           <CompoundWorld
+            timeOfDay={timeOfDay}
             backgroundInert={expertDrawerOpen}
             onRiverMessage={shareBuilderLearning}
           />

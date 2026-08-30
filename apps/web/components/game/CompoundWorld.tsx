@@ -50,6 +50,7 @@ type DragPiece = Readonly<{
 }>;
 
 type CompoundWorldProps = Readonly<{
+  timeOfDay?: "day" | "night";
   backgroundInert?: boolean;
   onRiverMessage: (message: string) => void;
 }>;
@@ -223,6 +224,7 @@ function initialNeighborhoodState(): Record<string, readonly UpgradeId[]> {
 }
 
 export default function CompoundWorld({
+  timeOfDay = "day",
   backgroundInert = false,
   onRiverMessage,
 }: CompoundWorldProps) {
@@ -811,6 +813,7 @@ export default function CompoundWorld({
           >
             <div className="world-canvas is-immersive-3d">
               <ImmersiveTownMap
+                timeOfDay={timeOfDay}
                 activeUpgradeId={dragPiece?.id ?? armedUpgrade}
                 houses={compounds}
                 onWalkStart={() => {

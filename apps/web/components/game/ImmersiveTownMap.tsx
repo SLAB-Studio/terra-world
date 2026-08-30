@@ -19,6 +19,7 @@ export type NeighborhoodHouseSelection = Readonly<{
 }>;
 
 type ImmersiveTownMapProps = Readonly<{
+  timeOfDay: "day" | "night";
   activeUpgradeId: HouseUpgradeId | null;
   houses: Readonly<Record<HouseId, readonly HouseUpgradeId[]>>;
   onHouseDrop: (houseId: HouseId, upgradeId: HouseUpgradeId) => void;
@@ -50,6 +51,7 @@ type RuntimeHandle = Readonly<{
  * React remains authoritative for learning state and the accessible house UI.
  */
 function ImmersiveTownMap({
+  timeOfDay,
   activeUpgradeId,
   houses,
   onHouseDrop,
@@ -62,6 +64,12 @@ function ImmersiveTownMap({
 }: ImmersiveTownMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const runtimeRef = useRef<RuntimeHandle | null>(null);
+  const timeOfDayRef = useRef(timeOfDay);
+  timeOfDayRef.current = timeOfDay;
+  useEffect(() => {
+    runtimeRef.current?.world.setTimeOfDay(timeOfDay);
+    runtimeRef.current?.vehicles.setNight(timeOfDay === "night");
+  }, [timeOfDay]);
   const walkPressStartedRef = useRef(0);
   const [viewMode, setViewMode] = useState<"town" | "walk">("town");
   const [nearbyHouse, setNearbyHouse] =
@@ -183,6 +191,8 @@ function ImmersiveTownMap({
           traffic.vehicles.map((vehicle) => vehicle.id),
         );
         vehicles.sync(trafficTools.getVehicleTransforms(traffic), 0);
+        world.setTimeOfDay(timeOfDayRef.current);
+        vehicles.setNight(timeOfDayRef.current === "night");
         upgrades.sync(
           propsRef.current.houses,
           propsRef.current.selectedHouseId,
@@ -488,6 +498,7 @@ function ImmersiveTownMap({
   return (
     <div
       className={`immersive-town-map${viewMode === "walk" ? " is-walking" : ""}`}
+      data-time-of-day={timeOfDay}
     >
       <canvas
         aria-label={
