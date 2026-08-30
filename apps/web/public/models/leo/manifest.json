@@ -1,0 +1,14 @@
+{
+  "sourceSha256": "65e91282b0bed372de433a7f8d6c56052bcc2fa042318cf2dd2b34b11129669b",
+  "triangles": 11349,
+  "walkDistance": 0.72,
+  "trotDistance": 1.05,
+  "scale": 0.9,
+  "clips": [
+    "idle",
+    "walk",
+    "trot"
+  ],
+  "textureLimit": 1024,
+  "bytes": 1066028
+}
