@@ -503,7 +503,7 @@ function ImmersiveTownMap({
       <canvas
         aria-label={
           viewMode === "walk"
-            ? "Walk around Rivergate. W A S D to move, arrow keys to move or turn, E to enter a nearby home. Drag to look."
+            ? "Control your 3D builder in Rivergate. W A S D to walk, arrow keys to move or turn, E to enter a nearby home. Drag to look around your character."
             : "3D town view. Drag to turn, scroll to zoom."
         }
         tabIndex={0}
@@ -546,8 +546,8 @@ function ImmersiveTownMap({
       {viewMode === "walk" ? (
         <>
           <div className="town-walk-help">
-            <strong>You’re walking in Rivergate</strong>
-            <span>Hold the buttons to walk. Drag the view to look.</span>
+            <strong>You’re the builder with the yellow backpack</strong>
+            <span>Hold the buttons to walk. Drag to look around.</span>
             <span className="walk-keyboard-hint">
               W A S D to move · arrows to turn · E to enter
             </span>

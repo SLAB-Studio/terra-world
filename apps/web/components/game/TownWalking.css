@@ -145,8 +145,8 @@
   .kid-workspace:has(.is-walking) .toy-box {
     display: none;
   }
-  .neighborhood-panel:has(.is-walking) {
-    height: calc(100svh - 174px);
+  .game-shell .neighborhood-panel:has(.is-walking) {
+    height: calc(100svh - 222px);
     min-height: 0;
   }
   .town-view-switch {
