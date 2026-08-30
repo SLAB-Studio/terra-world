@@ -1,10 +1,9 @@
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Color3 } from "@babylonjs/core/Maths/math.color";
-import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import {
   canLoadCityModels,
   instantiateCityModel,
@@ -23,11 +22,13 @@ import {
   type BoardingDoor,
 } from "./vehicle-doors";
 
+type WheelAxle = Readonly<{ node: TransformNode; rest: Quaternion }>;
+
 type VehicleRig = {
   root: TransformNode;
-  wheels: readonly Mesh[];
+  wheels: readonly WheelAxle[];
   model: CityModelInstance | null;
-  modelWheels: TransformNode[];
+  modelWheels: WheelAxle[];
   detail: "far" | "near";
   pending: boolean;
   failedNear: boolean;
@@ -55,6 +56,30 @@ const VEHICLE_COLOURS = [
   "#B2A28B",
   "#373C43",
 ] as const;
+
+function wheelAxle(node: TransformNode): WheelAxle {
+  const rest =
+    node.rotationQuaternion?.clone() ??
+    Quaternion.FromEulerVector(node.rotation);
+  node.rotationQuaternion = rest.clone();
+  return { node, rest };
+}
+
+const wheelSpin = new Quaternion();
+
+function rollWheels(rig: VehicleRig): void {
+  // The imported model faces local -Z, unlike the procedural +Z fallback.
+  // Its rolling direction must account for that mirrored glTF coordinate frame.
+  const radius = rig.model && !rig.root.name.includes("bus") ? 0.37 : 0.39;
+  const angle =
+    (((rig.model ? -1 : 1) * rig.distance) / radius) % (Math.PI * 2);
+  Quaternion.RotationYawPitchRollToRef(0, angle, 0, wheelSpin);
+  for (const wheel of rig.model ? rig.modelWheels : rig.wheels) {
+    // Rotate around the parent axle, preserving the authored wheel orientation.
+    // Reuse quaternions: no new geometry, draw calls or per-frame allocations.
+    wheelSpin.multiplyToRef(wheel.rest, wheel.node.rotationQuaternion!);
+  }
+}
 
 export function createVehicleFleet(
   scene: Scene,
@@ -101,13 +126,17 @@ export function createVehicleFleet(
       const previous = rig.model;
       rig.model = model;
       rig.detail = detail;
-      rig.modelWheels = model.root
-        .getDescendants(false)
-        .filter(
-          (node) =>
-            node instanceof TransformNode &&
-            /:Wheel(Front|Rear)[LR]$/.test(node.name),
-        ) as TransformNode[];
+      rig.modelWheels = (
+        model.root
+          .getDescendants(false)
+          .filter(
+            (node) =>
+              node instanceof TransformNode &&
+              /:Wheel(Front|Rear)[LR]$/.test(node.name),
+          ) as TransformNode[]
+      ).map(wheelAxle);
+      // A loaded/LOD-swapped model starts at the current phase, not at rest.
+      rollWheels(rig);
       rig.door = findBoardingDoor(model.root, rig.root);
       applyBoardingDoor(rig.door, rig.doorProgress);
       if (previous) disposeCityModel(previous);
@@ -188,12 +217,7 @@ export function createVehicleFleet(
         rig.root.metadata.boardingDoorOpen =
           rig.door !== null ? rig.doorProgress : 0;
         rig.distance += delta * transform.speedMetersPerSecond;
-        const wheelTurn = rig.distance / 0.36;
-        const wheels = rig.model ? rig.modelWheels : rig.wheels;
-        wheels.forEach((wheel) => {
-          wheel.rotationQuaternion = null;
-          wheel.rotation.x = wheelTurn;
-        });
+        rollWheels(rig);
         // Preserve the active doorway while a passenger crosses it.
         if (rig.model && rig.doorProgress === 0 && scene.activeCamera) {
           const distance = Vector3.Distance(
@@ -284,7 +308,7 @@ function createVehicleRig(
     }
   }
 
-  const wheels: Mesh[] = [];
+  const wheels: WheelAxle[] = [];
   const wheelZ = bus ? 2.05 : 1.35;
   for (const x of [-1.12, 1.12]) {
     for (const z of [-wheelZ, wheelZ]) {
@@ -298,7 +322,7 @@ function createVehicleRig(
       wheel.material = tyreMaterial;
       wheel.parent = root;
       wheel.isPickable = false;
-      wheels.push(wheel);
+      wheels.push(wheelAxle(wheel));
     }
   }
 

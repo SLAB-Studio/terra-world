@@ -26,6 +26,12 @@ Terra World modifications: removed selected hidden mechanical/interior detail, L
 
 The upstream file separately identifies Khronos and 3D Commerce logos under [Khronos trademark terms](https://github.com/KhronosGroup/glTF-Sample-Assets/blob/main/LICENSES/LicenseRef-LegalMark-Khronos.txt). Those logos are not intentionally included in these derivatives: the relevant geometry is removed and all source image materials are replaced. No affiliation, endorsement, trademark grant, or license to a specific automobile brand is claimed. `crossover` is a local asset category, not an assertion of manufacturer identity.
 
+Wheel-motion correction: removed the source front wheels' baked steering pose
+before flattening, keeping each hub and spoke orientation intact. Near/far
+variants retain the same wheel geometry to prevent a second decimation from
+distorting the rolling silhouette. Wheel geometry counts against the existing
+total triangle budgets; body detail takes the remaining far-model budget.
+
 ## Other modifications and source files
 
 Trees: imported the Poly Haven 1K glTF assets, retained one fir alternative, flattened transforms, centered at ground level, normalized height to approximately 7.2 scene units, simplified geometry into near/far variants, retained base-color imagery at 512 × 512 pixels, and removed normal/ARM material maps. Textures are embedded in the GLBs; no external buffer or image URLs remain. Far models are actual simplified 3D geometry, not image billboards.
@@ -51,9 +57,9 @@ Counts below were checked against the exported GLBs and `manifest.json` on 2026-
 | `broadleaf-far.glb` | 8,000 | 844,528 |
 | `fir-near.glb` | 16,000 | 1,687,844 |
 | `fir-far.glb` | 8,000 | 873,924 |
-| `crossover-near.glb` | 11,998 | 717,316 |
-| `crossover-far.glb` | 7,996 | 504,600 |
-| `shuttlebus-near.glb` | 4,616 | 148,176 |
-| `shuttlebus-far.glb` | 1,788 | 69,476 |
+| `crossover-near.glb` | 11,997 | 726,108 |
+| `crossover-far.glb` | 7,998 | 507,872 |
+| `shuttlebus-near.glb` | 5,632 | 180,356 |
+| `shuttlebus-far.glb` | 1,775 | 70,900 |
 
-Eight GLBs total **6,417,060 bytes**. Five 512 × 512 surface JPEGs, including embedded provenance, total **417,766 bytes**. Combined media total: **6,834,826 bytes (6.52 MiB)**, excluding this README and the JSON manifest. This is the available asset set; actual transfer depends on which variants the application loads.
+Eight GLBs total **6,462,728 bytes**. Five 512 × 512 surface JPEGs, including embedded provenance, total **417,766 bytes**. Combined media total: **6,880,494 bytes (6.56 MiB)**, excluding this README and the JSON manifest. This is the available asset set; actual transfer depends on which variants the application loads.

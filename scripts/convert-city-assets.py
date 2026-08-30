@@ -111,6 +111,18 @@ for key, name in ([] if vehicles_only else [('broadleaf','island_tree_02'),('fir
     manifest.append(export(key+'-far',objects))
 
 clear(); bpy.ops.import_scene.gltf(filepath=str(source/'car/source.glb'))
+# The display model has its front wheels steered 30 degrees. Remove that pose
+# BEFORE baking the hierarchy, otherwise rolling around the car's axle makes
+# the angled tyres cone/wobble. Preserve each hub and its authored spoke phase.
+for side in ['L', 'R']:
+    front = bpy.data.objects['WheelFront'+side]
+    rear = bpy.data.objects['WheelRear'+side]
+    front_axis = (front.matrix_world.to_3x3() @ Vector((1, 0, 0))).normalized()
+    rear_axis = (rear.matrix_world.to_3x3() @ Vector((1, 0, 0))).normalized()
+    align = front_axis.rotation_difference(rear_axis).to_matrix().to_4x4()
+    pivot = front.matrix_world.translation.copy()
+    front.matrix_world = Matrix.Translation(pivot) @ align @ Matrix.Translation(-pivot) @ front.matrix_world
+    bpy.context.view_layer.update()
 # Source colour variants otherwise restore textured original door materials at
 # export, overriding our opaque traffic palette and reintroducing extensions.
 bpy.context.preferences.addons['io_scene_gltf2'].preferences.KHR_materials_variants_ui = False
@@ -189,6 +201,11 @@ for key,parts in groups.items():
         bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
     merged.append(o)
 simplify(merged,12000); manifest.append(export('crossover-near',merged))
+# Spend the far-LOD budget on a stable tyre silhouette before hidden body detail.
+# Decimating an already-small wheel again makes lopsided polygons that hop while
+# rolling. Fixed wheels count AGAINST the existing total budget in simplify().
+for o in merged:
+    if o.name.startswith('Wheel'): o['preserve_geometry'] = True
 simplify(merged,8000); manifest.append(export('crossover-far',merged))
 
 clear()
@@ -271,7 +288,10 @@ bpy.ops.object.select_all(action='DESELECT')
 for o in bus_parts:o.select_set(True)
 bpy.context.view_layer.objects.active=bus_parts[0];bpy.ops.object.join();body=bus_parts[0];body.name='body'
 bus=[body,door,*bus_wheels]
-manifest.append(export('shuttlebus-near',bus));simplify(bus,1800);manifest.append(export('shuttlebus-far',bus))
+manifest.append(export('shuttlebus-near',bus))
+for o in bus:
+    if o.name.startswith('Wheel'): o['preserve_geometry'] = True
+simplify(bus,1800);manifest.append(export('shuttlebus-far',bus))
 
 # Compress photographed surfaces; keep originals outside the shipped directory.
 for name in ([] if vehicles_only else ['asphalt','brick','stone','slate','grass']):

@@ -103,12 +103,17 @@ describe("game-ready city models", () => {
         );
         let traffic = createTrafficSimulation();
         fleet.sync(getVehicleTransforms(traffic), 0);
-        const before = wheels.map((w) => w.rotation.x);
+        const before = wheels.map((w) => w.rotationQuaternion!.clone());
         fleet.sync(getVehicleTransforms(traffic), 1);
-        expect(wheels.map((w) => w.rotation.x)).toEqual(before);
+        expect(wheels.map((w) => w.rotationQuaternion)).toEqual(before);
         traffic = stepTraffic(traffic, 0.1);
         fleet.sync(getVehicleTransforms(traffic), 1.1);
-        expect(wheels.every((w) => w.rotation.x > 0)).toBe(true);
+        expect(
+          wheels.every(
+            (w, index) =>
+              !w.rotationQuaternion!.equalsWithEpsilon(before[index]!),
+          ),
+        ).toBe(true);
         const model = scene.getTransformNodeByName(`${id}-far-model`)!;
         // Measure local dimensions before the traffic root's rotation.
         root.rotationQuaternion = null;

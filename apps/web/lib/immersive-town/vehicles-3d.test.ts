@@ -7,7 +7,10 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine";
 import { Scene } from "@babylonjs/core/scene";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Ray } from "@babylonjs/core/Culling/ray";
+import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
+import { Mesh } from "@babylonjs/core/Meshes/mesh";
+import { VertexBuffer } from "@babylonjs/core/Buffers/buffer";
 import { createVehicleFleet } from "./vehicles-3d";
 import { applyBoardingDoor, findBoardingDoor } from "./vehicle-doors";
 import { instantiateCityModel } from "./city-models";
@@ -48,6 +51,213 @@ function setup() {
   );
   return { engine, scene };
 }
+
+function wheelVertices(wheel: TransformNode): Vector3[] {
+  const meshes = wheel instanceof Mesh ? [wheel] : wheel.getChildMeshes();
+  return meshes.flatMap((mesh) => {
+    const positions = mesh.getVerticesData(VertexBuffer.PositionKind) ?? [];
+    const world = mesh.computeWorldMatrix(true);
+    const points: Vector3[] = [];
+    for (let index = 0; index < positions.length; index += 3)
+      points.push(
+        Vector3.TransformCoordinates(
+          Vector3.FromArray(positions, index),
+          world,
+        ),
+      );
+    return points;
+  });
+}
+
+describe("stable rolling wheels", () => {
+  it.each(["near", "far"] as const)(
+    "exports straight, narrow car tyres at %s detail, not baked steering poses",
+    async (detail) => {
+      const { scene, engine } = setup();
+      try {
+        const model = await instantiateCityModel(
+          scene,
+          "crossover",
+          detail,
+          detail,
+        );
+        const wheels = model.root
+          .getDescendants()
+          .filter((node) =>
+            /:Wheel(Front|Rear)[LR]$/.test(node.name),
+          ) as TransformNode[];
+        expect(wheels).toHaveLength(4);
+        for (const wheel of wheels) {
+          const points = wheelVertices(wheel);
+          const width =
+            Math.max(...points.map((p) => p.x)) -
+            Math.min(...points.map((p) => p.x));
+          // A turned tyre is twice as wide and cones when spun around X.
+          expect(width, wheel.name).toBeLessThan(0.25);
+        }
+      } finally {
+        scene.dispose();
+        engine.dispose();
+      }
+    },
+  );
+
+  it.each([
+    ["berry-car", "near", 0],
+    ["berry-car", "far", Math.PI],
+    ["sunny-bus", "near", Math.PI],
+    ["sunny-bus", "far", 0],
+    ["offline-car", "fallback", 0],
+  ] as const)(
+    "%s at %s detail (heading %s) rolls on fixed axles and stops with the vehicle",
+    async (id, detail, yaw) => {
+      const { scene, engine } = setup();
+      if (id === "offline-car") loader.mockRejectedValue(new Error("offline"));
+      const fleet = createVehicleFleet(scene, [id]);
+      try {
+        const root = scene.getTransformNodeByName(`traffic-${id}`)!;
+        if (id !== "offline-car")
+          await vi.waitFor(() => expect(root.metadata?.cityModel).toBeTruthy());
+        const transform = {
+          ...getVehicleTransforms(createTrafficSimulation())[0]!,
+          id,
+          position: { x: 0, y: 0, z: 0 },
+          yawRadians: yaw,
+          speedMetersPerSecond: 0,
+        };
+        if (detail === "near")
+          new FreeCamera("near-car", new Vector3(0, 3, 0), scene);
+        fleet.sync([transform], 0);
+        if (detail === "near")
+          await vi.waitFor(() =>
+            expect(root.metadata?.modelDetail).toBe("near"),
+          );
+        const wheels = root
+          .getDescendants()
+          .filter(
+            (node) =>
+              /:Wheel(Front|Rear)[LR]$/.test(node.name) ||
+              node.name.startsWith(`${id}-wheel-`),
+          ) as TransformNode[];
+        expect(wheels).toHaveLength(4);
+        const initial = wheels.map((wheel) => {
+          const points = wheelVertices(wheel);
+          const hub = wheel.getAbsolutePosition().clone();
+          const belowHub = hub.add(new Vector3(0, -0.3, 0));
+          return {
+            hub,
+            minY: Math.min(...points.map((p) => p.y)),
+            contact: Vector3.TransformCoordinates(
+              belowHub,
+              wheel.getWorldMatrix().clone().invert(),
+            ),
+          };
+        });
+        // With a fixed body, the tread at the bottom must move BACKWARD as
+        // the vehicle travels forward (+Z). This catches mirrored GLB axes.
+        fleet.sync([{ ...transform, speedMetersPerSecond: 1 }], 0.01);
+        wheels.forEach((wheel, index) => {
+          const contact = Vector3.TransformCoordinates(
+            initial[index]!.contact,
+            wheel.computeWorldMatrix(true),
+          );
+          const forward = new Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+          expect(
+            Vector3.Dot(contact.subtract(initial[index]!.hub), forward),
+            wheel.name,
+          ).toBeLessThan(-0.001);
+        });
+        for (let frame = 2; frame < 42; frame++) {
+          fleet.sync([{ ...transform, speedMetersPerSecond: 1 }], frame * 0.1);
+          wheels.forEach((wheel, index) => {
+            const points = wheelVertices(wheel);
+            expect(
+              Vector3.Distance(
+                wheel.getAbsolutePosition(),
+                initial[index]!.hub,
+              ),
+              wheel.name,
+            ).toBeLessThan(0.00001);
+            expect(
+              Math.abs(
+                Math.min(...points.map((p) => p.y)) - initial[index]!.minY,
+              ),
+              wheel.name,
+              // Allow the existing low-poly silhouette (under 3.5 cm), but no
+              // tilted wheel orbit, hub movement or asymmetric far-LOD collapse.
+            ).toBeLessThan(0.035);
+          });
+        }
+        const stopped = wheels.map((wheel) =>
+          wheel.computeWorldMatrix(true).clone(),
+        );
+        fleet.sync([transform], 5);
+        wheels.forEach((wheel, index) =>
+          expect(wheel.computeWorldMatrix(true).equals(stopped[index]!)).toBe(
+            true,
+          ),
+        );
+      } finally {
+        fleet.dispose();
+        scene.dispose();
+        engine.dispose();
+      }
+    },
+  );
+
+  it.each(["berry-car", "sunny-bus"])(
+    "preserves %s wheel phase immediately through near/far swaps",
+    async (id) => {
+      const { scene, engine } = setup();
+      const fleet = createVehicleFleet(scene, [id]);
+      try {
+        const root = scene.getTransformNodeByName(`traffic-${id}`)!;
+        await vi.waitFor(() => expect(root.metadata?.modelDetail).toBe("far"));
+        const transform = {
+          ...getVehicleTransforms(createTrafficSimulation())[0]!,
+          id,
+          position: { x: 0, y: 0, z: 0 },
+          yawRadians: 0,
+          speedMetersPerSecond: 5,
+        };
+        fleet.sync([transform], 0);
+        fleet.sync([transform], 0.1);
+        const wheels = () =>
+          root
+            .getDescendants()
+            .filter((node) =>
+              /:Wheel(Front|Rear)[LR]$/.test(node.name),
+            ) as TransformNode[];
+        const phase = wheels()[0]!.rotationQuaternion!.clone();
+        const camera = new FreeCamera(
+          "detail-check",
+          new Vector3(0, 3, 0),
+          scene,
+        );
+        fleet.sync([{ ...transform, speedMetersPerSecond: 0 }], 0.2);
+        await vi.waitFor(() => expect(root.metadata?.modelDetail).toBe("near"));
+        expect(
+          wheels().every((wheel) =>
+            wheel.rotationQuaternion!.equalsWithEpsilon(phase),
+          ),
+        ).toBe(true);
+        camera.position.set(100, 3, 100);
+        camera.getViewMatrix(true);
+        fleet.sync([{ ...transform, speedMetersPerSecond: 0 }], 0.3);
+        await vi.waitFor(() => expect(root.metadata?.modelDetail).toBe("far"));
+        expect(
+          wheels().every((wheel) =>
+            wheel.rotationQuaternion!.equalsWithEpsilon(phase),
+          ),
+        ).toBe(true);
+      } finally {
+        fleet.dispose();
+        scene.dispose();
+        engine.dispose();
+      }
+    },
+  );
+});
 
 describe("authentic boarding doors", () => {
   it.each(["crossover", "shuttlebus"] as const)(
