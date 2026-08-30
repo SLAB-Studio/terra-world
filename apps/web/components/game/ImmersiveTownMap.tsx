@@ -10,8 +10,16 @@ import type {
   WalkCommand,
 } from "../../lib/immersive-town/town-walker";
 import type { VehicleFleet } from "../../lib/immersive-town/vehicles-3d";
+import {
+  partyLoadMessage,
+  type PartyModelStatus,
+} from "../../lib/immersive-town/party-status";
 import type { NearbyConversation } from "../../lib/immersive-town/conversations-3d";
-import type { HouseId, HouseUpgradeId } from "./HouseDiagnostics";
+import {
+  HOUSE_PROFILES,
+  type HouseId,
+  type HouseUpgradeId,
+} from "./HouseDiagnostics";
 import "./TownWalking.css";
 import BuildingVisit3D from "./BuildingVisit3D";
 import type {
@@ -42,6 +50,7 @@ export type NeighborhoodHouseSelection = Readonly<{
 }>;
 
 type ImmersiveTownMapProps = Readonly<{
+  leoReply?: Readonly<{ id: string; text: string }> | undefined;
   timeOfDay: "day" | "night";
   activeUpgradeId: HouseUpgradeId | null;
   houses: Readonly<Record<HouseId, readonly HouseUpgradeId[]>>;
@@ -57,6 +66,9 @@ type ImmersiveTownMapProps = Readonly<{
   onNeighborhoodHouseSelect: (house: NeighborhoodHouseSelection) => void;
   selectedNeighborhoodHouseId: string | null;
   selectedHouseId: HouseId | null;
+  onResidentTalk?: (houseId: string) => void;
+  onHomeInspected?: (houseId: string) => void;
+  residentJournalOpen?: boolean;
 }>;
 
 type RuntimeHandle = Readonly<{
@@ -79,6 +91,7 @@ type RuntimeHandle = Readonly<{
  * React remains authoritative for learning state and the accessible house UI.
  */
 function ImmersiveTownMap({
+  leoReply,
   timeOfDay,
   activeUpgradeId,
   houses,
@@ -91,8 +104,17 @@ function ImmersiveTownMap({
   onNeighborhoodHouseSelect,
   selectedNeighborhoodHouseId,
   selectedHouseId,
+  onResidentTalk,
+  onHomeInspected,
+  residentJournalOpen = false,
 }: ImmersiveTownMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const leoBubbleRef = useRef<HTMLDivElement>(null);
+  const [dismissedLeoReply, setDismissedLeoReply] = useState<string | null>(
+    null,
+  );
+  const [leoModelState, setLeoModelState] =
+    useState<PartyModelStatus>("loading");
   const runtimeRef = useRef<RuntimeHandle | null>(null);
   const [renderPreference, setRenderPreference] =
     useState<RenderQualityPreference>("auto");
@@ -122,6 +144,8 @@ function ImmersiveTownMap({
   const [nearbyVenue, setNearbyVenue] = useState<TownVenue | null>(null);
   const visitOpenRef = useRef(false);
   visitOpenRef.current = venue !== null || directoryOpen;
+  const journalOpenRef = useRef(residentJournalOpen);
+  journalOpenRef.current = residentJournalOpen;
   const renderingBlockedRef = useRef(false);
   renderingBlockedRef.current = visitOpenRef.current;
   useEffect(() => {
@@ -139,8 +163,8 @@ function ImmersiveTownMap({
     runtimeRef.current?.world.setTimeOfDay(timeOfDay);
     runtimeRef.current?.vehicles.setNight(timeOfDay === "night");
   }, [timeOfDay]);
-  const walkPressStartedRef = useRef(0);
   const [viewMode, setViewMode] = useState<"town" | "walk">("town");
+  const [running, setRunning] = useState(false);
   const [nearbyHouse, setNearbyHouse] =
     useState<NeighborhoodHouseSelection | null>(null);
   const propsRef = useRef({
@@ -149,6 +173,7 @@ function ImmersiveTownMap({
     neighborhoodHouses,
     onHouseDrop,
     onHouseSelect,
+    onHomeInspected,
     onNeighborhoodHouseDrop,
     onNeighborhoodHouseSelect,
     selectedNeighborhoodHouseId,
@@ -158,12 +183,32 @@ function ImmersiveTownMap({
     "loading" | "ready" | "failed"
   >("loading");
 
+  useEffect(() => {
+    const runtime = runtimeRef.current;
+    if (!residentJournalOpen || !runtime) return;
+    runtime.walker.clearInput();
+    runtime.traversal.walker.clearInput();
+    runtime.cancelCameraAnimation();
+    // Reading blocks player input, not traffic, residents or rendering.
+    runtime.camera.detachControl();
+    return () => {
+      if (
+        runtimeRef.current === runtime &&
+        !runtime.walker.active &&
+        runtime.traversal.phase === "outside"
+      ) {
+        runtime.camera.attachControl(canvasRef.current, true);
+      }
+    };
+  }, [residentJournalOpen, engineStatus]);
+
   propsRef.current = {
     activeUpgradeId,
     houses,
     neighborhoodHouses,
     onHouseDrop,
     onHouseSelect,
+    onHomeInspected,
     onNeighborhoodHouseDrop,
     onNeighborhoodHouseSelect,
     selectedNeighborhoodHouseId,
@@ -189,6 +234,7 @@ function ImmersiveTownMap({
           adapterTools,
           walkingTools,
           traversalTools,
+          partyTools,
         ] = await Promise.all([
           import("../../lib/immersive-town/babylon-runtime"),
           import("../../lib/immersive-town"),
@@ -199,6 +245,7 @@ function ImmersiveTownMap({
           import("../../lib/immersive-town/babylon-adapter"),
           import("../../lib/immersive-town/town-walker"),
           import("../../lib/immersive-town/building-traversal"),
+          import("../../lib/immersive-town/walking-party"),
         ]);
         if (cancelled) return;
 
@@ -235,6 +282,7 @@ function ImmersiveTownMap({
           );
         const resolution = createAdaptiveResolution(readBudget());
         engine.setHardwareScalingLevel(1 / resolution.pixelRatio);
+        let appliedPixelRatio = resolution.pixelRatio;
 
         const world = town.createImmersiveTownWorld(engine, {
           attachCameraControls: true,
@@ -246,15 +294,22 @@ function ImmersiveTownMap({
         });
         const instrumentation = new Babylon.SceneInstrumentation(world.scene);
         const applyResolution = () => {
-          engine.setHardwareScalingLevel(1 / resolution.pixelRatio);
+          const resized = appliedPixelRatio !== resolution.pixelRatio;
+          if (resized) {
+            appliedPixelRatio = resolution.pixelRatio;
+            // Changing Babylon's hardware scale already resizes its buffers.
+            engine.setHardwareScalingLevel(1 / resolution.pixelRatio);
+          }
           world.setRenderQuality(
             sceneQualityForRenderBudget(preference, resolution.pixelRatio),
           );
+          return resized;
         };
         adapterTools.configureKidFriendlyCamera(world.camera);
         const walker = walkingTools.createTownWalker(world, canvas, {
           isBlocked: () =>
             visitOpenRef.current ||
+            journalOpenRef.current ||
             (traversal !== undefined && traversal.phase !== "outside") ||
             propsRef.current.activeUpgradeId !== null,
           onNearbyHouse: (house) =>
@@ -278,6 +333,7 @@ function ImmersiveTownMap({
           {
             isBlocked: () =>
               visitOpenRef.current ||
+              journalOpenRef.current ||
               document.visibilityState !== "visible" ||
               canvas.closest("[inert]") !== null ||
               document.querySelector("dialog[open]") !== null,
@@ -307,6 +363,15 @@ function ImmersiveTownMap({
               setEntryError(null);
               setViewMode("walk");
               setNearbyConversation(null);
+              // Credit an inspection only after crossing the actual door,
+              // never from a journal selection or a distant building click.
+              if (
+                next &&
+                phase === "inside" &&
+                world.houses.some((house) => house.id === next.id)
+              ) {
+                propsRef.current.onHomeInspected?.(next.id);
+              }
             },
             onRoom: setRoom,
             onNearby: setIndoorNearby,
@@ -388,6 +453,7 @@ function ImmersiveTownMap({
           if (pointer.type !== Babylon.PointerEventTypes.POINTERPICK) return;
           if (
             visitOpenRef.current ||
+            journalOpenRef.current ||
             traversal?.phase !== "outside" ||
             propsRef.current.activeUpgradeId !== null
           )
@@ -414,7 +480,12 @@ function ImmersiveTownMap({
         });
 
         const dropUpgradeOnHouse = (event: PointerEvent) => {
-          if (visitOpenRef.current || traversal?.phase !== "outside") return;
+          if (
+            visitOpenRef.current ||
+            journalOpenRef.current ||
+            traversal?.phase !== "outside"
+          )
+            return;
           const active = propsRef.current.activeUpgradeId;
           if (active === null) return;
           const bounds = canvas.getBoundingClientRect();
@@ -536,14 +607,13 @@ function ImmersiveTownMap({
           })),
         );
 
-        let viewport = "";
+        let viewport = `${canvas.clientWidth}:${canvas.clientHeight}:${window.devicePixelRatio}`;
         const resizeObserver = new ResizeObserver(() => {
           const nextViewport = `${canvas.clientWidth}:${canvas.clientHeight}:${window.devicePixelRatio}`;
           if (nextViewport === viewport) return;
           viewport = nextViewport;
           resolution.reset(readBudget());
-          applyResolution();
-          world.resize();
+          if (!applyResolution()) world.resize();
         });
         resizeObserver.observe(canvas);
         let isOnscreen = true;
@@ -555,6 +625,8 @@ function ImmersiveTownMap({
         let measuredDrawCalls = 0;
         let previousNearExit = false;
         let previousIndoorActivity = "";
+        let previousLeoState = "";
+        let previousRunning = false;
         const resetMeasurements = () => {
           lastFrameAt = 0;
           measuredMs = 0;
@@ -571,6 +643,42 @@ function ImmersiveTownMap({
           traversal?.update(frameMs / 1000);
           if (traversal?.inside) traversal.scene.render();
           else world.render();
+          const isRunning = traversal.walker.running;
+          if (isRunning !== previousRunning) {
+            previousRunning = isRunning;
+            setRunning(isRunning);
+          }
+          const party = partyTools.walkingPartyFor(traversal.scene);
+          if (party && party.modelState !== previousLeoState) {
+            previousLeoState = party.modelState;
+            setLeoModelState(party.modelState);
+          }
+          const bubble = leoBubbleRef.current;
+          if (bubble) {
+            const projected = party?.project(
+              canvas.clientWidth,
+              canvas.clientHeight,
+            );
+            const visible =
+              projected &&
+              projected.x > 0 &&
+              projected.x < canvas.clientWidth &&
+              projected.y > 0 &&
+              projected.y < canvas.clientHeight;
+            bubble.style.visibility = visible ? "visible" : "hidden";
+            if (projected) {
+              const half = Math.min(145, (canvas.clientWidth - 24) / 2);
+              const x = Math.max(
+                half + 12,
+                Math.min(canvas.clientWidth - half - 12, projected.x),
+              );
+              const y = Math.max(
+                bubble.offsetHeight + 16,
+                Math.min(canvas.clientHeight - 112, projected.y - 14),
+              );
+              bubble.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
+            }
+          }
           if (traversal?.nearExit !== previousNearExit) {
             previousNearExit = traversal?.nearExit ?? false;
             setNearExit(previousNearExit);
@@ -679,27 +787,43 @@ function ImmersiveTownMap({
   }, [houses, neighborhoodHouses, selectedHouseId]);
 
   useEffect(() => {
-    if (directoryOpen || !requestedVisit || engineStatus !== "ready") return;
+    if (
+      directoryOpen ||
+      residentJournalOpen ||
+      !requestedVisit ||
+      engineStatus !== "ready"
+    )
+      return;
     // The directory dialog must unmount before it hands input back to the game.
     runtimeRef.current?.walker.setActive(false);
     runtimeRef.current?.traversal.open(requestedVisit);
     setRequestedVisit(null);
-  }, [requestedVisit, directoryOpen, engineStatus]);
+  }, [requestedVisit, directoryOpen, residentJournalOpen, engineStatus]);
 
   useEffect(() => {
     const focusedHouseId = selectedHouseId ?? selectedNeighborhoodHouseId;
-    if (focusedHouseId !== null && engineStatus === "ready") {
+    if (
+      focusedHouseId !== null &&
+      engineStatus === "ready" &&
+      !residentJournalOpen
+    ) {
       onWalkStart();
       runtimeRef.current?.cancelCameraAnimation();
       const traversal = runtimeRef.current?.traversal;
       if (traversal?.visit?.id !== focusedHouseId) {
-        if (
+        if (traversal && traversal.phase !== "outside") {
+          setEntryError(
+            `Walk outside ${traversal.visit?.name ?? "this building"} before visiting another home.`,
+          );
+        } else if (
           runtimeRef.current?.walker.active &&
           traversal?.phase === "outside"
         ) {
           setEntryError("Walk up to this home's front door to enter.");
+          traversal.open(focusedHouseId);
+        } else {
+          traversal?.open(focusedHouseId);
         }
-        traversal?.open(focusedHouseId);
       }
       onSelectionConsumed();
     }
@@ -707,6 +831,7 @@ function ImmersiveTownMap({
     selectedHouseId,
     selectedNeighborhoodHouseId,
     engineStatus,
+    residentJournalOpen,
     onSelectionConsumed,
     onWalkStart,
   ]);
@@ -714,7 +839,7 @@ function ImmersiveTownMap({
   const changeCamera = useCallback(
     (command: "left" | "right" | "closer" | "farther" | "home") => {
       const runtime = runtimeRef.current;
-      if (runtime === null) return;
+      if (runtime === null || journalOpenRef.current) return;
       runtime.cancelCameraAnimation();
       if (command === "home") {
         runtime.resetCamera();
@@ -738,7 +863,7 @@ function ImmersiveTownMap({
 
   const switchView = (mode: "town" | "walk") => {
     const runtime = runtimeRef.current;
-    if (runtime === null) return;
+    if (runtime === null || residentJournalOpen) return;
     if (runtime.traversal.phase !== "outside") return;
     runtime.cancelCameraAnimation();
     if (mode === "walk") onWalkStart();
@@ -751,10 +876,11 @@ function ImmersiveTownMap({
       key={command}
       type="button"
       className={`walk-${command}`}
+      disabled={residentJournalOpen}
       onPointerDown={(event) => {
-        walkPressStartedRef.current = performance.now();
         event.currentTarget.focus({ preventScroll: true });
         event.currentTarget.setPointerCapture(event.pointerId);
+        runtimeRef.current?.traversal.nudge(command);
         runtimeRef.current?.traversal.hold(command, true);
       }}
       onPointerUp={() => runtimeRef.current?.traversal.hold(command, false)}
@@ -763,11 +889,7 @@ function ImmersiveTownMap({
         runtimeRef.current?.traversal.hold(command, false)
       }
       onClick={(event) => {
-        if (
-          event.detail === 0 ||
-          performance.now() - walkPressStartedRef.current < 160
-        )
-          runtimeRef.current?.traversal.nudge(command);
+        if (event.detail === 0) runtimeRef.current?.traversal.nudge(command);
       }}
     >
       {label}
@@ -798,6 +920,21 @@ function ImmersiveTownMap({
     garden: "Restore garden",
     recycle: "Set up recycling",
   };
+  const talkHomeId = visit
+    ? visitPhase === "inside" &&
+      (visit.kind === "home" || visit.venue?.kind === "apartments")
+      ? visit.id
+      : null
+    : nearbyVenue
+      ? nearbyVenue.kind === "apartments"
+        ? nearbyVenue.id
+        : null
+      : (nearbyHouse?.id ?? null);
+  const talkResidentName = talkHomeId
+    ? isHouseId(talkHomeId)
+      ? HOUSE_PROFILES[talkHomeId].ownerName
+      : neighborhoodHomeProfile(talkHomeId).ownerName
+    : null;
 
   return (
     <div
@@ -808,14 +945,39 @@ function ImmersiveTownMap({
       <canvas
         aria-label={
           visit
-            ? `Inside ${visit.name}. W A S D to walk, arrows to turn. Walk back through the front door to leave.`
+            ? `Inside ${visit.name}. W A S D to walk, Shift to run, arrows to turn. Walk back through the front door to leave.`
             : viewMode === "walk"
-              ? "Walk around Rivergate. W A S D to move, arrow keys to move or turn, E to enter a nearby building. Drag to look."
+              ? "Walk around Rivergate. W A S D to move, Shift to run, arrow keys to move or turn, E to enter a nearby building. Drag to look."
               : "3D town view. Drag to turn, scroll to zoom."
         }
-        tabIndex={0}
+        tabIndex={residentJournalOpen ? -1 : 0}
         ref={canvasRef}
       />
+      {viewMode === "walk" && leoReply && dismissedLeoReply !== leoReply.id && (
+        <div
+          className="leo-world-bubble"
+          ref={leoBubbleRef}
+          role="status"
+          aria-live="polite"
+        >
+          <div className="leo-world-bubble-heading">
+            <strong>LEO</strong>
+            <button
+              type="button"
+              aria-label="Dismiss Leo's speech bubble"
+              onClick={() => setDismissedLeoReply(leoReply.id)}
+            >
+              Close
+            </button>
+          </div>
+          <p>{leoReply.text}</p>
+        </div>
+      )}
+      {viewMode === "walk" && leoModelState !== "ready" && (
+        <p className="leo-load-status" role="status">
+          {partyLoadMessage(leoModelState)}
+        </p>
+      )}
       {entryError ? (
         <p className="building-entry-error" role="alert">
           {entryError}
@@ -896,7 +1058,7 @@ function ImmersiveTownMap({
               onClick={() => switchView("walk")}
               type="button"
             >
-              Walk around
+              Walk with Leo
             </button>
             <button
               type="button"
@@ -987,10 +1149,10 @@ function ImmersiveTownMap({
             <span>
               {visit
                 ? "Walk through the rooms. Return through the front door."
-                : "Hold the buttons to walk. Drag the view to look."}
+                : "Hold the buttons to move. Tap Run to pick up the pace."}
             </span>
             <span className="walk-keyboard-hint">
-              W A S D to move · arrows to turn · E to interact
+              W A S D to move · Shift to run · arrows to turn · E to interact
             </span>
           </div>
           <div
@@ -998,6 +1160,23 @@ function ImmersiveTownMap({
             className="town-walk-controls"
             role="group"
           >
+            <button
+              type="button"
+              className="walk-run"
+              aria-pressed={running}
+              aria-keyshortcuts="Shift"
+              disabled={
+                residentJournalOpen ||
+                (visitPhase !== "outside" && visitPhase !== "inside")
+              }
+              title="Toggle running, or hold Shift while moving. Drag the view to look."
+              onClick={() => {
+                const walker = runtimeRef.current?.traversal.walker;
+                if (walker) walker.setRunning(!walker.running);
+              }}
+            >
+              {running ? "Run · On" : "Run"}
+            </button>
             {movementButton("forward", "Forward")}
             {movementButton("left", "Turn left")}
             {movementButton("back", "Back")}
@@ -1037,6 +1216,7 @@ function ImmersiveTownMap({
                 needsRepair) ? (
                 <button
                   type="button"
+                  disabled={residentJournalOpen}
                   onClick={() => runtimeRef.current?.traversal.interact()}
                 >
                   {nearExit
@@ -1053,6 +1233,7 @@ function ImmersiveTownMap({
             ) : nearbyHouse !== null || nearbyVenue !== null ? (
               <button
                 type="button"
+                disabled={residentJournalOpen}
                 onClick={() => runtimeRef.current?.walker.enterNearby()}
               >
                 {nearbyVenue?.outdoor
@@ -1060,6 +1241,16 @@ function ImmersiveTownMap({
                   : nearbyVenue
                     ? "Enter building"
                     : "Enter home"}
+              </button>
+            ) : null}
+            {talkHomeId && onResidentTalk ? (
+              <button
+                type="button"
+                className="town-resident-talk"
+                disabled={residentJournalOpen}
+                onClick={() => onResidentTalk(talkHomeId)}
+              >
+                {visit ? `Talk to ${talkResidentName}` : "Knock & talk"}
               </button>
             ) : null}
           </div>

@@ -21,11 +21,24 @@ import {
 } from "../../lib/challenges/catalog";
 import { nextChallengeAction } from "../../lib/challenges/next-action";
 import {
+  CASEWORK_STORAGE_KEY,
+  CASE_HOME_IDS,
+  caseStage,
+  currentCaseForHome,
+  emptyCasework,
+  parseCasework,
+  reconcileCasework,
+  recordCaseEvent,
+  residentCaseByKey,
+  type ResidentCase,
+} from "../../lib/immersive-town/neighborhood-casework";
+import {
   neighborhoodHomeProfile,
   NEIGHBORHOOD_HOME_PROFILES,
   startingNeighborhoodUpgrades,
 } from "../../lib/immersive-town/neighborhood-home-stories";
 import ChallengeTrail from "./ChallengeTrail";
+import ResidentCaseJournal from "./ResidentCaseJournal";
 import { GameIcon } from "./GameIcon";
 import {
   CORE_HOUSE_UPGRADE_IDS,
@@ -49,6 +62,7 @@ type DragPiece = Readonly<{
 }>;
 
 type CompoundWorldProps = Readonly<{
+  leoReply?: Readonly<{ id: string; text: string }> | undefined;
   timeOfDay?: "day" | "night";
   backgroundInert?: boolean;
   onRiverMessage: (message: string) => void;
@@ -223,6 +237,7 @@ function initialNeighborhoodState(): Record<string, readonly UpgradeId[]> {
 }
 
 export default function CompoundWorld({
+  leoReply,
   timeOfDay = "night",
   backgroundInert = false,
   onRiverMessage,
@@ -254,6 +269,22 @@ export default function CompoundWorld({
     useState<NeighborhoodHouseSelection | null>(null);
   const [neighborhoodHomes, setNeighborhoodHomes] = useState(
     initialNeighborhoodState,
+  );
+  const [casework, setCasework] = useState(emptyCasework);
+  const [caseworkReady, setCaseworkReady] = useState(false);
+  const [residentJournalOpen, setResidentJournalOpen] = useState(false);
+  const [selectedResidentCaseKey, setSelectedResidentCaseKey] = useState<
+    string | null
+  >(null);
+  const [caseworkStorageNotice, setCaseworkStorageNotice] = useState<
+    string | null
+  >(null);
+  const caseworkWritableRef = useRef(false);
+  const allHomeUpgrades = useMemo<
+    Readonly<Record<string, readonly UpgradeId[]>>
+  >(
+    () => ({ ...neighborhoodHomes, ...compounds }),
+    [compounds, neighborhoodHomes],
   );
   const [dragPiece, setDragPiece] = useState<DragPiece | null>(null);
   const [hoveredCompound, setHoveredCompound] = useState<CompoundId | null>(
@@ -422,6 +453,52 @@ export default function CompoundWorld({
   }, []);
 
   useEffect(() => {
+    try {
+      const restored = parseCasework(
+        window.localStorage.getItem(CASEWORK_STORAGE_KEY),
+      );
+      if (restored === null) {
+        // Keep unrecognised/corrupt data intact; this session can still be played.
+        setCaseworkStorageNotice(
+          "Older or unreadable journal data was left untouched. New notes will last for this session only.",
+        );
+      } else {
+        setCasework(restored);
+        caseworkWritableRef.current = true;
+      }
+    } catch {
+      setCaseworkStorageNotice(
+        "Device storage is unavailable. Your journal will last for this session only.",
+      );
+    }
+    setCaseworkReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!caseworkReady || !challengeProgressReady) return;
+    setCasework((current) => reconcileCasework(current, allHomeUpgrades));
+  }, [allHomeUpgrades, caseworkReady, challengeProgressReady]);
+
+  useEffect(() => {
+    if (!caseworkReady || !caseworkWritableRef.current) return;
+    try {
+      window.localStorage.setItem(
+        CASEWORK_STORAGE_KEY,
+        JSON.stringify(casework),
+      );
+    } catch {
+      caseworkWritableRef.current = false;
+      setCaseworkStorageNotice(
+        "This device could not save the journal. New notes will last for this session only.",
+      );
+    }
+  }, [casework, caseworkReady]);
+
+  useEffect(() => {
+    if (backgroundInert || challengeTrailOpen) setResidentJournalOpen(false);
+  }, [backgroundInert, challengeTrailOpen]);
+
+  useEffect(() => {
     if (!challengeProgressReady) return;
     try {
       window.localStorage.setItem(
@@ -550,8 +627,80 @@ export default function CompoundWorld({
       2200,
     );
     onRiverMessage(
-      `${story.ownerName}'s home is working again! ${story.healthy} Another neighbour is ready for a visit whenever you tap a house.`,
+      `${story.ownerName}'s home is working again! ${story.healthy} Talk to ${story.ownerName} at home for a check-in; your resident journal keeps the story.`,
     );
+  }
+
+  function residentCaseForHome(homeId: string) {
+    const selected =
+      selectedResidentCaseKey === null
+        ? undefined
+        : residentCaseByKey(selectedResidentCaseKey);
+    return selected?.homeId === homeId
+      ? selected
+      : currentCaseForHome(homeId, casework, allHomeUpgrades[homeId] ?? []);
+  }
+
+  function inspectResidentHome(homeId: string) {
+    const item = residentCaseForHome(homeId);
+    if (!item) return;
+    setCasework((current) =>
+      recordCaseEvent(
+        current,
+        item.key,
+        "inspected",
+        allHomeUpgrades[homeId] ?? [],
+      ),
+    );
+  }
+
+  function talkToResident(homeId: string) {
+    const item = residentCaseForHome(homeId);
+    if (!item) return;
+    const installed = allHomeUpgrades[homeId] ?? [];
+    setCasework((current) => {
+      const met = recordCaseEvent(current, item.key, "met", installed);
+      return recordCaseEvent(met, item.key, "followed-up", installed);
+    });
+    setSelectedResidentCaseKey(item.key);
+    setResidentJournalOpen(true);
+  }
+
+  function openResidentJournal() {
+    if (selectedResidentCaseKey === null) {
+      const available = CASE_HOME_IDS.map((id) =>
+        currentCaseForHome(id, casework, allHomeUpgrades[id] ?? []),
+      );
+      const next =
+        available.find(
+          (item) =>
+            item !== undefined &&
+            caseStage(item, casework, allHomeUpgrades[item.homeId] ?? []) !==
+              "complete",
+        ) ?? available[0];
+      if (next) setSelectedResidentCaseKey(next.key);
+    }
+    setResidentJournalOpen(true);
+  }
+
+  function visitResidentCase(item: ResidentCase) {
+    setResidentJournalOpen(false);
+    setSelectedResidentCaseKey(item.key);
+    setArmedUpgrade(null);
+    if (
+      item.homeId === "sunny" ||
+      item.homeId === "bluebell" ||
+      item.homeId === "mango"
+    ) {
+      setSelectedNeighborhoodHouse(null);
+      setSelectedCompound(item.homeId);
+    } else {
+      setSelectedCompound(null);
+      setSelectedNeighborhoodHouse({
+        id: item.homeId,
+        displayName: `${item.ownerName}'s ${item.homeName}`,
+      });
+    }
   }
 
   addUpgradeRef.current = addUpgrade;
@@ -783,7 +932,13 @@ export default function CompoundWorld({
           >
             <div className="world-canvas is-immersive-3d">
               <ImmersiveTownMap
+                leoReply={leoReply}
                 timeOfDay={timeOfDay}
+                onResidentTalk={talkToResident}
+                onHomeInspected={inspectResidentHome}
+                residentJournalOpen={
+                  residentJournalOpen && !backgroundInert && !challengeTrailOpen
+                }
                 activeUpgradeId={dragPiece?.id ?? armedUpgrade}
                 houses={compounds}
                 neighborhoodHouses={neighborhoodHomes}
@@ -1002,6 +1157,32 @@ export default function CompoundWorld({
           open={challengeTrailOpen}
           town={compounds}
         />
+        {!challengeTrailOpen && (
+          <ResidentCaseJournal
+            open={residentJournalOpen && !backgroundInert}
+            timeOfDay={timeOfDay}
+            progress={casework}
+            upgradesByHome={allHomeUpgrades}
+            selectedCaseKey={selectedResidentCaseKey}
+            storageNotice={caseworkStorageNotice}
+            onOpen={openResidentJournal}
+            onClose={() => setResidentJournalOpen(false)}
+            onSelect={setSelectedResidentCaseKey}
+            onVisit={visitResidentCase}
+            onReadRequest={(key) => {
+              const item = residentCaseByKey(key);
+              if (item)
+                setCasework((current) =>
+                  recordCaseEvent(
+                    current,
+                    key,
+                    "met",
+                    allHomeUpgrades[item.homeId] ?? [],
+                  ),
+                );
+            }}
+          />
+        )}
       </section>
 
       {dragPiece !== null && (

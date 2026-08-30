@@ -1,4 +1,68 @@
-/* Walking is part of the existing toy-town world, not another page. */
+/* Walking and LEO belong to the same live city canvas. */
+.leo-world-bubble {
+  position: absolute;
+  z-index: 17;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  width: min(290px, calc(100% - 24px));
+  padding: 12px 15px;
+  border-radius: 14px;
+  background: #f2eee3;
+  color: #172c26;
+  box-shadow: 0 7px 24px #07171142;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+.leo-world-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -9px;
+  left: calc(50% - 9px);
+  border-top: 10px solid #f2eee3;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+}
+.leo-world-bubble-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.leo-world-bubble-heading button {
+  background: transparent;
+  color: #3e584d;
+  border: 0;
+  padding: 7px 2px;
+  min-height: 44px;
+  min-width: 44px;
+  font: inherit;
+  cursor: pointer;
+}
+.leo-world-bubble-heading button:focus-visible {
+  outline: 2px solid #345c45;
+  outline-offset: 2px;
+}
+.leo-world-bubble p {
+  margin: 4px 0 0;
+  max-height: 170px;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+.leo-load-status {
+  position: absolute;
+  z-index: 18;
+  bottom: 114px;
+  left: 18px;
+  right: 18px;
+  width: fit-content;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: #f2eee3;
+  background: #172c26;
+  font-size: 0.8rem;
+}
 .building-visit-hud {
   position: absolute;
   z-index: 18;
@@ -148,7 +212,7 @@
   bottom: 28px;
   display: grid;
   grid-template-columns: repeat(3, 76px);
-  grid-template-areas: ". forward ." "left back right";
+  grid-template-areas: "run forward ." "left back right";
   gap: 6px;
 }
 .town-walk-controls button {
@@ -160,6 +224,16 @@
 }
 .walk-forward {
   grid-area: forward;
+}
+.walk-run {
+  grid-area: run;
+}
+.town-walk-controls button[aria-pressed="true"] {
+  background: #ffd24a;
+}
+.town-walk-controls button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 .walk-back {
   grid-area: back;

@@ -35,6 +35,7 @@ import {
   type CityGuideProof,
 } from "../../lib/guide";
 import { CHALLENGE_PROGRESS_STORAGE_KEY } from "../../lib/challenges/catalog";
+import { CASEWORK_STORAGE_KEY } from "../../lib/immersive-town/neighborhood-casework";
 import {
   readChallengeWelcomeProgress,
   type ChallengeWelcomeProgress,
@@ -499,6 +500,7 @@ export default function GameShell() {
       }
       const fresh = createDeveloperGame();
       removeDeviceItem(CHALLENGE_PROGRESS_STORAGE_KEY);
+      removeDeviceItem(CASEWORK_STORAGE_KEY);
       dispatch({ type: "restore", state: fresh });
       setWelcomeProgress(null);
       setHasSavedGame(false);
@@ -719,6 +721,7 @@ export default function GameShell() {
       persistenceRef.current?.deleteCity(RIVERGATE_CITY_ID),
     ]);
     removeDeviceItem(CHALLENGE_PROGRESS_STORAGE_KEY);
+    removeDeviceItem(CASEWORK_STORAGE_KEY);
     setWelcomeProgress(null);
     setHasSavedGame(false);
     setOnboardingComplete(false);
@@ -892,6 +895,9 @@ export default function GameShell() {
         >
           <CompoundWorld
             timeOfDay={timeOfDay}
+            leoReply={[...expertMessages]
+              .reverse()
+              .find((message) => message.speaker === "river")}
             backgroundInert={expertDrawerOpen}
             onRiverMessage={shareBuilderLearning}
           />
@@ -927,7 +933,7 @@ export default function GameShell() {
                 </div>
                 <div>
                   <h2 id="expert-heading">Leo</h2>
-                  <p>City advisor · {playerDisplayName(playerName)}</p>
+                  <p>Your canine companion · {playerDisplayName(playerName)}</p>
                   <span className="expert-online">Watching the town</span>
                 </div>
               </header>
