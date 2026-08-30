@@ -14,7 +14,18 @@ import type { NearbyConversation } from "../../lib/immersive-town/conversations-
 import type { HouseId, HouseUpgradeId } from "./HouseDiagnostics";
 import "./TownWalking.css";
 import BuildingVisit3D from "./BuildingVisit3D";
+import type {
+  BuildingTraversal,
+  BuildingVisit,
+  TraversalPhase,
+} from "../../lib/immersive-town/building-traversal";
+import {
+  INTERIOR_ROOMS,
+  type InteriorRoomId,
+  type InteriorUpgradeId,
+} from "../../lib/immersive-town/house-interior-world";
 import type { TownVenue } from "../../lib/immersive-town/venue-catalog";
+import { neighborhoodHomeProfile } from "../../lib/immersive-town/neighborhood-home-stories";
 import { createAdaptiveResolution } from "../../lib/immersive-town/adaptive-performance";
 import {
   getRenderBudget,
@@ -34,6 +45,8 @@ type ImmersiveTownMapProps = Readonly<{
   timeOfDay: "day" | "night";
   activeUpgradeId: HouseUpgradeId | null;
   houses: Readonly<Record<HouseId, readonly HouseUpgradeId[]>>;
+  neighborhoodHouses: Readonly<Record<string, readonly HouseUpgradeId[]>>;
+  onSelectionConsumed(): void;
   onHouseDrop: (houseId: HouseId, upgradeId: HouseUpgradeId) => void;
   onHouseSelect: (houseId: HouseId) => void;
   onWalkStart: () => void;
@@ -52,6 +65,7 @@ type RuntimeHandle = Readonly<{
   vehicles: VehicleFleet;
   world: ImmersiveTownWorld;
   walker: TownWalker;
+  traversal: BuildingTraversal;
   cancelCameraAnimation(): void;
   resetCamera(): void;
   focusHouse(houseId: string): void;
@@ -68,6 +82,8 @@ function ImmersiveTownMap({
   timeOfDay,
   activeUpgradeId,
   houses,
+  neighborhoodHouses,
+  onSelectionConsumed,
   onHouseDrop,
   onHouseSelect,
   onWalkStart,
@@ -88,19 +104,30 @@ function ImmersiveTownMap({
   showFrameRateRef.current = showFrameRate;
   const frameRateRef = useRef<HTMLOutputElement>(null);
   const [venue, setVenue] = useState<TownVenue | null>(null);
+  const [visit, setVisit] = useState<BuildingVisit | null>(null);
+  const [visitPhase, setVisitPhase] = useState<TraversalPhase>("outside");
+  const [room, setRoom] = useState<InteriorRoomId | null>(null);
+  const [indoorNearby, setIndoorNearby] = useState<string | null>(null);
+  const [entryError, setEntryError] = useState<string | null>(null);
+  const [requestedVisit, setRequestedVisit] = useState<string | null>(null);
+  const [nearExit, setNearExit] = useState(false);
+  const floorSelectRef = useRef<HTMLSelectElement>(null);
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const [allHomes, setAllHomes] = useState<NeighborhoodHouseSelection[]>([]);
   const [nearbyVenue, setNearbyVenue] = useState<TownVenue | null>(null);
   const visitOpenRef = useRef(false);
   visitOpenRef.current = venue !== null || directoryOpen;
   const renderingBlockedRef = useRef(false);
-  renderingBlockedRef.current =
-    visitOpenRef.current ||
-    selectedHouseId !== null ||
-    selectedNeighborhoodHouseId !== null;
+  renderingBlockedRef.current = visitOpenRef.current;
   useEffect(() => {
     runtimeRef.current?.syncPauseState();
-  }, [venue, directoryOpen, selectedHouseId, selectedNeighborhoodHouseId]);
+  }, [
+    venue,
+    directoryOpen,
+    selectedHouseId,
+    selectedNeighborhoodHouseId,
+    visitPhase,
+  ]);
   const timeOfDayRef = useRef(timeOfDay);
   timeOfDayRef.current = timeOfDay;
   useEffect(() => {
@@ -114,6 +141,7 @@ function ImmersiveTownMap({
   const propsRef = useRef({
     activeUpgradeId,
     houses,
+    neighborhoodHouses,
     onHouseDrop,
     onHouseSelect,
     onNeighborhoodHouseDrop,
@@ -128,6 +156,7 @@ function ImmersiveTownMap({
   propsRef.current = {
     activeUpgradeId,
     houses,
+    neighborhoodHouses,
     onHouseDrop,
     onHouseSelect,
     onNeighborhoodHouseDrop,
@@ -154,6 +183,7 @@ function ImmersiveTownMap({
           upgradeTools,
           adapterTools,
           walkingTools,
+          traversalTools,
         ] = await Promise.all([
           import("../../lib/immersive-town/babylon-runtime"),
           import("../../lib/immersive-town"),
@@ -163,6 +193,7 @@ function ImmersiveTownMap({
           import("../../lib/immersive-town/house-upgrades-3d"),
           import("../../lib/immersive-town/babylon-adapter"),
           import("../../lib/immersive-town/town-walker"),
+          import("../../lib/immersive-town/building-traversal"),
         ]);
         if (cancelled) return;
 
@@ -219,8 +250,7 @@ function ImmersiveTownMap({
         const walker = walkingTools.createTownWalker(world, canvas, {
           isBlocked: () =>
             visitOpenRef.current ||
-            propsRef.current.selectedHouseId !== null ||
-            propsRef.current.selectedNeighborhoodHouseId !== null ||
+            (traversal !== undefined && traversal.phase !== "outside") ||
             propsRef.current.activeUpgradeId !== null,
           onNearbyHouse: (house) =>
             setNearbyHouse(
@@ -232,16 +262,53 @@ function ImmersiveTownMap({
                   },
             ),
           onEnterHouse: (house) => {
-            if (isHouseId(house.id)) propsRef.current.onHouseSelect(house.id);
-            else
-              propsRef.current.onNeighborhoodHouseSelect({
-                id: house.id,
-                displayName: house.displayName,
-              });
+            traversal?.open(house.id);
           },
           onNearbyVenue: (place) => setNearbyVenue(place?.venue ?? null),
-          onEnterVenue: (place) => setVenue(place.venue),
+          onEnterVenue: (place) => traversal?.open(place.venue.id),
         });
+        const traversal = traversalTools.createBuildingTraversal(
+          world,
+          walker,
+          {
+            isBlocked: () =>
+              visitOpenRef.current ||
+              document.visibilityState !== "visible" ||
+              canvas.closest("[inert]") !== null ||
+              document.querySelector("dialog[open]") !== null,
+            reducedMotion: () => reducedMotionQuery.matches,
+            upgrades: (id) =>
+              (isHouseId(id)
+                ? propsRef.current.houses[id]
+                : (propsRef.current.neighborhoodHouses[id] ?? [])
+              ).filter((u): u is InteriorUpgradeId =>
+                ["light", "water", "garden", "recycle"].includes(u),
+              ),
+            onRepair: (id, upgrade) => {
+              if (isHouseId(id)) propsRef.current.onHouseDrop(id, upgrade);
+              else
+                propsRef.current.onNeighborhoodHouseDrop(
+                  {
+                    id,
+                    displayName:
+                      world.houses.find((h) => h.id === id)?.displayName ?? id,
+                  },
+                  upgrade,
+                );
+            },
+            onChange: (next, phase) => {
+              setVisit(next);
+              setVisitPhase(phase);
+              setEntryError(null);
+              setViewMode("walk");
+              setNearbyConversation(null);
+            },
+            onRoom: setRoom,
+            onNearby: setIndoorNearby,
+            onError: setEntryError,
+            onLift: () => floorSelectRef.current?.focus(),
+          },
+        );
         const upgrades = upgradeTools.createHouseUpgradeVisuals(
           world.scene,
           world.houses,
@@ -314,14 +381,18 @@ function ImmersiveTownMap({
             return;
           }
           if (pointer.type !== Babylon.PointerEventTypes.POINTERPICK) return;
-          if (visitOpenRef.current || propsRef.current.activeUpgradeId !== null)
+          if (
+            visitOpenRef.current ||
+            traversal?.phase !== "outside" ||
+            propsRef.current.activeUpgradeId !== null
+          )
             return;
           const destination = world.getVenueFromMesh(
             pointer.pickInfo?.pickedMesh ?? null,
           );
           if (destination) {
             if (walker.active) walker.enterVenue(destination.venue.id);
-            else setVenue(destination.venue);
+            else traversal?.open(destination.venue.id);
             return;
           }
           const house = world.getHouseFromMesh(
@@ -334,18 +405,11 @@ function ImmersiveTownMap({
             walker.enterHouse(house.id);
             return;
           }
-          if (isHouseId(house.id)) {
-            propsRef.current.onHouseSelect(house.id);
-          } else {
-            propsRef.current.onNeighborhoodHouseSelect({
-              id: house.id,
-              displayName: house.displayName,
-            });
-          }
+          traversal?.open(house.id);
         });
 
         const dropUpgradeOnHouse = (event: PointerEvent) => {
-          if (visitOpenRef.current) return;
+          if (visitOpenRef.current || traversal?.phase !== "outside") return;
           const active = propsRef.current.activeUpgradeId;
           if (active === null) return;
           const bounds = canvas.getBoundingClientRect();
@@ -426,6 +490,7 @@ function ImmersiveTownMap({
           vehicles,
           world,
           walker,
+          traversal,
           cancelCameraAnimation: () => cancelCameraAnimation(),
           resetCamera,
           focusHouse,
@@ -437,6 +502,7 @@ function ImmersiveTownMap({
           syncPauseState: () => syncPauseState(),
           dispose() {
             cancelCameraAnimation();
+            traversal?.dispose();
             walker.dispose();
             setHoveredHouse(null);
             unsubscribeAnimation();
@@ -482,6 +548,7 @@ function ImmersiveTownMap({
         let measuredMs = 0;
         let measuredFrames = 0;
         let measuredDrawCalls = 0;
+        let previousNearExit = false;
         const resetMeasurements = () => {
           lastFrameAt = 0;
           measuredMs = 0;
@@ -495,7 +562,13 @@ function ImmersiveTownMap({
           lastFrameAt = now;
           if (frameMs > 0 && resolution.sample(frameMs) !== null)
             applyResolution();
-          world.render();
+          traversal?.update(frameMs / 1000);
+          if (traversal?.inside) traversal.scene.render();
+          else world.render();
+          if (traversal?.nearExit !== previousNearExit) {
+            previousNearExit = traversal?.nearExit ?? false;
+            setNearExit(previousNearExit);
+          }
           if (showFrameRateRef.current && frameMs > 0 && frameMs <= 1000) {
             measuredMs += frameMs;
             measuredFrames += 1;
@@ -526,8 +599,11 @@ function ImmersiveTownMap({
             isOnscreen,
             renderingBlockedRef.current,
           );
-          if (paused) walker.clearInput();
-          world.animation.setPaused(paused);
+          if (paused) {
+            walker.clearInput();
+            traversal?.walker.clearInput();
+          }
+          world.animation.setPaused(paused || traversal?.inside === true);
           if (paused && isRendering) {
             engine.stopRenderLoop(renderFrame);
             isRendering = false;
@@ -585,12 +661,41 @@ function ImmersiveTownMap({
 
   useEffect(() => {
     runtimeRef.current?.upgrades.sync(houses, selectedHouseId);
-  }, [houses, selectedHouseId]);
+    runtimeRef.current?.traversal.syncUpgrades();
+  }, [houses, neighborhoodHouses, selectedHouseId]);
+
+  useEffect(() => {
+    if (directoryOpen || !requestedVisit || engineStatus !== "ready") return;
+    // The directory dialog must unmount before it hands input back to the game.
+    runtimeRef.current?.walker.setActive(false);
+    runtimeRef.current?.traversal.open(requestedVisit);
+    setRequestedVisit(null);
+  }, [requestedVisit, directoryOpen, engineStatus]);
 
   useEffect(() => {
     const focusedHouseId = selectedHouseId ?? selectedNeighborhoodHouseId;
-    if (focusedHouseId !== null) runtimeRef.current?.focusHouse(focusedHouseId);
-  }, [selectedHouseId, selectedNeighborhoodHouseId]);
+    if (focusedHouseId !== null && engineStatus === "ready") {
+      onWalkStart();
+      runtimeRef.current?.cancelCameraAnimation();
+      const traversal = runtimeRef.current?.traversal;
+      if (traversal?.visit?.id !== focusedHouseId) {
+        if (
+          runtimeRef.current?.walker.active &&
+          traversal?.phase === "outside"
+        ) {
+          setEntryError("Walk up to this home's front door to enter.");
+        }
+        traversal?.open(focusedHouseId);
+      }
+      onSelectionConsumed();
+    }
+  }, [
+    selectedHouseId,
+    selectedNeighborhoodHouseId,
+    engineStatus,
+    onSelectionConsumed,
+    onWalkStart,
+  ]);
 
   const changeCamera = useCallback(
     (command: "left" | "right" | "closer" | "farther" | "home") => {
@@ -620,6 +725,7 @@ function ImmersiveTownMap({
   const switchView = (mode: "town" | "walk") => {
     const runtime = runtimeRef.current;
     if (runtime === null) return;
+    if (runtime.traversal.phase !== "outside") return;
     runtime.cancelCameraAnimation();
     if (mode === "walk") onWalkStart();
     runtime.walker.setActive(mode === "walk");
@@ -635,154 +741,242 @@ function ImmersiveTownMap({
         walkPressStartedRef.current = performance.now();
         event.currentTarget.focus({ preventScroll: true });
         event.currentTarget.setPointerCapture(event.pointerId);
-        runtimeRef.current?.walker.hold(command, true);
+        runtimeRef.current?.traversal.hold(command, true);
       }}
-      onPointerUp={() => runtimeRef.current?.walker.hold(command, false)}
-      onPointerCancel={() => runtimeRef.current?.walker.hold(command, false)}
+      onPointerUp={() => runtimeRef.current?.traversal.hold(command, false)}
+      onPointerCancel={() => runtimeRef.current?.traversal.hold(command, false)}
       onLostPointerCapture={() =>
-        runtimeRef.current?.walker.hold(command, false)
+        runtimeRef.current?.traversal.hold(command, false)
       }
       onClick={(event) => {
         if (
           event.detail === 0 ||
           performance.now() - walkPressStartedRef.current < 160
         )
-          runtimeRef.current?.walker.nudge(command);
+          runtimeRef.current?.traversal.nudge(command);
       }}
     >
       {label}
     </button>
   );
 
+  const activeRoom = INTERIOR_ROOMS.find((r) => r.id === room);
+  const apartment =
+    visit?.venue?.kind === "apartments"
+      ? neighborhoodHomeProfile(visit.id)
+      : null;
+  const installed = visit
+    ? isHouseId(visit.id)
+      ? houses[visit.id]
+      : (neighborhoodHouses[visit.id] ?? [])
+    : [];
+  const repairUpgrade =
+    indoorNearby === "repair"
+      ? apartment?.need
+      : visit?.kind === "home" && indoorNearby === room
+        ? activeRoom?.upgradeId
+        : undefined;
+  const needsRepair =
+    repairUpgrade !== undefined && !installed.includes(repairUpgrade);
+  const repairLabels: Record<InteriorUpgradeId, string> = {
+    light: "Restore power",
+    water: "Repair water supply",
+    garden: "Restore garden",
+    recycle: "Set up recycling",
+  };
+
   return (
     <div
-      className={`immersive-town-map${viewMode === "walk" ? " is-walking" : ""}`}
+      className={`immersive-town-map${viewMode === "walk" ? " is-walking" : ""}${visit ? " is-inside-building" : ""}`}
       data-time-of-day={timeOfDay}
+      data-visit-phase={visitPhase}
     >
       <canvas
         aria-label={
-          viewMode === "walk"
-            ? "Walk around Rivergate. W A S D to move, arrow keys to move or turn, E to enter a nearby building. Drag to look."
-            : "3D town view. Drag to turn, scroll to zoom."
+          visit
+            ? `Inside ${visit.name}. W A S D to walk, arrows to turn. Walk back through the front door to leave.`
+            : viewMode === "walk"
+              ? "Walk around Rivergate. W A S D to move, arrow keys to move or turn, E to enter a nearby building. Drag to look."
+              : "3D town view. Drag to turn, scroll to zoom."
         }
         tabIndex={0}
         ref={canvasRef}
       />
-      {engineStatus === "loading" ? (
-        <div className="immersive-town-status" role="status">
-          <strong>Building your 3D town…</strong>
-          <span>Planting gardens and starting the buses.</span>
+      {entryError ? (
+        <p className="building-entry-error" role="alert">
+          {entryError}
+        </p>
+      ) : null}
+      {visit ? (
+        <div className="building-visit-hud" aria-label="Current building">
+          <strong>{visit.name}</strong>
+          <span aria-live="polite">
+            {visitPhase === "opening"
+              ? "Opening the door…"
+              : visitPhase === "entering"
+                ? "Walking inside…"
+                : visitPhase === "leaving" || visitPhase === "emerging"
+                  ? "Walking outside…"
+                  : room
+                    ? INTERIOR_ROOMS.find((r) => r.id === room)?.label
+                    : visit.venue?.floors[visit.floor]?.label}
+          </span>
+          {visit.venue && visit.venue.floors.length > 1 ? (
+            <label>
+              Lift
+              <select
+                ref={floorSelectRef}
+                aria-label="Choose building floor"
+                value={visit.floor}
+                disabled={indoorNearby !== "lift" || visitPhase !== "inside"}
+                onChange={(e) => {
+                  runtimeRef.current?.traversal.changeFloor(
+                    Number(e.target.value),
+                  );
+                  canvasRef.current?.focus({ preventScroll: true });
+                }}
+              >
+                {visit.venue.floors.map((floor, i) => (
+                  <option key={i} value={i}>
+                    {floor.label}
+                  </option>
+                ))}
+              </select>
+              {indoorNearby !== "lift" ? (
+                <small>Walk to the lift at the back.</small>
+              ) : null}
+            </label>
+          ) : null}
         </div>
       ) : null}
-      {engineStatus === "failed" ? (
-        <div className="immersive-town-status is-error" role="alert">
-          <strong>The 3D town needs graphics support.</strong>
-          <span>You can still choose a home using the buttons below.</span>
-        </div>
-      ) : null}
-      <div
-        aria-label="Choose your view"
-        className="town-view-switch"
-        role="group"
-      >
-        <button
-          aria-pressed={viewMode === "town"}
-          disabled={engineStatus !== "ready"}
-          onClick={() => switchView("town")}
-          type="button"
-        >
-          Town view
-        </button>
-        <button
-          aria-pressed={viewMode === "walk"}
-          disabled={engineStatus !== "ready"}
-          onClick={() => switchView("walk")}
-          type="button"
-        >
-          Walk around
-        </button>
-        <button
-          type="button"
-          disabled={engineStatus !== "ready"}
-          onClick={() => {
-            onWalkStart();
-            runtimeRef.current?.walker.clearInput();
-            setDirectoryOpen(true);
-          }}
-        >
-          Places
-        </button>
-      </div>
-      <details className="town-render-settings">
-        <summary>Graphics</summary>
-        <label>
-          Render quality
-          <select
-            aria-label="Render quality"
-            disabled={engineStatus !== "ready"}
-            value={renderPreference}
-            onChange={(event) => {
-              const preference = parseRenderQuality(event.target.value);
-              setRenderPreference(preference);
-              runtimeRef.current?.setRenderPreference(preference);
-              try {
-                localStorage.setItem(RENDER_QUALITY_STORAGE_KEY, preference);
-              } catch {
-                // Keep the preference for this session when storage is unavailable.
-              }
-            }}
+      {!visit ? (
+        <>
+          {engineStatus === "loading" ? (
+            <div className="immersive-town-status" role="status">
+              <strong>Building your 3D town…</strong>
+              <span>Planting gardens and starting the buses.</span>
+            </div>
+          ) : null}
+          {engineStatus === "failed" ? (
+            <div className="immersive-town-status is-error" role="alert">
+              <strong>The 3D town needs graphics support.</strong>
+              <span>You can still choose a home using the buttons below.</span>
+            </div>
+          ) : null}
+          <div
+            aria-label="Choose your view"
+            className="town-view-switch"
+            role="group"
           >
-            <option value="auto">Auto</option>
-            <option value="performance">Performance</option>
-            <option value="balanced">Balanced</option>
-          </select>
-        </label>
-        <p>
-          {renderPreference === "auto"
-            ? "Adjusts resolution to frame time. The whole city stays available."
-            : renderPreference === "performance"
-              ? "Lower resolution and no dynamic shadows. All places and people remain."
-              : "Sharper detail and light shadows, with a bounded resolution."}
-        </p>
-        <label className="town-frame-rate-toggle">
-          <input
-            type="checkbox"
-            checked={conversationsEnabled}
-            disabled={engineStatus !== "ready"}
-            onChange={(event) => {
-              setConversationsEnabled(event.target.checked);
-              runtimeRef.current?.world.conversations.setEnabled(
-                event.target.checked,
-              );
-              if (!event.target.checked) setNearbyConversation(null);
-            }}
-          />
-          Resident conversations
-        </label>
-        <p className="town-conversation-transcript" aria-live="off">
-          {nearbyConversation
-            ? `${nearbyConversation.name}, ${nearbyConversation.place}: ${nearbyConversation.text}`
-            : "Nearby residents chat as you explore. Conversations are written local dialogue, with no microphone or network access."}
-        </p>
-        <label className="town-frame-rate-toggle">
-          <input
-            type="checkbox"
-            checked={showFrameRate}
-            onChange={(event) => setShowFrameRate(event.target.checked)}
-          />
-          Show frame rate
-        </label>
-        <output ref={frameRateRef} hidden={!showFrameRate} aria-live="off">
-          Measuring city frames…
-        </output>
-      </details>
+            <button
+              aria-pressed={viewMode === "town"}
+              disabled={engineStatus !== "ready"}
+              onClick={() => switchView("town")}
+              type="button"
+            >
+              Town view
+            </button>
+            <button
+              aria-pressed={viewMode === "walk"}
+              disabled={engineStatus !== "ready"}
+              onClick={() => switchView("walk")}
+              type="button"
+            >
+              Walk around
+            </button>
+            <button
+              type="button"
+              disabled={engineStatus !== "ready"}
+              onClick={() => {
+                onWalkStart();
+                runtimeRef.current?.walker.clearInput();
+                setDirectoryOpen(true);
+              }}
+            >
+              Places
+            </button>
+          </div>
+          <details className="town-render-settings">
+            <summary>Graphics</summary>
+            <label>
+              Render quality
+              <select
+                aria-label="Render quality"
+                disabled={engineStatus !== "ready"}
+                value={renderPreference}
+                onChange={(event) => {
+                  const preference = parseRenderQuality(event.target.value);
+                  setRenderPreference(preference);
+                  runtimeRef.current?.setRenderPreference(preference);
+                  try {
+                    localStorage.setItem(
+                      RENDER_QUALITY_STORAGE_KEY,
+                      preference,
+                    );
+                  } catch {
+                    // Keep the preference for this session when storage is unavailable.
+                  }
+                }}
+              >
+                <option value="auto">Auto</option>
+                <option value="performance">Performance</option>
+                <option value="balanced">Balanced</option>
+              </select>
+            </label>
+            <p>
+              {renderPreference === "auto"
+                ? "Adjusts resolution to frame time. The whole city stays available."
+                : renderPreference === "performance"
+                  ? "Lower resolution and no dynamic shadows. All places and people remain."
+                  : "Sharper detail and light shadows, with a bounded resolution."}
+            </p>
+            <label className="town-frame-rate-toggle">
+              <input
+                type="checkbox"
+                checked={conversationsEnabled}
+                disabled={engineStatus !== "ready"}
+                onChange={(event) => {
+                  setConversationsEnabled(event.target.checked);
+                  runtimeRef.current?.world.conversations.setEnabled(
+                    event.target.checked,
+                  );
+                  if (!event.target.checked) setNearbyConversation(null);
+                }}
+              />
+              Resident conversations
+            </label>
+            <p className="town-conversation-transcript" aria-live="off">
+              {nearbyConversation
+                ? `${nearbyConversation.name}, ${nearbyConversation.place}: ${nearbyConversation.text}`
+                : "Nearby residents chat as you explore. Conversations are written local dialogue, with no microphone or network access."}
+            </p>
+            <label className="town-frame-rate-toggle">
+              <input
+                type="checkbox"
+                checked={showFrameRate}
+                onChange={(event) => setShowFrameRate(event.target.checked)}
+              />
+              Show frame rate
+            </label>
+            <output ref={frameRateRef} hidden={!showFrameRate} aria-live="off">
+              Measuring city frames…
+            </output>
+          </details>
+        </>
+      ) : null}
       {viewMode === "walk" ? (
         <>
           <div className="town-walk-help">
-            <strong>You’re walking in Rivergate</strong>
-            <span>Hold the buttons to walk. Drag the view to look.</span>
+            <strong>
+              {visit ? "Explore inside" : "You’re walking in Rivergate"}
+            </strong>
+            <span>
+              {visit
+                ? "Walk through the rooms. Return through the front door."
+                : "Hold the buttons to walk. Drag the view to look."}
+            </span>
             <span className="walk-keyboard-hint">
-              W A S D to move · arrows to turn · E to enter
+              W A S D to move · arrows to turn · E to interact
             </span>
           </div>
           <div
@@ -797,11 +991,50 @@ function ImmersiveTownMap({
           </div>
           <div className="town-walk-entry">
             <p aria-live="polite" role="status">
-              {nearbyVenue?.name ??
-                nearbyHouse?.displayName ??
-                "Walk up to a front door to visit."}
+              {visit
+                ? nearExit
+                  ? "Front door · back to Rivergate"
+                  : indoorNearby === "exit" && visit.floor > 0
+                    ? "Take the lift to the ground floor to leave the building."
+                    : indoorNearby === "lift"
+                      ? "Lift · choose a floor above."
+                      : indoorNearby === "repair" && apartment
+                        ? needsRepair
+                          ? apartment.problem
+                          : apartment.healthy
+                        : indoorNearby && activeRoom
+                          ? installed.includes(activeRoom.upgradeId)
+                            ? activeRoom.healthy
+                            : activeRoom.problem
+                          : apartment && visit.floor === 0
+                            ? "Resident repairs · walk to the reception desk."
+                            : "Explore the rooms. Approach an object to interact."
+                : (nearbyVenue?.name ??
+                  nearbyHouse?.displayName ??
+                  "Walk up to a front door to visit.")}
             </p>
-            {nearbyHouse !== null || nearbyVenue !== null ? (
+            {visit ? (
+              visitPhase === "inside" &&
+              (nearExit ||
+                indoorNearby === "lift" ||
+                indoorNearby === "exit" ||
+                needsRepair) ? (
+                <button
+                  type="button"
+                  onClick={() => runtimeRef.current?.traversal.interact()}
+                >
+                  {nearExit
+                    ? "Walk outside"
+                    : indoorNearby === "lift"
+                      ? "Use lift"
+                      : indoorNearby === "exit"
+                        ? "Check exit"
+                        : repairUpgrade
+                          ? repairLabels[repairUpgrade]
+                          : "Interact"}
+                </button>
+              ) : null
+            ) : nearbyHouse !== null || nearbyVenue !== null ? (
               <button
                 type="button"
                 onClick={() => runtimeRef.current?.walker.enterNearby()}
@@ -861,14 +1094,15 @@ function ImmersiveTownMap({
           timeOfDay={timeOfDay}
           homes={allHomes}
           onVisit={(place) => {
+            visitOpenRef.current = false;
             setDirectoryOpen(false);
-            setVenue(place);
+            setRequestedVisit(place.id);
           }}
           onHome={(home) => {
             setVenue(null);
             setDirectoryOpen(false);
-            if (isHouseId(home.id)) onHouseSelect(home.id);
-            else onNeighborhoodHouseSelect(home);
+            visitOpenRef.current = false;
+            setRequestedVisit(home.id);
           }}
           onClose={() => {
             setVenue(null);

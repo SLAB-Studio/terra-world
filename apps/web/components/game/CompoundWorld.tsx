@@ -27,13 +27,12 @@ import {
 } from "../../lib/immersive-town/neighborhood-home-stories";
 import ChallengeTrail from "./ChallengeTrail";
 import { GameIcon } from "./GameIcon";
-import HouseDiagnostics, {
+import {
   CORE_HOUSE_UPGRADE_IDS,
   getHouseHealth,
   HOUSE_UPGRADE_IDS,
   type CoreHouseUpgradeId,
   type HouseId,
-  type HouseProfile,
   type HouseUpgradeId,
 } from "./HouseDiagnostics";
 import ImmersiveTownMap, {
@@ -302,34 +301,6 @@ export default function CompoundWorld({
     nextChallengeId(activeChallenge.id) === null
       ? null
       : challengeById(nextChallengeId(activeChallenge.id) ?? "");
-  const selectedNeighborhoodStory =
-    selectedNeighborhoodHouse === null
-      ? null
-      : neighborhoodHomeProfile(
-          selectedNeighborhoodHouse.id,
-          selectedNeighborhoodHouse.displayName,
-        );
-  const selectedNeighborhoodTemplate =
-    selectedNeighborhoodStory === null
-      ? "sunny"
-      : houseTemplateFor(selectedNeighborhoodStory.id);
-  const selectedNeighborhoodProfile = useMemo<HouseProfile | undefined>(() => {
-    if (selectedNeighborhoodStory === null) return undefined;
-    const otherNeeds = CORE_HOUSE_UPGRADE_IDS.filter(
-      (upgrade) => upgrade !== selectedNeighborhoodStory.need,
-    );
-    return {
-      id: selectedNeighborhoodTemplate,
-      homeName: selectedNeighborhoodStory.homeName,
-      ownerName: selectedNeighborhoodStory.ownerName,
-      gardenName: "neighbourhood garden",
-      hello: selectedNeighborhoodStory.problem,
-      defaultUpgrades: startingNeighborhoodUpgrades(
-        selectedNeighborhoodStory.need,
-      ),
-      recommendedOrder: [selectedNeighborhoodStory.need, ...otherNeeds],
-    };
-  }, [selectedNeighborhoodStory, selectedNeighborhoodTemplate]);
   const nextNeighborhoodCall = NEIGHBORHOOD_HOME_PROFILES.find((home) => {
     const upgrades = neighborhoodHomes[home.id] ?? [];
     return !upgrades.includes(home.need);
@@ -815,6 +786,11 @@ export default function CompoundWorld({
                 timeOfDay={timeOfDay}
                 activeUpgradeId={dragPiece?.id ?? armedUpgrade}
                 houses={compounds}
+                neighborhoodHouses={neighborhoodHomes}
+                onSelectionConsumed={() => {
+                  setSelectedCompound(null);
+                  setSelectedNeighborhoodHouse(null);
+                }}
                 onWalkStart={() => {
                   dragPieceRef.current = null;
                   dragPointerIdRef.current = null;
@@ -853,7 +829,7 @@ export default function CompoundWorld({
                       : OWNER_HELP[health.recommendedUpgrade];
                   return (
                     <button
-                      aria-label={`${compound.name}. ${health.healthyCount} of ${health.totalCount} parts feel good. Open home check-up.`}
+                      aria-label={`${compound.name}. ${health.healthyCount} of ${health.totalCount} parts feel good. Walk through the front door.`}
                       className={`compound compound-${compound.id}${
                         hoveredCompound === compound.id ? " is-drop-target" : ""
                       }${isLit ? " is-lit" : ""}${
@@ -1043,33 +1019,6 @@ export default function CompoundWorld({
           <strong>{upgradeLabel(dragPiece.id)}</strong>
         </div>
       )}
-
-      <HouseDiagnostics
-        houseId={selectedCompound ?? "sunny"}
-        onChooseUpgrade={(upgradeId) =>
-          addUpgrade(selectedCompound ?? "sunny", upgradeId)
-        }
-        onClose={() => setSelectedCompound(null)}
-        open={selectedCompound !== null}
-        upgrades={compounds[selectedCompound ?? "sunny"]}
-      />
-
-      <HouseDiagnostics
-        houseId={selectedNeighborhoodTemplate}
-        instanceId={`neighbor-${selectedNeighborhoodHouse?.id ?? "home"}`}
-        onChooseUpgrade={(upgradeId) => {
-          if (selectedNeighborhoodHouse !== null)
-            addNeighborhoodUpgrade(selectedNeighborhoodHouse, upgradeId);
-        }}
-        onClose={() => setSelectedNeighborhoodHouse(null)}
-        open={selectedNeighborhoodHouse !== null}
-        profile={selectedNeighborhoodProfile}
-        upgrades={
-          selectedNeighborhoodHouse === null
-            ? undefined
-            : neighborhoodHomes[selectedNeighborhoodHouse.id]
-        }
-      />
     </>
   );
 }
@@ -1084,14 +1033,6 @@ function compoundAt(x: number, y: number): CompoundId | null {
 
 function upgradeLabel(id: UpgradeId): string {
   return UPGRADES.find((upgrade) => upgrade.id === id)?.label ?? id;
-}
-
-function houseTemplateFor(id: string): HouseId {
-  const index = [...id].reduce(
-    (total, character) => total + character.charCodeAt(0),
-    0,
-  );
-  return (["sunny", "bluebell", "mango"] as const)[index % 3] ?? "sunny";
 }
 
 function missingChallengeCatalogue(): never {

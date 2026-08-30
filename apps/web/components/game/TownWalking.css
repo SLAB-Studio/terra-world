@@ -1,4 +1,70 @@
 /* Walking is part of the existing toy-town world, not another page. */
+.building-visit-hud {
+  position: absolute;
+  z-index: 18;
+  top: 18px;
+  left: 18px;
+  display: grid;
+  gap: 5px;
+  max-width: min(340px, calc(100% - 36px));
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #172321ee;
+  color: #f2f0e7;
+  box-shadow: 0 6px 18px #09120f38;
+  font-size: 0.85rem;
+}
+.building-visit-hud span,
+.building-visit-hud small {
+  color: #cbd8ce;
+}
+.building-visit-hud label {
+  display: grid;
+  gap: 6px;
+}
+.building-visit-hud select {
+  min-height: 44px;
+  max-width: 100%;
+  padding: 8px;
+  background: #253b35;
+  color: #f2f0e7;
+  border: 1px solid #829b8d;
+  border-radius: 8px;
+  font: inherit;
+}
+.building-visit-hud select:focus-visible {
+  outline: 3px solid #d6bb72;
+  outline-offset: 3px;
+}
+.building-visit-hud select:disabled {
+  color: #b6c4ba;
+  cursor: not-allowed;
+}
+.building-entry-error {
+  position: absolute;
+  z-index: 20;
+  top: 70px;
+  left: 18px;
+  max-width: calc(100% - 36px);
+  padding: 12px;
+  background: #432d25;
+  color: #fff1dc;
+  border-radius: 10px;
+}
+.is-inside-building .town-walk-help {
+  top: 18px;
+}
+@media (max-width: 760px) {
+  .is-inside-building .town-walk-help {
+    display: none;
+  }
+  .building-visit-hud {
+    top: 10px;
+    left: 10px;
+    max-width: calc(100% - 20px);
+    font-size: 0.75rem;
+  }
+}
 .town-view-switch {
   position: absolute;
   z-index: 18;
