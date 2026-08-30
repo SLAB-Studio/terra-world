@@ -4,6 +4,7 @@ import type { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 import type { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
+import type { TownVenueMetadata } from "./venues";
 
 export type TownCompoundId =
   | "sunflower-court"
@@ -61,10 +62,12 @@ export interface ImmersiveTownWorld {
   readonly camera: ArcRotateCamera;
   readonly compounds: readonly TownCompoundMetadata[];
   readonly houses: readonly TownHouseMetadata[];
+  readonly venues: readonly TownVenueMetadata[];
   readonly animation: TownAnimationController;
   readonly timeOfDay: TownTimeOfDay;
   setTimeOfDay(mode: TownTimeOfDay): void;
   getHouseFromMesh(mesh: AbstractMesh | null): TownHouseMetadata | null;
+  getVenueFromMesh(mesh: AbstractMesh | null): TownVenueMetadata | null;
   render(): void;
   resize(): void;
   dispose(): void;

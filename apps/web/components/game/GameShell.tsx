@@ -129,7 +129,7 @@ export default function GameShell() {
   const [highContrast, setHighContrast] = useState(false);
   const [muted, setMuted] = useState(true);
   const [audioReady, setAudioReady] = useState(false);
-  const [timeOfDay, setTimeOfDay] = useState<TownTimeOfDay>("day");
+  const [timeOfDay, setTimeOfDay] = useState<TownTimeOfDay>("night");
   const [backupKit, setBackupKit] = useState<AdultBackupKit | null>(null);
   const [backupKitImported, setBackupKitImported] = useState(false);
   const [backupState, setBackupState] = useState<BackupState>("idle");

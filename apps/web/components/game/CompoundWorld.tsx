@@ -224,7 +224,7 @@ function initialNeighborhoodState(): Record<string, readonly UpgradeId[]> {
 }
 
 export default function CompoundWorld({
-  timeOfDay = "day",
+  timeOfDay = "night",
   backgroundInert = false,
   onRiverMessage,
 }: CompoundWorldProps) {

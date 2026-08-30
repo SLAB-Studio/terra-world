@@ -430,6 +430,15 @@ function createApartment(
   building.material = style.wall;
   finishStatic(building, root, shadows, true, true);
 
+  const frontDoor = MeshBuilder.CreateBox(
+    `${houseId}-door`,
+    { width: 2.3, height: 2.9, depth: 0.18 },
+    scene,
+  );
+  frontDoor.position.set(0, 2, -4.02);
+  frontDoor.material = materials.window;
+  finishStatic(frontDoor, root, shadows, true);
+
   const roof = MeshBuilder.CreateBox(
     `district-apartments-${id}-roof`,
     { width: 12.3, height: 0.6, depth: 8.6 },

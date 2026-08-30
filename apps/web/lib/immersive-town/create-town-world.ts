@@ -15,6 +15,7 @@ import { createTownMaterials, TOWN_PALETTE } from "./materials";
 import { createTownDetails } from "./town-details";
 import { createMetropolis } from "./metropolis";
 import { createTimeOfDay } from "./time-of-day";
+import { registerTownVenues } from "./venues";
 import type {
   CreateTownWorldOptions,
   ImmersiveTownWorld,
@@ -118,6 +119,7 @@ export function createImmersiveTownWorld(
     metropolis.litWindows,
     environment.cloudRoots,
   );
+  daylight.setTimeOfDay("night");
   const houses = [
     ...compoundWorld.houses,
     ...details.houses,
@@ -138,6 +140,7 @@ export function createImmersiveTownWorld(
   );
 
   const housesByMeshId = indexHouseMeshes(houses);
+  const destinations = registerTownVenues(scene);
   const housesById = new Map(houses.map((house) => [house.id, house] as const));
   scene.metadata = {
     ...(typeof scene.metadata === "object" && scene.metadata !== null
@@ -155,6 +158,8 @@ export function createImmersiveTownWorld(
     camera,
     compounds: compoundWorld.compounds,
     houses,
+    venues: destinations.venues,
+    getVenueFromMesh: destinations.getVenueFromMesh,
     animation,
     get timeOfDay() {
       return daylight.current;

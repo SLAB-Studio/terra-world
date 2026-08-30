@@ -105,6 +105,8 @@ describe("Rivergate metropolitan district", () => {
         world.scene.materials.length,
         world.scene.lights.length,
       ];
+      expect(world.timeOfDay).toBe("night");
+      world.setTimeOfDay("day");
       const daylight = world.scene.clearColor.clone();
       const material = world.scene.getMaterialByName(
         "downtown-lit-windows",

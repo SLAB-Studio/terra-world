@@ -3,6 +3,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 
 import type { ImmersiveTownWorld, TownHouseMetadata } from "./types";
+import type { TownVenueMetadata } from "./venues";
 import {
   WALK_EYE_HEIGHT,
   canWalkAt,
@@ -26,6 +27,8 @@ export function createTownWalker(
     isBlocked(): boolean;
     onNearbyHouse(house: TownHouseMetadata | null): void;
     onEnterHouse(house: TownHouseMetadata): void;
+    onNearbyVenue?(venue: TownVenueMetadata | null): void;
+    onEnterVenue?(venue: TownVenueMetadata): void;
   },
 ) {
   const boundsForMesh = (mesh: AbstractMesh): WalkBounds & { top: number } => {
@@ -100,6 +103,36 @@ export function createTownWalker(
         house,
       };
     });
+  const venueDoors = world.venues.map((place) => {
+    const { door, outward } = place;
+    const yaw = Math.atan2(outward.x, outward.z);
+    const candidates = [2.5, 3.5, 1.5, 4.5].flatMap((radius) =>
+      Array.from(
+        { length: 24 },
+        (_, i) =>
+          new Vector3(
+            door.x + Math.sin(yaw + (i * Math.PI) / 12) * radius,
+            door.y,
+            door.z + Math.cos(yaw + (i * Math.PI) / 12) * radius,
+          ),
+      ),
+    );
+    return {
+      id: place.venue.id,
+      x: door.x,
+      z: door.z,
+      place,
+      approach:
+        candidates.find((point) => canWalkAt(point, obstacles)) ??
+        door.add(outward.scale(2.5)),
+    };
+  });
+  const allDoors = [
+    ...venueDoors,
+    ...doors.filter(
+      (door) => !venueDoors.some((entry) => entry.id === door.id),
+    ),
+  ];
   const camera = new UniversalCamera(
     "rivergate-walking-camera",
     new Vector3(-38, 2.6, -30),
@@ -113,6 +146,7 @@ export function createTownWalker(
   let active = false;
   let hasStarted = false;
   let nearby: TownHouseMetadata | null = null;
+  let nearbyVenue: TownVenueMetadata | null = null;
   let dragging: { id: number; x: number; y: number } | null = null;
   let lookDistance = 0;
   let ignorePickUntil = 0;
@@ -133,9 +167,15 @@ export function createTownWalker(
         ) !== null ||
         document.visibilityState !== "visible"));
   const publishNearby = () => {
-    const door = nearbyWalkDoor(camera.position, doors);
+    const door = nearbyWalkDoor(camera.position, allDoors);
+    const nextVenue =
+      venueDoors.find((entry) => entry.id === door?.id)?.place ?? null;
+    if (nextVenue?.venue.id !== nearbyVenue?.venue.id) {
+      nearbyVenue = nextVenue;
+      callbacks.onNearbyVenue?.(nextVenue);
+    }
     const next =
-      door === null
+      door === null || nextVenue !== null
         ? null
         : (world.houses.find((house) => house.id === door.id) ?? null);
     if (next?.id !== nearby?.id) {
@@ -196,7 +236,9 @@ export function createTownWalker(
       world.scene.activeCamera = world.camera;
       if (canvas !== null) world.camera.attachControl(canvas, true);
       nearby = null;
+      nearbyVenue = null;
       callbacks.onNearbyHouse(null);
+      callbacks.onNearbyVenue?.(null);
     }
   };
   const keyboardInMap = (event: KeyboardEvent) => {
@@ -224,11 +266,24 @@ export function createTownWalker(
       keys.add(event.code);
     } else if (event.code === "KeyE" && !event.repeat) {
       event.preventDefault();
-      enterHouse();
+      enterNearby();
     }
   };
   const onKeyUp = (event: KeyboardEvent) => {
     keys.delete(event.code);
+  };
+  const enterVenue = (id?: string) => {
+    if (!active || blocked() || performance.now() < ignorePickUntil) return;
+    publishNearby();
+    if (!nearbyVenue || (id !== undefined && nearbyVenue.venue.id !== id))
+      return;
+    clearInput();
+    callbacks.onEnterVenue?.(nearbyVenue);
+  };
+  const enterNearby = () => {
+    publishNearby();
+    if (nearbyVenue) enterVenue();
+    else enterHouse();
   };
   const onPointerDown = (event: PointerEvent) => {
     if (!active || blocked() || event.button !== 0) return;
@@ -298,9 +353,12 @@ export function createTownWalker(
     camera,
     obstacles,
     doors,
+    venueDoors,
     setActive,
     clearInput,
     enterHouse,
+    enterVenue,
+    enterNearby,
     get active() {
       return active;
     },

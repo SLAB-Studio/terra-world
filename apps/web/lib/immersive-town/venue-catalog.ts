@@ -1,0 +1,195 @@
+/** Serializable destination data. Keep Babylon out of the accessible directory. */
+export type VenueKind =
+  | "library"
+  | "science"
+  | "studios"
+  | "hub"
+  | "bookshop"
+  | "arts"
+  | "cafe"
+  | "workshop"
+  | "school"
+  | "clinic"
+  | "apartments"
+  | "market"
+  | "playground"
+  | "bus"
+  | "dock";
+export type VenueFloor = Readonly<{
+  label: string;
+  use: VenueKind | "lobby" | "roof";
+}>;
+export type TownVenue = Readonly<{
+  id: string;
+  name: string;
+  kind: VenueKind;
+  rootName: string;
+  doorZ: number;
+  description: string;
+  floors: readonly VenueFloor[];
+  outdoor?: boolean;
+}>;
+
+const tower = (
+  id: VenueKind,
+  name: string,
+  height: number,
+  description: string,
+  rooms: readonly string[],
+): TownVenue => ({
+  id,
+  name,
+  kind: id,
+  rootName: `downtown-${id}`,
+  doorZ: -4.2,
+  description,
+  floors: [
+    { label: "Ground · Welcome", use: "lobby" },
+    ...Array.from({ length: Math.floor((height - 3.5) / 2.8) }, (_, i) => ({
+      label: `${i + 1} · ${rooms[i % rooms.length]}`,
+      use: id,
+    })),
+    { label: "Roof · Sky garden", use: "roof" },
+  ],
+});
+
+export const TOWN_VENUES: readonly TownVenue[] = [
+  tower(
+    "library",
+    "City Library",
+    15,
+    "Find a quiet reading corner, explore the bookshelves and discover how stories are shared.",
+    ["Children’s library", "Reading room", "Reference library"],
+  ),
+  tower(
+    "science",
+    "Science Centre",
+    27,
+    "Explore the laboratory benches, planet displays and renewable-energy exhibits.",
+    ["Discovery lab", "Planet gallery", "Energy laboratory"],
+  ),
+  tower(
+    "studios",
+    "River Studios",
+    20,
+    "Step behind the microphone and explore how music, films and radio are made.",
+    ["Recording studio", "Film studio", "Sound workshop"],
+  ),
+  tower(
+    "hub",
+    "City Hub",
+    31,
+    "Visit the people who plan Rivergate, explore their offices and look out from the roof.",
+    ["City planning", "Community meeting room", "Town offices"],
+  ),
+  tower(
+    "bookshop",
+    "Books & Stories",
+    14,
+    "Browse colourful books and visit the storytelling corner.",
+    ["Bookshop", "Storytelling room"],
+  ),
+  tower(
+    "arts",
+    "Arts Centre",
+    22,
+    "Wander through the gallery and discover paintings and sculptures.",
+    ["Painting gallery", "Sculpture gallery", "Community art room"],
+  ),
+  tower(
+    "cafe",
+    "Sunshine Cafe",
+    13,
+    "Pull up a chair in the cafe and explore the counter and dining spaces.",
+    ["Cafe & bakery", "Neighbourhood dining"],
+  ),
+  tower(
+    "workshop",
+    "Makers Market",
+    18,
+    "Explore the workbenches and learn how things can be repaired and reused.",
+    ["Repair workshop", "Design workshop"],
+  ),
+  {
+    id: "school",
+    name: "Rivergate School",
+    kind: "school",
+    rootName: "rivergate-school",
+    doorZ: -6.2,
+    description:
+      "Walk between the classroom desks, learning displays and reading corner.",
+    floors: [{ label: "Ground · Classrooms", use: "school" }],
+  },
+  {
+    id: "clinic",
+    name: "Community Clinic",
+    kind: "clinic",
+    rootName: "rivergate-clinic",
+    doorZ: -4.3,
+    description:
+      "Find the reception, waiting area and private examination spaces.",
+    floors: [{ label: "Ground · Reception & care", use: "clinic" }],
+  },
+  ...["west", "east"].map((side): TownVenue => ({
+    id: `district-apartments-${side}`,
+    name: `${side === "west" ? "West" : "East"} River Apartments`,
+    kind: "apartments",
+    rootName: `district-apartments-${side}`,
+    doorZ: -4.2,
+    description:
+      "Meet the neighbours in the lobby, then take the lift to the furnished apartments.",
+    floors: [
+      { label: "Ground · Lobby & mailboxes", use: "lobby" },
+      { label: "1 · Family apartments", use: "apartments" },
+      { label: "2 · Garden apartments", use: "apartments" },
+      { label: "Roof · Residents’ terrace", use: "roof" },
+    ],
+  })),
+  {
+    id: "market",
+    name: "Riverside Market",
+    kind: "market",
+    rootName: "rivergate-market",
+    doorZ: -4,
+    outdoor: true,
+    description:
+      "Explore the open-air stalls. Local food travels a shorter distance from farm to plate.",
+    floors: [{ label: "Market square", use: "market" }],
+  },
+  {
+    id: "playground",
+    name: "Community Playground",
+    kind: "playground",
+    rootName: "rivergate-playground",
+    doorZ: -6,
+    outdoor: true,
+    description:
+      "Explore the play area, planted edges and picnic tables. Keep a clear path for everyone.",
+    floors: [{ label: "Playground", use: "playground" }],
+  },
+  ...[0, 1, 2].map((i): TownVenue => ({
+    id: `bus-${i}`,
+    name: `Bus stop ${i + 1}`,
+    kind: "bus",
+    rootName: `bus-stop-${i}`,
+    doorZ: -2,
+    outdoor: true,
+    description:
+      "Wait inside the shelter and read the route board. Sharing a bus means fewer cars on the road.",
+    floors: [{ label: "Bus shelter", use: "bus" }],
+  })),
+  {
+    id: "dock",
+    name: "Community Dock",
+    kind: "dock",
+    rootName: "rivergate-community-dock",
+    doorZ: -3.8,
+    outdoor: true,
+    description:
+      "Explore the riverside deck behind the safety rails and watch the water.",
+    floors: [{ label: "Riverside deck", use: "dock" }],
+  },
+];
+
+export const findTownVenue = (id: string) =>
+  TOWN_VENUES.find((venue) => venue.id === id);
