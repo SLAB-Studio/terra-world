@@ -50,6 +50,16 @@ export type TrafficSimulation = Readonly<{
 
 export type TrafficStepOptions = Readonly<{
   reducedMotion?: boolean;
+  stops?: readonly TrafficStop[];
+}>;
+
+/** A temporary stop line or a reserved vehicle's exact curbside stopping point. */
+export type TrafficStop = Readonly<{
+  id: string;
+  laneId: LaneId;
+  progress: number;
+  vehicleId?: string;
+  center?: boolean;
 }>;
 
 export const MIN_BUMPER_GAP_METERS = 5;
@@ -161,7 +171,7 @@ export function stepTraffic(
   let next = simulation;
   while (remaining > 0) {
     const stepSeconds = Math.min(remaining, MAX_SIMULATION_STEP_SECONDS);
-    next = stepOnce(next, stepSeconds);
+    next = stepOnce(next, stepSeconds, options.stops ?? []);
     remaining -= stepSeconds;
   }
   return next;
@@ -207,6 +217,7 @@ export function isFiniteVehicleTransform(transform: VehicleTransform): boolean {
 function stepOnce(
   simulation: TrafficSimulation,
   deltaSeconds: number,
+  stops: readonly TrafficStop[],
 ): TrafficSimulation {
   const vehicles = simulation.vehicles.map((vehicle) => {
     const gap = bumperGapAhead(vehicle, simulation.vehicles);
@@ -214,9 +225,35 @@ function stepOnce(
       0,
       (gap - MIN_BUMPER_GAP_METERS) / COMFORTABLE_TIME_HEADWAY_SECONDS,
     );
+    const direction = sampleLane(vehicle.laneId, vehicle.progress).lane
+      .direction;
+    let stopDistance = Infinity;
+    for (const stop of stops) {
+      if (
+        stop.laneId !== vehicle.laneId ||
+        (stop.vehicleId && stop.vehicleId !== vehicle.id) ||
+        !Number.isFinite(stop.progress)
+      )
+        continue;
+      const centreGap = forwardRoadDistance(
+        vehicle.progress,
+        stop.progress,
+        direction,
+      );
+      // A vehicle already at its stop must not see the wrapped full road length.
+      const gap =
+        centreGap < 0.025 || ROAD_LENGTH_METERS - centreGap < 0.025
+          ? 0
+          : centreGap;
+      stopDistance = Math.min(
+        stopDistance,
+        Math.max(0, gap - (stop.center ? 0 : vehicle.lengthMeters / 2)),
+      );
+    }
     const targetSpeed = Math.min(
       vehicle.cruiseSpeedMetersPerSecond,
       spacingLimitedSpeed,
+      Math.sqrt(2 * MAX_BRAKING_METERS_PER_SECOND_SQUARED * stopDistance),
     );
     const acceleration =
       targetSpeed >= vehicle.speedMetersPerSecond
@@ -227,10 +264,11 @@ function stepOnce(
       targetSpeed,
       acceleration * deltaSeconds,
     );
-    const maximumTravel = Math.max(0, gap - MIN_BUMPER_GAP_METERS);
+    const maximumTravel = Math.min(
+      stopDistance,
+      Math.max(0, gap - MIN_BUMPER_GAP_METERS),
+    );
     const travelMeters = Math.min(speed * deltaSeconds, maximumTravel);
-    const direction = sampleLane(vehicle.laneId, vehicle.progress).lane
-      .direction;
 
     return {
       ...vehicle,

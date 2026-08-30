@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { forwardRoadDistance, isInsideRoad, sampleLane } from "./road";
+import {
+  advanceRoadProgress,
+  forwardRoadDistance,
+  isInsideRoad,
+  sampleLane,
+} from "./road";
 import {
   MIN_BUMPER_GAP_METERS,
   VEHICLE_ROAD_EDGE_CLEARANCE_METERS,
@@ -9,10 +14,115 @@ import {
   isFiniteVehicleTransform,
   stepTraffic,
   type TrafficSimulation,
+  type TrafficStop,
   type VehicleState,
 } from "./traffic";
 
 describe("immersive town traffic", () => {
+  it.each(["clockwise", "counter-clockwise"] as const)(
+    "stops the %s lane before a crossing without wraparound overshoot, then resumes",
+    (laneId) => {
+      const direction = laneId === "clockwise" ? 1 : -1;
+      const progress = laneId === "clockwise" ? 0.001 : 0.999;
+      const stops: readonly TrafficStop[] = [
+        { id: "crossing", laneId, progress },
+      ];
+      let traffic = createTrafficSimulation([
+        {
+          id: "crossing-car",
+          laneId,
+          startProgress: advanceRoadProgress(progress, -direction * 18),
+          cruiseSpeedMetersPerSecond: 13,
+          lengthMeters: 4,
+        },
+      ]);
+      let previousGap = 18;
+      for (let i = 0; i < 400; i++) {
+        traffic = stepTraffic(traffic, 0.05, { stops });
+        const vehicle = traffic.vehicles[0]!;
+        const gap = forwardRoadDistance(vehicle.progress, progress, direction);
+        expect(gap).toBeGreaterThanOrEqual(2 - 1e-7);
+        expect(gap).toBeLessThanOrEqual(previousGap + 1e-7);
+        previousGap = gap;
+      }
+      expect(previousGap).toBeCloseTo(2, 5);
+      expect(traffic.vehicles[0]!.speedMetersPerSecond).toBe(0);
+      const held = traffic.vehicles[0]!.progress;
+      traffic = stepTraffic(traffic, 2, { stops });
+      expect(traffic.vehicles[0]!.progress).toBe(held);
+      traffic = stepTraffic(traffic, 1);
+      expect(
+        forwardRoadDistance(held, traffic.vehicles[0]!.progress, direction),
+      ).toBeGreaterThan(0.5);
+    },
+  );
+
+  it.each(["clockwise", "counter-clockwise"] as const)(
+    "holds a reserved %s vehicle at its exact center stop even with a delayed high-speed frame",
+    (laneId) => {
+      const direction = laneId === "clockwise" ? 1 : -1;
+      const progress = 0.4;
+      let traffic = createTrafficSimulation([
+        {
+          id: "reserved",
+          laneId,
+          startProgress: advanceRoadProgress(progress, -direction * 1),
+          cruiseSpeedMetersPerSecond: 13,
+          lengthMeters: 4,
+        },
+      ]);
+      traffic = {
+        ...traffic,
+        vehicles: traffic.vehicles.map((vehicle) => ({
+          ...vehicle,
+          speedMetersPerSecond: 13,
+        })),
+      };
+      const stops: readonly TrafficStop[] = [
+        { id: "pickup", vehicleId: "reserved", laneId, progress, center: true },
+      ];
+      traffic = stepTraffic(traffic, 10, { stops });
+      expect(
+        separationOnRoad(traffic.vehicles[0]!.progress, progress),
+      ).toBeLessThan(0.0251);
+      expect(traffic.vehicles[0]!.speedMetersPerSecond).toBe(0);
+      const held = traffic.vehicles[0]!.progress;
+      traffic = stepTraffic(traffic, 2, { stops });
+      expect(traffic.vehicles[0]!.progress).toBe(held);
+    },
+  );
+
+  it("does not apply a reservation to another vehicle or lane and ignores malformed stop positions", () => {
+    const traffic = createTrafficSimulation([
+      {
+        id: "first",
+        laneId: "clockwise",
+        startProgress: 0.2,
+        cruiseSpeedMetersPerSecond: 8,
+        lengthMeters: 4,
+      },
+      {
+        id: "second",
+        laneId: "counter-clockwise",
+        startProgress: 0.2,
+        cruiseSpeedMetersPerSecond: 8,
+        lengthMeters: 4,
+      },
+    ]);
+    const irrelevant: readonly TrafficStop[] = [
+      {
+        id: "not-ours",
+        vehicleId: "absent",
+        laneId: "clockwise",
+        progress: 0.2,
+        center: true,
+      },
+      { id: "invalid", laneId: "counter-clockwise", progress: NaN },
+    ];
+    expect(stepTraffic(traffic, 1, { stops: irrelevant })).toEqual(
+      stepTraffic(traffic, 1),
+    );
+  });
   it("produces deterministic finite transforms constrained to their lanes", () => {
     let first = createTrafficSimulation();
     let second = createTrafficSimulation();
@@ -94,6 +204,10 @@ describe("immersive town traffic", () => {
     }
   });
 });
+
+function separationOnRoad(a: number, b: number) {
+  return Math.min(forwardRoadDistance(a, b, 1), forwardRoadDistance(a, b, -1));
+}
 
 function smallestBumperGap(
   simulation: TrafficSimulation,
