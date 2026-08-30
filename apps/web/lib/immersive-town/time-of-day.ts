@@ -93,6 +93,8 @@ export function createTimeOfDay(
     mergedPools.name = "streetlight-pools";
     mergedPools.parent = pools;
     mergedPools.isPickable = false;
+    // MergeMeshes retains the vertex colours but not the alpha opt-in.
+    mergedPools.hasVertexAlpha = true;
   }
 
   let current: TownTimeOfDay = "day";

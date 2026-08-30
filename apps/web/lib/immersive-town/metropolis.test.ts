@@ -139,6 +139,9 @@ describe("Rivergate metropolitan district", () => {
         world.scene.lights.length,
       ]).toEqual(counts);
       expect(world.scene.lights).toHaveLength(4);
+      expect(
+        world.scene.getMeshByName("streetlight-pools")?.hasVertexAlpha,
+      ).toBe(true);
     } finally {
       dispose();
     }
