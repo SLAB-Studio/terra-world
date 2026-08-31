@@ -4,8 +4,8 @@
 
 Terra World is a browser-based 3D city restoration game set in **Rivergate**.
 Explore illuminated streets, step inside homes and public buildings, restore
-essential services, and see the neighbourhood respond. **LEO**, Rivergate's city
-advisor, helps you understand what needs attention and what your choices change.
+essential services, and see the neighbourhood respond. **LEO**, Rivergate's female
+dog companion, helps you understand what needs attention and what your choices change.
 
 The game combines a populated, explorable world with local-first gameplay and
 server-side integration foundations for **0G Compute, 0G Storage and Agentic NFTs**.
@@ -13,9 +13,13 @@ Core play does not require a wallet or a live blockchain connection.
 
 ## Explore Rivergate
 
-- **Two ways to explore.** Survey the city from above or switch to first-person
-  walking. Approach a door, enter the building, explore its interior and return
-  to the street.
+- **Two ways to explore.** Survey the city from above or choose **Walk with Leo**
+  for third-person walking with a realistic human character and LEO alongside.
+  Walk or run, approach a door, explore the interior and return to the street.
+- **A playable opening chapter.** Investigate the East Bridge closure, hear
+  Maya, Malik and Nia, then commit to one of three costed responses. Four
+  skippable in-engine shots introduce the story; a notebook records evidence,
+  choices and explicitly advanced outcomes.
 - **A populated city.** Homes, apartment blocks, downtown towers, shops and civic
   spaces share the map with pedestrians, road traffic and public transport.
 - **Interiors with activity.** Furnished rooms, offices and service areas include
@@ -34,7 +38,8 @@ Core play does not require a wallet or a live blockchain connection.
 Resident movement, ambient conversations and indoor activities currently use
 local game rules and authored routines. They are not continuous AI calls or
 real-world services. Expanded economic systems, persistent relationships and
-generative city stories remain planned features.
+open-ended generative city stories remain planned features. The opening chapter
+is a bounded, authored scenario, not a complete household or city economy.
 
 ## Run locally
 
@@ -54,6 +59,12 @@ pnpm dev
 Open [localhost:3000](http://localhost:3000), enter a player name and start a game.
 Use **Continue game** when a local save is available.
 
+Once the city loads, choose **Begin opening chapter**, or **Continue opening
+chapter** for its separate local save. **Explore freely** keeps the existing
+exploration mode available; the **Opening chapter** button reopens the entry.
+See [Opening chapter](docs/opening-chapter.md) for choices, save boundaries,
+optional device narration and 0G briefing limits.
+
 No 0G credentials are needed to explore the local game. AI routes have authored
 fallbacks; this is not evidence of a live 0G inference request. Audio may require
 an initial click or tap because of browser autoplay restrictions.
@@ -67,16 +78,19 @@ pnpm start
 
 ### Controls
 
-| Action                         | Control                                                   |
-| ------------------------------ | --------------------------------------------------------- |
-| Change perspective             | **Town view** / **Walk around**                           |
-| Move while walking             | **W / S** or **Up / Down arrows**                         |
-| Step sideways                  | **A / D**                                                 |
-| Turn                           | **Left / Right arrows** or drag the view                  |
-| Enter, exit or interact nearby | **E** or the on-screen action                             |
-| Find a destination             | **Places** directory                                      |
-| Visit another floor            | Approach the lift, then use its floor selector            |
-| Restore a property             | Drag an upgrade onto a home or use an indoor repair point |
+| Action                         | Control                                                    |
+| ------------------------------ | ---------------------------------------------------------- |
+| Change perspective             | **Town view** / **Walk with Leo**                          |
+| Move while walking             | **W / S** or **Up / Down arrows**                          |
+| Step sideways                  | **A / D**                                                  |
+| Run                            | Hold **Shift** while moving or toggle **Run**              |
+| Turn                           | **Left / Right arrows** or drag the view                   |
+| Enter, exit or interact nearby | **E** or the on-screen action                              |
+| Find a destination             | **Places** directory                                       |
+| Visit another floor            | Approach the lift, then use its floor selector             |
+| Restore a property             | Drag an upgrade onto a home or use an indoor repair point  |
+| Chapter evidence               | Approach the location, then choose **Inspect** / **Speak** |
+| Close chapter reading          | **Escape** closes the notebook or conversation             |
 
 On-screen movement controls support touch input. Walking controls apply while
 the game has focus; no pointer lock is required. Leave buildings through their
@@ -115,6 +129,13 @@ Input-token budgets, per-player spending limits, end-to-end cancellation and
 selective narrative triggers still need implementation. The guide currently
 requests an explanation after each eligible completed turn. These limits and
 triggers must be hardened before exposing paid inference publicly.
+
+The separate opening-chapter route is on demand and limited to selecting
+chapter-grounded sentences from a replayed action log, with a 160-token output
+cap, shared-request caching and bounded timeouts. Its spending windows are
+process-local, not distributed per-player billing controls. Authored fallback
+guidance is labelled; no live paid 0G test is claimed. See the
+[chapter integration notes](docs/opening-chapter.md#optional-0g-briefings).
 
 ### Background synchronization
 
@@ -222,6 +243,7 @@ universal frame-rate guarantee.
 
 - [Rivergate story bible](storyline.md)
 - [Living-city architecture and release requirements](docs/living-city-architecture.md)
+- [Playable opening chapter, narration and local saves](docs/opening-chapter.md)
 - [Walking, building entry and interiors](docs/walking-mode.md)
 - [Resident travel and everyday routines](docs/resident-routines.md)
 - [Lived-in interiors](docs/interior-life.md)
