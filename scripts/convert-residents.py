@@ -22,6 +22,12 @@ PEOPLE = [
     ('woman-knit', 'Adults', 'Female_Adult_11', 'f'),
     ('boy', 'Children', 'Male_Child_01', 'm'),
     ('girl', 'Children', 'Female_Child_01', 'f'),
+    ('elder-man', 'Adults', 'Male_Adult_03', 'm'),
+    ('man-jacket', 'Adults', 'Male_Adult_04', 'm'),
+    ('woman-purple', 'Adults', 'Female_Adult_03', 'f'),
+    ('woman-headscarf', 'Adults', 'Female_Adult_06', 'f'),
+    ('man-tee', 'Adults', 'Male_Adult_09', 'm'),
+    ('boy-sport', 'Children', 'Male_Child_02', 'm'),
 ]
 
 def mesh_floor(objects):
@@ -186,7 +192,9 @@ for key, group, name, gender in (PEOPLE if __name__ == '__main__' else []):
     height = max((o.matrix_world @ v.co).z for o in meshes for v in o.evaluated_get(bpy.context.evaluated_depsgraph_get()).data.vertices)
     if group == 'Children':
         walk_distance *= height / (1.83 if gender == 'm' else 1.74)
-    for quality, ratio in (('near', 1.0), ('far', 0.25)):
+    source_triangles = sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o in meshes)
+    for quality, budget in (('near', 8990), ('far', 2490)):
+        ratio = min(1.0 if quality == 'near' else 0.25, budget / source_triangles)
         modifiers = []
         for obj in meshes:
             if ratio < 1:
@@ -205,5 +213,11 @@ for key, group, name, gender in (PEOPLE if __name__ == '__main__' else []):
         'height': height, 'walkDistance': walk_distance, 'license': 'MIT'})
     print('CONVERTED', manifest[-1], flush=True)
 if __name__ == '__main__':
-    (OUT / 'conversion.json').write_text(json.dumps(manifest, indent=2) + '\n')
+    # A selected-model run augments the catalog without erasing the other
+    # residents (including player-compatible existing models).
+    manifest_path = OUT / 'conversion.json'
+    existing = json.loads(manifest_path.read_text()) if manifest_path.exists() else []
+    merged = {person['id']: person for person in existing}
+    merged.update({person['id']: person for person in manifest})
+    manifest_path.write_text(json.dumps(list(merged.values()), indent=2) + '\n')
     (OUT / 'LICENSE-Microsoft.txt').write_text((SOURCE / 'LICENSE.md').read_text())

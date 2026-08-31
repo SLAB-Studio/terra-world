@@ -40,5 +40,47 @@
     "height": 1.4316086769104004,
     "walkDistance": 1.198372298523996,
     "license": "MIT"
+  },
+  {
+    "id": "elder-man",
+    "source": "Assets/Avatars/Adults/Male_Adult_03",
+    "height": 1.803173303604126,
+    "walkDistance": 1.2140404108853617,
+    "license": "MIT"
+  },
+  {
+    "id": "woman-purple",
+    "source": "Assets/Avatars/Adults/Female_Adult_03",
+    "height": 1.7392956018447876,
+    "walkDistance": 1.456520788859578,
+    "license": "MIT"
+  },
+  {
+    "id": "woman-headscarf",
+    "source": "Assets/Avatars/Adults/Female_Adult_06",
+    "height": 1.73537015914917,
+    "walkDistance": 1.456520788859578,
+    "license": "MIT"
+  },
+  {
+    "id": "man-jacket",
+    "source": "Assets/Avatars/Adults/Male_Adult_04",
+    "height": 1.8647785186767578,
+    "walkDistance": 1.2140404108853617,
+    "license": "MIT"
+  },
+  {
+    "id": "man-tee",
+    "source": "Assets/Avatars/Adults/Male_Adult_09",
+    "height": 1.8183904886245728,
+    "walkDistance": 1.2140404108853617,
+    "license": "MIT"
+  },
+  {
+    "id": "boy-sport",
+    "source": "Assets/Avatars/Children/Male_Child_02",
+    "height": 1.4223976135253906,
+    "walkDistance": 0.9436328869763514,
+    "license": "MIT"
   }
 ]
