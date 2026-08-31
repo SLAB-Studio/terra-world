@@ -1,0 +1,260 @@
+.root {
+  --map-panel: #1a2931;
+  --map-raised: #253943;
+  --map-ink: #eef2ed;
+  --map-muted: #b8c8cd;
+  --map-accent: #e4bb7b;
+  width: 220px;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 12px;
+  color: var(--map-ink);
+  background: var(--map-panel);
+  box-shadow: 0 8px 24px #07141c55;
+  font: 400 0.8rem/1.4 var(--font-game-body, "Barlow City", sans-serif);
+  pointer-events: auto;
+}
+.root *,
+.root *::before,
+.root *::after {
+  box-sizing: border-box;
+}
+.root ::selection {
+  background: var(--map-accent);
+  color: var(--map-panel);
+}
+.root[data-collapsed="true"] {
+  width: 176px;
+}
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 0;
+  color: var(--map-ink);
+  background: var(--map-raised);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background-color 120ms ease-out;
+}
+.toggle:hover {
+  background: #354c58;
+}
+.toggle:focus-visible {
+  outline: 2px solid var(--map-accent);
+  outline-offset: -4px;
+}
+.toggle svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.toggle .chevron {
+  margin-left: auto;
+  width: 16px;
+  height: 16px;
+  flex-basis: 16px;
+}
+.map {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #202f34;
+}
+.root[data-time-of-day="day"] .map {
+  background: #2b3b3e;
+}
+.river,
+.roadEdge,
+.road {
+  fill: none;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.river {
+  stroke: #3c626f;
+}
+.roadEdge {
+  stroke: #81908c;
+}
+.road {
+  stroke: #26373e;
+}
+.building {
+  fill: #7d9196;
+}
+.north {
+  fill: var(--map-muted);
+  stroke: var(--map-muted);
+  stroke-width: 1;
+}
+.north text {
+  stroke: none;
+  font-size: 8px;
+  font-weight: 600;
+  text-anchor: middle;
+}
+.target > path {
+  fill: var(--map-accent);
+  stroke: var(--map-panel);
+  stroke-width: 1.5;
+}
+.targetRing {
+  fill: none;
+  stroke: var(--map-accent);
+  stroke-width: 1;
+}
+.targetCenter {
+  fill: var(--map-panel);
+}
+.player > circle {
+  fill: var(--map-panel);
+}
+.player > path {
+  fill: var(--map-ink);
+  stroke: var(--map-panel);
+  stroke-width: 1;
+  stroke-linejoin: round;
+}
+.closure > circle {
+  fill: #814338;
+  stroke: #f2b6a0;
+  stroke-width: 1;
+}
+.closure > path {
+  fill: none;
+  stroke: #fff0e5;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+.legend {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 10px 7px;
+  color: var(--map-muted);
+  font-size: 0.68rem;
+}
+.legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.legend svg {
+  width: 12px;
+  height: 12px;
+  color: var(--map-ink);
+}
+.destination {
+  padding: 9px 11px 11px;
+  border-top: 1px solid #48606b;
+}
+.targetName {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  color: var(--map-accent);
+}
+.targetName > svg {
+  width: 13px;
+  height: 17px;
+  flex: 0 0 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+.targetName strong,
+.noTarget {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.distance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 4px;
+  color: var(--map-ink);
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+}
+.bearing {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--map-accent);
+}
+.bearing > span:first-child {
+  display: inline-flex;
+}
+.bearing svg {
+  width: 12px;
+  height: 12px;
+}
+.instruction {
+  margin: 6px 0 0;
+  color: var(--map-muted);
+  font-size: 0.74rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+@media (max-width: 900px) {
+  .root {
+    width: 176px;
+  }
+  .root[data-collapsed="true"] {
+    width: 160px;
+  }
+}
+@media (max-width: 480px) {
+  .root {
+    width: 160px;
+    font-size: 0.76rem;
+  }
+  .root[data-collapsed="true"] {
+    width: 152px;
+  }
+  .toggle {
+    gap: 6px;
+    padding-inline: 8px;
+  }
+  .legend {
+    gap: 4px;
+    padding-inline: 8px;
+    font-size: 0.63rem;
+  }
+  .destination {
+    padding: 8px;
+  }
+  .instruction {
+    font-size: 0.7rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toggle {
+    transition: none;
+  }
+}
