@@ -25,6 +25,10 @@ Core play does not require a wallet or a live blockchain connection.
   while keeping the destination visible; it is guidance, not a walking route.
 - **A populated city.** Homes, apartment blocks, downtown towers, shops and civic
   spaces share the map with pedestrians, road traffic and public transport.
+- **Neighbours with variety.** Twelve textured human models bring different
+  faces, complexions, outfits and ages to the streets. Parents and children,
+  couples and older residents share the city; walking pairs match their pace,
+  wait for each other and use doorways in turn.
 - **Interiors with activity.** Furnished rooms, offices and service areas include
   residents cooking, watching television, tending plants, working, waiting and
   moving between tasks.

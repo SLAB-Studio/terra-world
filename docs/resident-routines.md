@@ -22,6 +22,39 @@ on one shared graph, with at most one resident's new trip planned per simulation
 step. There is no per-resident, per-frame graph rebuild. Movement uses bounded
 steps, acceleration/deceleration, heading changes and local pedestrian avoidance.
 
+### Population variety and shared outings — 2026-08-31
+
+The same 32 ambient residents now use an expanded roster of 12 textured,
+animated human identities. Authored profiles pin recognisable faces; generated
+doorstep and interior casts vary deterministically. Nearby and distant models
+share the same identity, and stature differences use the same scale for footstep
+distance so a shorter resident does not slide through a taller person's stride.
+The player keeps the original rig and its running animation.
+
+Three parent–child pairs and three adult couples use explicit relationship
+groups. Appearance, name and skin tone do not determine relationships or jobs.
+Groups choose one destination, match the slower member's pace, wait for each
+other, walk beside each other where clearance allows, and use single file on
+narrow paths. They reserve complete narrow routes together, release them only
+after the last member finishes, and pass through doors one person at a time.
+New navigation barriers replan a walking group together. Group members do not
+request independent car rides; ungrouped residents retain existing rides.
+
+The cast includes a genuinely grey-haired elder model, rather than a young
+face relabelled as old. This is a finite asset roster, not a unique face for every
+citizen or exhaustive demographic representation. Existing authored nearby
+dialogue includes family and couple exchanges; there are no new AI calls,
+uploads or on-chain operations for crowd animation. Hand-holding and persistent
+cross-scene household identities are not implemented.
+
+Regression checks cover ten simulated minutes in the actual city, shared
+destinations, safe separation, doorways, barrier replanning, and continuing
+traffic/individual rides. Asset checks cover every shipped model's geometry,
+texture size, genuine motion, loop continuity, seated poses and LOD transitions.
+The expanded catalog is 25.77 MB across both detail levels, with at most 2,301
+triangles per distant new model. Detail loading and sampling remain bounded;
+these budgets are not an integrated-GPU frame-rate guarantee.
+
 ### Crossings and bridges
 
 Residents request traffic stops at the existing marked crossings and wait for
@@ -104,14 +137,14 @@ day/night text, conversation setting and transcript remain in place.
 
 ## Source map
 
-| Responsibility | Source under `apps/web/lib/immersive-town/` |
-| --- | --- |
-| Shared pedestrian graph and clearance | `resident-navigation.ts` |
-| Choices, visits, priorities and ride state machine | `resident-life.ts` |
-| Existing entrances, actor placement and door portals | `resident-routines-3d.ts` |
-| Traffic stops and actual vehicle doors | `traffic.ts`, `vehicles-3d.ts`, `vehicle-doors.ts` |
-| Clip choice, blending and model lifecycle | `resident-models.ts`, `realistic-residents.ts` |
-| Scene lifecycle, pause and dialogue integration | `create-town-world.ts`, `animation.ts`, `conversations-3d.ts` |
+| Responsibility                                       | Source under `apps/web/lib/immersive-town/`                   |
+| ---------------------------------------------------- | ------------------------------------------------------------- |
+| Shared pedestrian graph and clearance                | `resident-navigation.ts`                                      |
+| Choices, visits, priorities and ride state machine   | `resident-life.ts`                                            |
+| Existing entrances, actor placement and door portals | `resident-routines-3d.ts`                                     |
+| Traffic stops and actual vehicle doors               | `traffic.ts`, `vehicles-3d.ts`, `vehicle-doors.ts`            |
+| Clip choice, blending and model lifecycle            | `resident-models.ts`, `realistic-residents.ts`                |
+| Scene lifecycle, pause and dialogue integration      | `create-town-world.ts`, `animation.ts`, `conversations-3d.ts` |
 
 Offline retargeting and loop closure live in `scripts/convert-residents.py`.
 Asset provenance and licenses remain in the resident and city asset READMEs.
@@ -146,28 +179,28 @@ pnpm exec vitest run apps/web/lib/immersive-town/resident-navigation.test.ts app
 ## Manual acceptance checklist
 
 - [ ] In both Day and Night, inspect aerial and first-person views. Follow several
-  residents through start/stop/turn, multiple walk loops and an idle/chat change;
-  check hands, feet, grounding, facing and close/far model changes.
+      residents through start/stop/turn, multiple walk loops and an idle/chat change;
+      check hands, feet, grounding, facing and close/far model changes.
 - [ ] Follow residents to a home, an enclosed public venue and an open-air place.
-  Confirm entrance approach, opening, threshold handoff, dwell and same-door
-  return; do not expect the resident in the separate player interior scene.
+      Confirm entrance approach, opening, threshold handoff, dwell and same-door
+      return; do not expect the resident in the separate player interior scene.
 - [ ] Watch both marked crossings and opposing bridge trips long enough to see
-  waiting, traffic clearance, bank yielding and resumed travel without crowding
-  into rails, water or active lanes.
+      waiting, traffic clearance, bank yielding and resumed travel without crowding
+      into rails, water or active lanes.
 - [ ] Observe a car and a bus pickup/drop-off from first person. Confirm the
-  vehicle stops before opening, the resident boards/alights through its door,
-  and both 0.7-second closing holds finish before departure.
+      vehicle stops before opening, the resident boards/alights through its door,
+      and both 0.7-second closing holds finish before departure.
 - [ ] Pause/resume during walking and a vehicle stop; open/close Places and a
-  building visit. Confirm no hidden time jump, stuck reservation or street-camera
-  reset, and check the existing home repairs/save progress still work.
+      building visit. Confirm no hidden time jump, stuck reservation or street-camera
+      reset, and check the existing home repairs/save progress still work.
 - [ ] Toggle reduced motion while walking, waiting and riding. Confirm routines
-  hold, imported poses settle without blending, and eligible idle conversation
-  lines still advance; resume and check continued trips without a teleport.
+      hold, imported poses settle without blending, and eligible idle conversation
+      lines still advance; resume and check continued trips without a teleport.
 - [ ] On a representative ordinary PC, record CPU/GPU, browser, resolution and
-  quality setting. Measure frame times/FPS in populated aerial and first-person
-  scenes, day/night and after several minutes, using Balanced and Performance.
-  Check input response, asset swaps and memory stability; report measured results
-  before claiming device support or smoothness.
+      quality setting. Measure frame times/FPS in populated aerial and first-person
+      scenes, day/night and after several minutes, using Balanced and Performance.
+      Check input response, asset swaps and memory stability; report measured results
+      before claiming device support or smoothness.
 
 Related records: [resident assets](realistic-residents.md),
 [walking and building entry](walking-mode.md),
