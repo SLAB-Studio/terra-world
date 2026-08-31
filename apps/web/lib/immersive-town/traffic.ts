@@ -8,6 +8,11 @@ import {
   sampleLane,
   wrapProgress,
 } from "./road";
+import {
+  getTrafficPedestrianHazards,
+  type TrafficPedestrian,
+} from "./traffic-pedestrians";
+export type { TrafficPedestrian } from "./traffic-pedestrians";
 
 export type QuaternionLike = Readonly<{
   x: number;
@@ -51,6 +56,7 @@ export type TrafficSimulation = Readonly<{
 export type TrafficStepOptions = Readonly<{
   reducedMotion?: boolean;
   stops?: readonly TrafficStop[];
+  pedestrians?: readonly TrafficPedestrian[];
 }>;
 
 /** A temporary stop line or a reserved vehicle's exact curbside stopping point. */
@@ -171,7 +177,12 @@ export function stepTraffic(
   let next = simulation;
   while (remaining > 0) {
     const stepSeconds = Math.min(remaining, MAX_SIMULATION_STEP_SECONDS);
-    next = stepOnce(next, stepSeconds, options.stops ?? []);
+    next = stepOnce(
+      next,
+      stepSeconds,
+      options.stops ?? [],
+      options.pedestrians ?? [],
+    );
     remaining -= stepSeconds;
   }
   return next;
@@ -218,7 +229,14 @@ function stepOnce(
   simulation: TrafficSimulation,
   deltaSeconds: number,
   stops: readonly TrafficStop[],
+  pedestrians: readonly TrafficPedestrian[],
 ): TrafficSimulation {
+  const pedestrianStops = new Map(
+    getTrafficPedestrianHazards(simulation, pedestrians).map((hazard) => [
+      hazard.vehicleId,
+      hazard.distanceMeters,
+    ]),
+  );
   const vehicles = simulation.vehicles.map((vehicle) => {
     const gap = bumperGapAhead(vehicle, simulation.vehicles);
     const spacingLimitedSpeed = Math.max(
@@ -254,6 +272,7 @@ function stepOnce(
       vehicle.cruiseSpeedMetersPerSecond,
       spacingLimitedSpeed,
       Math.sqrt(2 * MAX_BRAKING_METERS_PER_SECOND_SQUARED * stopDistance),
+      Math.sqrt(2 * 2.8 * (pedestrianStops.get(vehicle.id) ?? Infinity)),
     );
     const acceleration =
       targetSpeed >= vehicle.speedMetersPerSecond
@@ -266,6 +285,7 @@ function stepOnce(
     );
     const maximumTravel = Math.min(
       stopDistance,
+      pedestrianStops.get(vehicle.id) ?? Infinity,
       Math.max(0, gap - MIN_BUMPER_GAP_METERS),
     );
     const travelMeters = Math.min(speed * deltaSeconds, maximumTravel);

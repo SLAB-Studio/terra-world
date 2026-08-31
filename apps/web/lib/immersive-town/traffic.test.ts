@@ -17,8 +17,170 @@ import {
   type TrafficStop,
   type VehicleState,
 } from "./traffic";
+import {
+  getTrafficPedestrianHazards,
+  trafficVehicleIntersectsCapsule,
+  type TrafficPedestrian,
+} from "./traffic-pedestrians";
 
 describe("immersive town traffic", () => {
+  it.each(["clockwise", "counter-clockwise"] as const)(
+    "brakes the %s lane early for a live person and never tunnels through them on delayed frames",
+    (laneId) => {
+      const direction = laneId === "clockwise" ? 1 : -1;
+      for (const progress of [0.001, 0.44, 0.705, 0.999]) {
+        const person: TrafficPedestrian = {
+          id: "player",
+          ...sampleLane(laneId, progress).position,
+          radius: 0.4,
+        };
+        let traffic = createTrafficSimulation([
+          {
+            id: "car",
+            laneId,
+            startProgress: advanceRoadProgress(progress, -direction * 20),
+            cruiseSpeedMetersPerSecond: 13,
+            lengthMeters: 4,
+          },
+        ]);
+        traffic = {
+          ...traffic,
+          vehicles: traffic.vehicles.map((car) => ({
+            ...car,
+            speedMetersPerSecond: 13,
+          })),
+        };
+        let previous = traffic.vehicles[0]!;
+        let previousGap = 20;
+        for (let tick = 0; tick < 30; tick++) {
+          traffic = stepTraffic(traffic, tick < 4 ? 0.1 : 2, {
+            pedestrians: [person],
+          });
+          const car = traffic.vehicles[0]!;
+          expect(
+            trafficVehicleIntersectsCapsule(car, person, person, person.radius),
+            `${laneId}:${progress}:${tick}`,
+          ).toBe(false);
+          const moved = forwardRoadDistance(
+            previous.progress,
+            car.progress,
+            direction,
+          );
+          const gap = forwardRoadDistance(car.progress, progress, direction);
+          expect(gap).toBeLessThanOrEqual(previousGap + 1e-7);
+          expect(gap).toBeGreaterThan(1.5);
+          previousGap = gap;
+          expect(moved).toBeLessThan(21);
+          previous = car;
+          if (tick === 0) expect(car.speedMetersPerSecond).toBeLessThan(13);
+        }
+        expect(traffic.vehicles[0]!.speedMetersPerSecond).toBe(0);
+        const stopped = traffic.vehicles[0]!.progress;
+        traffic = stepTraffic(traffic, 1, { pedestrians: [] });
+        expect(
+          forwardRoadDistance(
+            stopped,
+            traffic.vehicles[0]!.progress,
+            direction,
+          ),
+        ).toBeGreaterThan(0.5);
+      }
+    },
+  );
+
+  it("stops a queue behind a crossing person/dog, preserves bumper gaps, and resumes after both leave", () => {
+    const progress = 0.4;
+    const people: TrafficPedestrian[] = [
+      { id: "person", ...sampleLane("clockwise", progress).position },
+      {
+        id: "dog",
+        ...sampleLane("counter-clockwise", progress).position,
+        radius: 0.25,
+      },
+    ];
+    let traffic = createTrafficSimulation([
+      {
+        id: "front",
+        laneId: "clockwise",
+        startProgress: advanceRoadProgress(progress, -12),
+        cruiseSpeedMetersPerSecond: 11,
+        lengthMeters: 4,
+      },
+      {
+        id: "queue",
+        laneId: "clockwise",
+        startProgress: advanceRoadProgress(progress, -25),
+        cruiseSpeedMetersPerSecond: 13,
+        lengthMeters: 4,
+      },
+      {
+        id: "oncoming",
+        laneId: "counter-clockwise",
+        startProgress: advanceRoadProgress(progress, 15),
+        cruiseSpeedMetersPerSecond: 11,
+        lengthMeters: 4,
+      },
+    ]);
+    for (let tick = 0; tick < 250; tick++) {
+      traffic = stepTraffic(traffic, 0.1, { pedestrians: people });
+      expect(smallestBumperGap(traffic, "clockwise")).toBeGreaterThanOrEqual(
+        MIN_BUMPER_GAP_METERS - 1e-7,
+      );
+      for (const car of traffic.vehicles)
+        for (const person of people)
+          expect(
+            trafficVehicleIntersectsCapsule(car, person, person, person.radius),
+          ).toBe(false);
+    }
+    expect(
+      traffic.vehicles.every((car) => car.speedMetersPerSecond < 0.01),
+    ).toBe(true);
+    traffic = stepTraffic(traffic, 2);
+    expect(traffic.vehicles.every((car) => car.speedMetersPerSecond > 0)).toBe(
+      true,
+    );
+  });
+
+  it("responds to a newly crossing person and to only the matching boarding exclusion", () => {
+    let traffic = createTrafficSimulation([
+      {
+        id: "car",
+        laneId: "clockwise",
+        startProgress: 0.45,
+        cruiseSpeedMetersPerSecond: 13,
+        lengthMeters: 4,
+      },
+    ]);
+    traffic = stepTraffic(traffic, 2);
+    const car = traffic.vehicles[0]!;
+    const ahead = sampleLane(car.laneId, advanceRoadProgress(car.progress, 5));
+    const person = {
+      id: "crossing",
+      x: ahead.position.x,
+      z: ahead.position.z,
+      radius: 0.4,
+    };
+    const stopped = stepTraffic(traffic, 2, { pedestrians: [person] });
+    expect(stopped.vehicles[0]!.speedMetersPerSecond).toBe(0);
+    expect(
+      trafficVehicleIntersectsCapsule(stopped.vehicles[0]!, person, person),
+    ).toBe(false);
+    expect(
+      stepTraffic(traffic, 2, {
+        pedestrians: [{ ...person, ignoreVehicleId: "different-car" }],
+      }),
+    ).toEqual(stopped);
+    expect(
+      stepTraffic(traffic, 2, {
+        pedestrians: [{ ...person, ignoreVehicleId: "car" }],
+      }),
+    ).toEqual(stepTraffic(traffic, 2));
+    expect(getTrafficPedestrianHazards(stopped, [person])).toHaveLength(1);
+    expect(
+      stepTraffic(stopped, 2, { pedestrians: [person], reducedMotion: true }),
+    ).toBe(stopped);
+  });
+
   it.each(["clockwise", "counter-clockwise"] as const)(
     "stops the %s lane before a crossing without wraparound overshoot, then resumes",
     (laneId) => {
