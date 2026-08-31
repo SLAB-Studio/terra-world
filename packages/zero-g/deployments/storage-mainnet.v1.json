@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "deploymentId": "0g-storage-mainnet-2026-09-01",
+  "network": "0g-mainnet",
+  "chainId": 16661,
+  "rpcUrl": "https://evmrpc.0g.ai",
+  "indexerUrl": "https://indexer-storage-turbo.0g.ai",
+  "flowAddress": "0x62d4144db0f0a6fbbaeb6296c785c71b3d57c526",
+  "reviewedAt": "2026-09-01",
+  "provenance": {
+    "documentation": {
+      "source": "https://docs.0g.ai/developer-hub/mainnet/mainnet-overview",
+      "retrievedAt": "2026-09-01",
+      "assertions": [
+        "The official mainnet overview publishes chain ID 16661",
+        "The official mainnet overview publishes RPC https://evmrpc.0g.ai",
+        "The official mainnet overview publishes Storage indexer https://indexer-storage-turbo.0g.ai",
+        "The official mainnet overview publishes Storage Flow 0x62D4144dB0F0a6fBBaeb6296c785C71B3D57C526"
+      ]
+    },
+    "liveVerification": {
+      "verifiedAt": "2026-08-31T23:10:44.236Z",
+      "chainRpcMethods": ["eth_chainId", "eth_getCode"],
+      "indexerMethod": "indexer_getShardedNodes",
+      "trustedNodeMethod": "zgs_getStatus",
+      "networkIdentityFields": ["chainId", "flowAddress"],
+      "assertions": [
+        "eth_chainId returned 0x4115",
+        "eth_getCode returned non-empty bytecode at the pinned Storage Flow address",
+        "All 4 distinct trusted nodes reported chain ID 16661 and the pinned Storage Flow address"
+      ]
+    }
+  }
+}
