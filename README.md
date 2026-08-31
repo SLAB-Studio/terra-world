@@ -101,6 +101,11 @@ the game has focus; no pointer lock is required. Leave buildings through their
 ground-floor entrance. Reduced-motion, sound and text-size settings are available
 in the game controls.
 
+LEO's in-world speech bubble adapts to day and night and closes automatically
+30 seconds after each reply first appears. Use its close button to dismiss it
+sooner. Switching views does not restart the timer; a new reply gets its own
+30 seconds. Free-exploration replies also remain available in **Ask Leo**.
+
 ## The 0G architecture
 
 The rendering engine handles movement, traffic, doors and immediate game feedback
