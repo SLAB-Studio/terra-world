@@ -4,6 +4,8 @@ import type { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import OpeningChapter from "./OpeningChapter";
 import MissionMinimap from "./MissionMinimap";
+import LeoSpeechBubble from "./LeoSpeechBubble";
+import { createLeoReplyLifetime } from "../../lib/immersive-town/leo-reply-lifetime";
 import {
   buildMissionMapGeometry,
   EAST_BRIDGE_MAP_POSITION,
@@ -97,6 +99,7 @@ type ImmersiveTownMapProps = Readonly<{
   onResidentTalk?: (houseId: string) => void;
   onHomeInspected?: (houseId: string) => void;
   residentJournalOpen?: boolean;
+  speechBlocked?: boolean;
   onChapterActiveChange?: (active: boolean) => void;
   repairMapMission?: RepairMapMission | null;
   missionMapStatus?: string;
@@ -141,12 +144,14 @@ function ImmersiveTownMap({
   onResidentTalk,
   onHomeInspected,
   residentJournalOpen = false,
+  speechBlocked = false,
   onChapterActiveChange,
   repairMapMission = null,
   missionMapStatus = "Explore Rivergate and visit your neighbours.",
 }: ImmersiveTownMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const leoBubbleRef = useRef<HTMLDivElement>(null);
+  const [leoReplyLifetime] = useState(createLeoReplyLifetime);
   const [dismissedLeoReply, setDismissedLeoReply] = useState<string | null>(
     null,
   );
@@ -833,7 +838,9 @@ function ImmersiveTownMap({
             ),
             venues: world.venues
               .filter(({ venue }) => !venue.outdoor)
-              .map(({ venue, meshes }) => footprint(`venue:${venue.id}`, meshes)),
+              .map(({ venue, meshes }) =>
+                footprint(`venue:${venue.id}`, meshes),
+              ),
           }),
         );
         setAllHomes(
@@ -921,16 +928,40 @@ function ImmersiveTownMap({
               projected.y < canvas.clientHeight;
             bubble.style.visibility = visible ? "visible" : "hidden";
             if (projected) {
-              const half = Math.min(145, (canvas.clientWidth - 24) / 2);
-              const x = Math.max(
+              const half = bubble.offsetWidth / 2;
+              let x = Math.max(
                 half + 12,
                 Math.min(canvas.clientWidth - half - 12, projected.x),
               );
-              const y = Math.max(
+              let y = Math.max(
                 bubble.offsetHeight + 16,
                 Math.min(canvas.clientHeight - 112, projected.y - 14),
               );
+              // Keep the entire message (including its dismiss control) clear
+              // of the side map. Read actual bounds: folding changes its size.
+              const mapPanel = canvas.parentElement?.querySelector<HTMLElement>(
+                ".mission-minimap-placement:not([hidden])",
+              );
+              if (mapPanel) {
+                const canvasBounds = canvas.getBoundingClientRect();
+                const mapBounds = mapPanel.getBoundingClientRect();
+                const mapLeft = mapBounds.left - canvasBounds.left;
+                const mapTop = mapBounds.top - canvasBounds.top;
+                const mapBottom = mapBounds.bottom - canvasBounds.top;
+                if (
+                  x + half > mapLeft - 10 &&
+                  y > mapTop - 10 &&
+                  y - bubble.offsetHeight < mapBottom + 10
+                ) {
+                  if (mapLeft >= half * 2 + 22) x = mapLeft - half - 10;
+                  else if (mapTop >= bubble.offsetHeight + 26) y = mapTop - 10;
+                }
+              }
               bubble.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
+              bubble.style.setProperty(
+                "--leo-tail-x",
+                `${Math.max(24, Math.min(half * 2 - 24, projected.x - x + half))}px`,
+              );
             }
           }
           if (traversal?.nearExit !== previousNearExit) {
@@ -1190,6 +1221,31 @@ function ImmersiveTownMap({
       : neighborhoodHomeProfile(talkHomeId).ownerName
     : null;
   const displayedLeoReply = chapter ? chapterLeoReply : leoReply;
+  const displayedLeoReplyId = displayedLeoReply?.id ?? null;
+  const leoBubbleEligible =
+    viewMode === "walk" &&
+    leoModelState === "ready" &&
+    !speechBlocked &&
+    chapter?.phase !== "intro" &&
+    !chapterReading &&
+    !residentJournalOpen &&
+    !directoryOpen &&
+    venue === null;
+  const hideLeoReply = useCallback((id: string) => {
+    // Do not steal focus from the game, notebook or chat when time runs out.
+    const heldFocus = leoBubbleRef.current?.contains(document.activeElement);
+    setDismissedLeoReply(id);
+    if (heldFocus) canvasRef.current?.focus({ preventScroll: true });
+  }, []);
+  useEffect(
+    () =>
+      leoReplyLifetime.watch(
+        displayedLeoReplyId,
+        leoBubbleEligible,
+        hideLeoReply,
+      ),
+    [leoReplyLifetime, displayedLeoReplyId, leoBubbleEligible, hideLeoReply],
+  );
   const minimapVisible =
     (!chapterVisible || chapter !== null || visit !== null) &&
     chapter?.phase !== "intro" &&
@@ -1288,27 +1344,19 @@ function ImmersiveTownMap({
           Chapter saving is unavailable. Keep this tab open to retain progress.
         </p>
       ) : null}
-      {viewMode === "walk" &&
+      {leoBubbleEligible &&
         displayedLeoReply &&
-        dismissedLeoReply !== displayedLeoReply.id && (
-          <div
-            className="leo-world-bubble"
+        dismissedLeoReply !== displayedLeoReply.id &&
+        leoReplyLifetime.isLive(displayedLeoReply.id) && (
+          <LeoSpeechBubble
             ref={leoBubbleRef}
-            role="status"
-            aria-live="polite"
-          >
-            <div className="leo-world-bubble-heading">
-              <strong>LEO</strong>
-              <button
-                type="button"
-                aria-label="Dismiss Leo's speech bubble"
-                onClick={() => setDismissedLeoReply(displayedLeoReply.id)}
-              >
-                Close
-              </button>
-            </div>
-            <p>{displayedLeoReply.text}</p>
-          </div>
+            text={displayedLeoReply.text}
+            timeOfDay={timeOfDay}
+            onDismiss={() => {
+              leoReplyLifetime.dismiss(displayedLeoReply.id);
+              hideLeoReply(displayedLeoReply.id);
+            }}
+          />
         )}
       {viewMode === "walk" && leoModelState !== "ready" && (
         <p className="leo-load-status" role="status">

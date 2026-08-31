@@ -951,6 +951,7 @@ export default function CompoundWorld({
                     : activeChallenge.instruction
                 }
                 leoReply={leoReply}
+                speechBlocked={backgroundInert || challengeTrailOpen}
                 timeOfDay={timeOfDay}
                 onResidentTalk={talkToResident}
                 onHomeInspected={inspectResidentHome}

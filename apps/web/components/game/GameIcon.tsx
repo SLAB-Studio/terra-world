@@ -20,6 +20,7 @@ type GameIconProps = {
     | "arrow"
     | "shield"
     | "close"
+    | "paw"
     | "volume"
     | "contrast"
     | "text"
@@ -143,6 +144,15 @@ export function GameIcon({ name, size = 22 }: GameIconProps) {
         </>
       )}
       {name === "close" && <path d="m6 6 12 12M18 6 6 18" />}
+      {name === "paw" && (
+        <>
+          <ellipse cx="8" cy="6" rx="2" ry="3" />
+          <ellipse cx="16" cy="6" rx="2" ry="3" />
+          <ellipse cx="3.5" cy="12" rx="1.8" ry="2.5" />
+          <ellipse cx="20.5" cy="12" rx="1.8" ry="2.5" />
+          <path d="M6 18c0-2 3.5-7 6-7s6 5 6 7c0 4-4 2-6 2s-6 2-6-2Z" />
+        </>
+      )}
       {name === "volume" && (
         <>
           <path d="M5 10v4h3l4 4V6L8 10H5Z" />

@@ -1,0 +1,160 @@
+.root {
+  --leo-paper: #1a2931;
+  --leo-ink: #eef2ed;
+  --leo-accent: #e4bb7b;
+  --leo-muted: #b8c8cd;
+  --leo-raised: #30444d;
+  position: absolute;
+  z-index: 17;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  width: min(320px, calc(100% - 24px));
+  color: var(--leo-ink);
+  font: 400 0.875rem/1.5 var(--font-game-body, "Barlow City", sans-serif);
+}
+
+.root[data-time-of-day="day"] {
+  --leo-paper: #f1f1e9;
+  --leo-ink: #22342f;
+  --leo-accent: #76511e;
+  --leo-muted: #4b6058;
+  --leo-raised: #e2e6df;
+}
+
+.surface {
+  position: relative;
+  padding: 8px 16px 16px;
+  border-radius: 16px;
+  background: var(--leo-paper);
+  box-shadow: 0 10px 28px #07141c52;
+  animation: leo-message-arrives 180ms ease-out;
+}
+
+.surface::after {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  left: var(--leo-tail-x, 50%);
+  width: 16px;
+  height: 16px;
+  border-radius: 0 0 4px;
+  background: var(--leo-paper);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.heading,
+.identity {
+  display: flex;
+  align-items: center;
+}
+
+.heading {
+  justify-content: space-between;
+  gap: 12px;
+  margin-right: -8px;
+}
+
+.identity {
+  gap: 9px;
+  color: var(--leo-accent);
+}
+
+.identity strong {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: var(--leo-raised);
+}
+
+.dismiss {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  color: var(--leo-muted);
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background-color 120ms ease-out,
+    color 120ms ease-out;
+}
+
+.dismiss:hover,
+.dismiss:active {
+  color: var(--leo-ink);
+  background: var(--leo-raised);
+}
+
+.dismiss:focus-visible {
+  outline: 2px solid var(--leo-accent);
+  outline-offset: -3px;
+}
+
+.message {
+  margin: 4px 0 0;
+  max-height: min(170px, 28svh);
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--leo-muted) var(--leo-paper);
+}
+
+.message::selection {
+  color: var(--leo-paper);
+  background: var(--leo-accent);
+}
+
+@keyframes leo-message-arrives {
+  from {
+    opacity: 0.7;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 480px) {
+  .root {
+    /* Reserve the 160px mobile map plus a gutter while Leo is speaking. */
+    width: min(280px, calc(100% - 192px));
+  }
+  .surface {
+    padding-inline: 14px;
+  }
+}
+
+@media (max-width: 360px) {
+  .mark {
+    display: none;
+  }
+  .heading {
+    gap: 4px;
+  }
+  .root {
+    font-size: 0.8125rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surface {
+    animation: none;
+  }
+  .dismiss {
+    transition: none;
+  }
+}
