@@ -1,8 +1,20 @@
 "use client";
 
 import type { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import OpeningChapter from "./OpeningChapter";
+import MissionMinimap from "./MissionMinimap";
+import {
+  buildMissionMapGeometry,
+  EAST_BRIDGE_MAP_POSITION,
+  type MissionMapBuilding,
+  type MissionMapGeometry,
+  type MissionMapPose,
+} from "../../lib/immersive-town/mission-minimap";
+import {
+  resolveMissionMapGuide,
+  type RepairMapMission,
+} from "../../lib/immersive-town/mission-map-guide";
 import {
   CHAPTER_INTRO,
   createChapterState,
@@ -36,6 +48,7 @@ import {
 } from "./HouseDiagnostics";
 import "./TownWalking.css";
 import "./OpeningChapterWorld.css";
+import "./MissionMinimapPlacement.css";
 import BuildingVisit3D from "./BuildingVisit3D";
 import type {
   BuildingTraversal,
@@ -85,6 +98,8 @@ type ImmersiveTownMapProps = Readonly<{
   onHomeInspected?: (houseId: string) => void;
   residentJournalOpen?: boolean;
   onChapterActiveChange?: (active: boolean) => void;
+  repairMapMission?: RepairMapMission | null;
+  missionMapStatus?: string;
 }>;
 
 type RuntimeHandle = Readonly<{
@@ -127,6 +142,8 @@ function ImmersiveTownMap({
   onHomeInspected,
   residentJournalOpen = false,
   onChapterActiveChange,
+  repairMapMission = null,
+  missionMapStatus = "Explore Rivergate and visit your neighbours.",
 }: ImmersiveTownMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const leoBubbleRef = useRef<HTMLDivElement>(null);
@@ -136,6 +153,9 @@ function ImmersiveTownMap({
   const [leoModelState, setLeoModelState] =
     useState<PartyModelStatus>("loading");
   const runtimeRef = useRef<RuntimeHandle | null>(null);
+  const [mapGeometry, setMapGeometry] = useState<MissionMapGeometry | null>(
+    null,
+  );
   const [chapter, setChapter] = useState<ChapterState | null>(null);
   const [savedChapter, setSavedChapter] = useState<ChapterState | null>(null);
   const [chapterVisible, setChapterVisible] = useState(true);
@@ -223,6 +243,38 @@ function ImmersiveTownMap({
   const [engineStatus, setEngineStatus] = useState<
     "loading" | "ready" | "failed"
   >("loading");
+
+  // The minimap samples this stable callback locally, not through a React
+  // update of the entire city for each footstep. Interiors have separate scene
+  // coordinates: keep the street marker at the actual building entrance.
+  const readMapPose = useCallback((): MissionMapPose | null => {
+    const runtime = runtimeRef.current;
+    if (!runtime) return null;
+    const currentVisit = runtime.traversal.visit;
+    const entrance = currentVisit
+      ? [...runtime.walker.doors, ...runtime.walker.venueDoors].find(
+          (door) => door.id === currentVisit.id,
+        )
+      : null;
+    const position = entrance ?? runtime.walker.camera.position;
+    return {
+      x: position.x,
+      z: position.z,
+      yaw: runtime.walker.camera.rotation.y,
+    };
+  }, []);
+
+  const mapGuide = useMemo(() => {
+    const runtime = runtimeRef.current;
+    return resolveMissionMapGuide({
+      chapter,
+      chapterPoints: runtime?.chapter.points ?? [],
+      repairMission: repairMapMission,
+      houseDoors: runtime?.walker.doors ?? [],
+      freeExploreStatus: missionMapStatus,
+      visit,
+    });
+  }, [chapter, engineStatus, repairMapMission, missionMapStatus, visit]);
 
   useEffect(() => {
     runtimeRef.current?.syncChapter(chapter);
@@ -751,6 +803,39 @@ function ImmersiveTownMap({
           return;
         }
         runtimeRef.current = runtime;
+        const footprint = (
+          id: string,
+          meshes: readonly import("@babylonjs/core/Meshes/abstractMesh").AbstractMesh[],
+        ): MissionMapBuilding => {
+          let minX = Infinity,
+            maxX = -Infinity,
+            minZ = Infinity,
+            maxZ = -Infinity;
+          for (const mesh of meshes) {
+            mesh.computeWorldMatrix(true);
+            const bounds = mesh.getBoundingInfo().boundingBox;
+            minX = Math.min(minX, bounds.minimumWorld.x);
+            maxX = Math.max(maxX, bounds.maximumWorld.x);
+            minZ = Math.min(minZ, bounds.minimumWorld.z);
+            maxZ = Math.max(maxZ, bounds.maximumWorld.z);
+          }
+          return {
+            id,
+            position: { x: (minX + maxX) / 2, z: (minZ + maxZ) / 2 },
+            width: maxX - minX,
+            depth: maxZ - minZ,
+          };
+        };
+        setMapGeometry(
+          buildMissionMapGeometry({
+            homes: world.houses.map((house) =>
+              footprint(`home:${house.id}`, [house.pickMesh]),
+            ),
+            venues: world.venues
+              .filter(({ venue }) => !venue.outdoor)
+              .map(({ venue, meshes }) => footprint(`venue:${venue.id}`, meshes)),
+          }),
+        );
         setAllHomes(
           world.houses.map((house) => ({
             id: house.id,
@@ -1105,6 +1190,13 @@ function ImmersiveTownMap({
       : neighborhoodHomeProfile(talkHomeId).ownerName
     : null;
   const displayedLeoReply = chapter ? chapterLeoReply : leoReply;
+  const minimapVisible =
+    (!chapterVisible || chapter !== null || visit !== null) &&
+    chapter?.phase !== "intro" &&
+    !chapterReading &&
+    !residentJournalOpen &&
+    !directoryOpen &&
+    venue === null;
 
   return (
     <div
@@ -1170,6 +1262,26 @@ function ImmersiveTownMap({
         >
           Opening chapter
         </button>
+      ) : null}
+      {engineStatus === "ready" && mapGeometry ? (
+        <div className="mission-minimap-placement" hidden={!minimapVisible}>
+          <MissionMinimap
+            geometry={mapGeometry}
+            pose={null}
+            readPose={readMapPose}
+            active={minimapVisible}
+            target={mapGuide.target}
+            status={mapGuide.status}
+            mode={visit ? "indoors" : viewMode}
+            timeOfDay={timeOfDay}
+            closedCrossing={
+              chapter &&
+              !(chapter.decision === "repair" && chapter.outcomeObserved)
+                ? EAST_BRIDGE_MAP_POSITION
+                : null
+            }
+          />
+        </div>
       ) : null}
       {chapter && chapterSaveFailed ? (
         <p role="status" className="chapter-save-warning">

@@ -1,0 +1,57 @@
+/* A north-up side instrument inside the existing city HUD. The city remains
+   the playing surface; no additional camera, new theme, or mission panel. */
+.mission-minimap-placement {
+  position: absolute;
+  z-index: 19;
+  top: 82px;
+  right: 18px;
+}
+
+/* The short movement reminder shares this corner; the minimap replaces that
+   repetition while the keyboard and touch controls themselves remain. */
+.immersive-town-map:has(.mission-minimap-placement) > .town-walk-help {
+  display: none;
+}
+
+/* In free exploration the journal is another control in the same corner.
+   Reserve its own row above the map, rather than covering the map's markers. */
+@media (min-width: 821px) {
+  .neighborhood-panel:not(.chapter-active):has(.mission-minimap-placement)
+    [aria-controls="resident-case-journal"] {
+    top: 82px;
+    bottom: auto;
+  }
+  .neighborhood-panel:not(.chapter-active) .mission-minimap-placement {
+    top: 134px;
+  }
+}
+
+@media (max-width: 980px) {
+  body[data-world="rivergate"][data-design-contract]
+    .immersive-town-map:not([data-chapter-phase="none"])
+    .town-view-switch {
+    top: 112px;
+  }
+  .immersive-town-map:not([data-chapter-phase="none"])
+    .mission-minimap-placement {
+    top: 178px;
+    right: 12px;
+  }
+}
+
+@media (max-width: 760px) {
+  .mission-minimap-placement {
+    top: 204px;
+    right: 10px;
+  }
+  .immersive-town-map.is-inside-building .mission-minimap-placement {
+    top: 170px;
+  }
+}
+
+@media (max-height: 600px) and (min-width: 761px) {
+  .chapter-active .mission-minimap-placement {
+    top: 70px;
+    right: 12px;
+  }
+}

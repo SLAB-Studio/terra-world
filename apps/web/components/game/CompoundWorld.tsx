@@ -936,6 +936,20 @@ export default function CompoundWorld({
             <div className="world-canvas is-immersive-3d">
               <ImmersiveTownMap
                 onChapterActiveChange={setChapterActive}
+                repairMapMission={
+                  nextAction && nextActionHouse
+                    ? {
+                        houseId: nextAction.houseId,
+                        label: nextActionHouse.name,
+                        instruction: `Add ${nextActionUpgrade?.label.toLowerCase() ?? "the missing upgrade"} at ${nextActionHouse.name}.`,
+                      }
+                    : null
+                }
+                missionMapStatus={
+                  nextAction === null
+                    ? "Review changes, then choose the next objective."
+                    : activeChallenge.instruction
+                }
                 leoReply={leoReply}
                 timeOfDay={timeOfDay}
                 onResidentTalk={talkToResident}
