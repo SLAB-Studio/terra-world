@@ -2,6 +2,20 @@
 
 import type { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
+import OpeningChapter from "./OpeningChapter";
+import {
+  CHAPTER_INTRO,
+  createChapterState,
+  reduceChapter,
+  type ChapterState,
+  type ChapterEvent,
+  type ChapterEvidenceId,
+} from "../../lib/opening-chapter/story";
+import {
+  readChapterSave,
+  writeChapterSave,
+} from "../../lib/opening-chapter/persistence";
+import type { OpeningChapterWorld } from "../../lib/immersive-town/opening-chapter-world";
 
 import type { HouseUpgradeVisuals } from "../../lib/immersive-town/house-upgrades-3d";
 import type { ImmersiveTownWorld } from "../../lib/immersive-town/types";
@@ -21,6 +35,7 @@ import {
   type HouseUpgradeId,
 } from "./HouseDiagnostics";
 import "./TownWalking.css";
+import "./OpeningChapterWorld.css";
 import BuildingVisit3D from "./BuildingVisit3D";
 import type {
   BuildingTraversal,
@@ -69,6 +84,7 @@ type ImmersiveTownMapProps = Readonly<{
   onResidentTalk?: (houseId: string) => void;
   onHomeInspected?: (houseId: string) => void;
   residentJournalOpen?: boolean;
+  onChapterActiveChange?: (active: boolean) => void;
 }>;
 
 type RuntimeHandle = Readonly<{
@@ -78,6 +94,9 @@ type RuntimeHandle = Readonly<{
   world: ImmersiveTownWorld;
   walker: TownWalker;
   traversal: BuildingTraversal;
+  chapter: OpeningChapterWorld;
+  syncChapter(state: ChapterState | null): void;
+  travelToChapterPoint(id: ChapterEvidenceId): void;
   cancelCameraAnimation(): void;
   resetCamera(): void;
   focusHouse(houseId: string): void;
@@ -107,6 +126,7 @@ function ImmersiveTownMap({
   onResidentTalk,
   onHomeInspected,
   residentJournalOpen = false,
+  onChapterActiveChange,
 }: ImmersiveTownMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const leoBubbleRef = useRef<HTMLDivElement>(null);
@@ -116,6 +136,27 @@ function ImmersiveTownMap({
   const [leoModelState, setLeoModelState] =
     useState<PartyModelStatus>("loading");
   const runtimeRef = useRef<RuntimeHandle | null>(null);
+  const [chapter, setChapter] = useState<ChapterState | null>(null);
+  const [savedChapter, setSavedChapter] = useState<ChapterState | null>(null);
+  const [chapterVisible, setChapterVisible] = useState(true);
+  const [chapterReading, setChapterReading] = useState(false);
+  const [chapterSaveFailed, setChapterSaveFailed] = useState(false);
+  const [chapterLeoReply, setChapterLeoReply] = useState<{
+    id: string;
+    text: string;
+  } | null>(null);
+  const [nearbyChapterPoint, setNearbyChapterPoint] =
+    useState<ChapterEvidenceId | null>(null);
+  const chapterRef = useRef<ChapterState | null>(null);
+  const chapterReadingRef = useRef(false);
+  chapterRef.current = chapter;
+  chapterReadingRef.current = chapterReading || chapter?.phase === "intro";
+  useEffect(() => {
+    setSavedChapter(readChapterSave());
+  }, []);
+  useEffect(() => {
+    onChapterActiveChange?.(chapter !== null);
+  }, [chapter !== null, onChapterActiveChange]);
   const [renderPreference, setRenderPreference] =
     useState<RenderQualityPreference>("auto");
   const [showFrameRate, setShowFrameRate] = useState(false);
@@ -184,6 +225,43 @@ function ImmersiveTownMap({
   >("loading");
 
   useEffect(() => {
+    runtimeRef.current?.syncChapter(chapter);
+    setChapterLeoReply(null);
+    if (chapter) {
+      setSavedChapter(chapter);
+      setChapterSaveFailed(!writeChapterSave(chapter));
+    }
+  }, [chapter, engineStatus]);
+
+  const chapterEvent = useCallback((event: ChapterEvent) => {
+    const runtime = runtimeRef.current;
+    if (!runtime) return;
+    if (event.type === "collect-evidence" || event.type === "observe") {
+      const id = event.type === "observe" ? "bridge" : event.id;
+      const point = runtime.chapter.points.find((item) => item.id === id);
+      const pose = runtime.walker.camera.position;
+      if (
+        !point ||
+        !runtime.walker.active ||
+        runtime.traversal.phase !== "outside" ||
+        Math.hypot(pose.x - point.position.x, pose.z - point.position.z) >
+          point.radius
+      )
+        return;
+    }
+    setChapter((current) =>
+      current ? reduceChapter(current, event) : current,
+    );
+  }, []);
+
+  const travelToChapterPoint = useCallback((id: ChapterEvidenceId) => {
+    const runtime = runtimeRef.current;
+    if (!runtime || runtime.traversal.phase !== "outside") return;
+    runtime.travelToChapterPoint(id);
+    setViewMode("walk");
+  }, []);
+
+  useEffect(() => {
     const runtime = runtimeRef.current;
     if (!residentJournalOpen || !runtime) return;
     runtime.walker.clearInput();
@@ -235,6 +313,7 @@ function ImmersiveTownMap({
           walkingTools,
           traversalTools,
           partyTools,
+          chapterTools,
         ] = await Promise.all([
           import("../../lib/immersive-town/babylon-runtime"),
           import("../../lib/immersive-town"),
@@ -246,6 +325,7 @@ function ImmersiveTownMap({
           import("../../lib/immersive-town/town-walker"),
           import("../../lib/immersive-town/building-traversal"),
           import("../../lib/immersive-town/walking-party"),
+          import("../../lib/immersive-town/opening-chapter-world"),
         ]);
         if (cancelled) return;
 
@@ -310,6 +390,7 @@ function ImmersiveTownMap({
           isBlocked: () =>
             visitOpenRef.current ||
             journalOpenRef.current ||
+            chapterReadingRef.current ||
             (traversal !== undefined && traversal.phase !== "outside") ||
             propsRef.current.activeUpgradeId !== null,
           onNearbyHouse: (house) =>
@@ -334,6 +415,7 @@ function ImmersiveTownMap({
             isBlocked: () =>
               visitOpenRef.current ||
               journalOpenRef.current ||
+              chapterReadingRef.current ||
               document.visibilityState !== "visible" ||
               canvas.closest("[inert]") !== null ||
               document.querySelector("dialog[open]") !== null,
@@ -385,6 +467,7 @@ function ImmersiveTownMap({
         );
         upgrades.setReducedMotion(reducedMotionQuery.matches);
         let traffic = trafficTools.createTrafficSimulation();
+        const chapterWorld = chapterTools.createOpeningChapterWorld(world);
         const vehicles = vehicleTools.createVehicleFleet(
           world.scene,
           traffic.vehicles.map((vehicle) => vehicle.id),
@@ -408,12 +491,16 @@ function ImmersiveTownMap({
           }
           traffic = trafficTools.stepTraffic(traffic, frame.deltaSeconds, {
             reducedMotion: frame.reducedMotion,
-            stops: world.residents.trafficStops,
+            stops: [
+              ...world.residents.trafficStops,
+              ...chapterWorld.trafficStops,
+            ],
           });
+          traffic = chapterWorld.routeTraffic(traffic);
           world.residents.setTraffic(traffic);
           vehicles.setBoardingDoors(world.residents.boardingVehicles);
           vehicles.sync(
-            trafficTools.getVehicleTransforms(traffic),
+            chapterWorld.getVehicleTransforms(traffic),
             traffic.elapsedSeconds,
           );
         });
@@ -454,10 +541,20 @@ function ImmersiveTownMap({
           if (
             visitOpenRef.current ||
             journalOpenRef.current ||
+            chapterReadingRef.current ||
             traversal?.phase !== "outside" ||
             propsRef.current.activeUpgradeId !== null
           )
             return;
+          const chapterPoint =
+            pointer.pickInfo?.pickedMesh?.metadata?.chapterPointId;
+          if (
+            chapterRef.current &&
+            ["bridge", "maya", "malik", "nia"].includes(chapterPoint)
+          ) {
+            travelToChapterPoint(chapterPoint as ChapterEvidenceId);
+            return;
+          }
           const destination = world.getVenueFromMesh(
             pointer.pickInfo?.pickedMesh ?? null,
           );
@@ -567,6 +664,59 @@ function ImmersiveTownMap({
           world,
           walker,
           traversal,
+          chapter: chapterWorld,
+          travelToChapterPoint(id) {
+            const point = chapterWorld.points.find((item) => item.id === id);
+            if (!point || traversal.phase !== "outside") return;
+            cancelCameraAnimation();
+            chapterWorld.clearShot();
+            walker.setActive(true);
+            walker.clearInput();
+            walker.camera.position.copyFrom(point.approach);
+            walker.camera.position.y =
+              walker.groundHeight(point.approach) + 1.72;
+            walker.camera.rotation.set(
+              0.06,
+              Math.atan2(
+                point.position.x - point.approach.x,
+                point.position.z - point.approach.z,
+              ),
+              0,
+            );
+            canvas.focus({ preventScroll: true });
+          },
+          syncChapter(next) {
+            const wasActive = chapterWorld.active;
+            chapterWorld.setStage(
+              next?.decision ?? "closed",
+              next?.outcomeObserved ?? false,
+            );
+            chapterWorld.setActive(next !== null);
+            if (next && !wasActive) {
+              traffic = chapterWorld.prepareTraffic(traffic);
+              world.residents.setTraffic(traffic);
+              vehicles.sync(
+                chapterWorld.getVehicleTransforms(traffic),
+                traffic.elapsedSeconds,
+              );
+            }
+            if (next?.phase === "intro") {
+              cancelCameraAnimation();
+              walker.setActive(false);
+              walker.clearInput();
+              chapterWorld.setShot(
+                CHAPTER_INTRO[next.introIndex]!.shot,
+                reducedMotionQuery.matches,
+              );
+              setViewMode("town");
+            } else {
+              chapterWorld.clearShot();
+              if (next && (!wasActive || !walker.active)) {
+                runtime.travelToChapterPoint("bridge");
+                setViewMode("walk");
+              }
+            }
+          },
           cancelCameraAnimation: () => cancelCameraAnimation(),
           resetCamera,
           focusHouse,
@@ -578,6 +728,7 @@ function ImmersiveTownMap({
           syncPauseState: () => syncPauseState(),
           dispose() {
             cancelCameraAnimation();
+            chapterWorld.dispose();
             traversal?.dispose();
             walker.dispose();
             setHoveredHouse(null);
@@ -627,6 +778,7 @@ function ImmersiveTownMap({
         let previousIndoorActivity = "";
         let previousLeoState = "";
         let previousRunning = false;
+        let previousChapterPoint: ChapterEvidenceId | null = null;
         const resetMeasurements = () => {
           lastFrameAt = 0;
           measuredMs = 0;
@@ -641,6 +793,23 @@ function ImmersiveTownMap({
           if (frameMs > 0 && resolution.sample(frameMs) !== null)
             applyResolution();
           traversal?.update(frameMs / 1000);
+          chapterWorld.update(frameMs / 1000);
+          const nextChapterPoint =
+            chapterWorld.active &&
+            walker.active &&
+            traversal.phase === "outside"
+              ? (chapterWorld.points.find(
+                  (point) =>
+                    Math.hypot(
+                      walker.camera.position.x - point.position.x,
+                      walker.camera.position.z - point.position.z,
+                    ) <= point.radius,
+                )?.id ?? null)
+              : null;
+          if (nextChapterPoint !== previousChapterPoint) {
+            previousChapterPoint = nextChapterPoint;
+            setNearbyChapterPoint(nextChapterPoint);
+          }
           if (traversal?.inside) traversal.scene.render();
           else world.render();
           const isRunning = traversal.walker.running;
@@ -935,44 +1104,100 @@ function ImmersiveTownMap({
       ? HOUSE_PROFILES[talkHomeId].ownerName
       : neighborhoodHomeProfile(talkHomeId).ownerName
     : null;
+  const displayedLeoReply = chapter ? chapterLeoReply : leoReply;
 
   return (
     <div
       className={`immersive-town-map${viewMode === "walk" ? " is-walking" : ""}${visit ? " is-inside-building" : ""}`}
       data-time-of-day={timeOfDay}
       data-visit-phase={visitPhase}
+      data-chapter-phase={chapter?.phase ?? "none"}
+      data-chapter-reading={chapterReading || undefined}
     >
       <canvas
         aria-label={
-          visit
-            ? `Inside ${visit.name}. W A S D to walk, Shift to run, arrows to turn. Walk back through the front door to leave.`
-            : viewMode === "walk"
-              ? "Walk around Rivergate. W A S D to move, Shift to run, arrow keys to move or turn, E to enter a nearby building. Drag to look."
-              : "3D town view. Drag to turn, scroll to zoom."
+          chapter?.phase === "intro"
+            ? "Opening cinematic. Use Continue to advance or Skip introduction to play."
+            : visit
+              ? `Inside ${visit.name}. W A S D to walk, Shift to run, arrows to turn. Walk back through the front door to leave.`
+              : viewMode === "walk"
+                ? "Walk around Rivergate. W A S D to move, Shift to run, arrow keys to move or turn, E to enter a nearby building. Drag to look."
+                : "3D town view. Drag to turn, scroll to zoom."
         }
         tabIndex={residentJournalOpen ? -1 : 0}
         ref={canvasRef}
       />
-      {viewMode === "walk" && leoReply && dismissedLeoReply !== leoReply.id && (
-        <div
-          className="leo-world-bubble"
-          ref={leoBubbleRef}
-          role="status"
-          aria-live="polite"
+      {engineStatus === "ready" && !visit && chapterVisible ? (
+        <OpeningChapter
+          state={chapter}
+          savedState={savedChapter}
+          onStart={() => {
+            onWalkStart();
+            setChapter(createChapterState());
+          }}
+          onResume={() => {
+            onWalkStart();
+            if (savedChapter) setChapter(savedChapter);
+          }}
+          onEvent={chapterEvent}
+          onExit={() => {
+            setChapter(null);
+            setChapterVisible(false);
+            setChapterReading(false);
+          }}
+          onFocusEvidence={travelToChapterPoint}
+          nearbyEvidence={nearbyChapterPoint}
+          onInspectNearby={() => {
+            if (nearbyChapterPoint)
+              chapterEvent({
+                type: "collect-evidence",
+                id: nearbyChapterPoint,
+              });
+          }}
+          onDialogueActiveChange={setChapterReading}
+          onLeoReply={setChapterLeoReply}
+          onReturnToWorld={() =>
+            canvasRef.current?.focus({ preventScroll: true })
+          }
+          paused={residentJournalOpen || directoryOpen || venue !== null}
+        />
+      ) : null}
+      {!chapterVisible && !visit && engineStatus === "ready" ? (
+        <button
+          type="button"
+          className="chapter-reopen"
+          onClick={() => setChapterVisible(true)}
         >
-          <div className="leo-world-bubble-heading">
-            <strong>LEO</strong>
-            <button
-              type="button"
-              aria-label="Dismiss Leo's speech bubble"
-              onClick={() => setDismissedLeoReply(leoReply.id)}
-            >
-              Close
-            </button>
+          Opening chapter
+        </button>
+      ) : null}
+      {chapter && chapterSaveFailed ? (
+        <p role="status" className="chapter-save-warning">
+          Chapter saving is unavailable. Keep this tab open to retain progress.
+        </p>
+      ) : null}
+      {viewMode === "walk" &&
+        displayedLeoReply &&
+        dismissedLeoReply !== displayedLeoReply.id && (
+          <div
+            className="leo-world-bubble"
+            ref={leoBubbleRef}
+            role="status"
+            aria-live="polite"
+          >
+            <div className="leo-world-bubble-heading">
+              <strong>LEO</strong>
+              <button
+                type="button"
+                aria-label="Dismiss Leo's speech bubble"
+                onClick={() => setDismissedLeoReply(displayedLeoReply.id)}
+              >
+                Close
+              </button>
+            </div>
+            <p>{displayedLeoReply.text}</p>
           </div>
-          <p>{leoReply.text}</p>
-        </div>
-      )}
+        )}
       {viewMode === "walk" && leoModelState !== "ready" && (
         <p className="leo-load-status" role="status">
           {partyLoadMessage(leoModelState)}

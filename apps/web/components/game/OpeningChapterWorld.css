@@ -1,0 +1,88 @@
+/* Local extension of Rivergate's existing night-city HUD, never a new world. */
+body[data-world="rivergate"][data-design-contract]
+  .kid-workspace:has(.chapter-active) {
+  grid-template-columns: minmax(0, 1fr);
+}
+body[data-world="rivergate"][data-design-contract]
+  .kid-workspace:has(.chapter-active)
+  > .planning-panel,
+body[data-world="rivergate"][data-design-contract]
+  .kid-workspace:has(.chapter-active)
+  > .toy-box,
+.chapter-active > .neighborhood-quest,
+.chapter-active > .neighborhood-actions,
+.chapter-active .challenge-complete-toast,
+.chapter-active .map-pan-hint {
+  display: none;
+}
+.chapter-active .compound-grid,
+body:has(.chapter-active) .mobile-expert-jump {
+  display: none !important;
+}
+.chapter-active .neighborhood-world,
+.chapter-active .world-scroll-region,
+.chapter-active .world-canvas.is-immersive-3d {
+  height: 100%;
+}
+.immersive-town-map[data-chapter-phase="intro"]
+  > :is(
+    .town-view-switch,
+    .town-render-settings,
+    .town-camera-controls,
+    .town-walk-help,
+    .town-walk-controls,
+    .leo-world-bubble,
+    .town-resident-conversation
+  ),
+.immersive-town-map[data-chapter-reading="true"]
+  > :is(
+    .town-walk-controls,
+    .town-walk-help,
+    .town-walk-entry,
+    .town-view-switch,
+    .town-render-settings,
+    .leo-world-bubble
+  ) {
+  visibility: hidden;
+}
+@media (max-width: 980px) {
+  .immersive-town-map:not([data-chapter-phase="none"]) .town-view-switch {
+    top: 112px;
+  }
+}
+.immersive-town-map:not([data-chapter-phase="none"]) .town-walk-help {
+  display: none;
+}
+.chapter-reopen {
+  position: absolute;
+  bottom: 78px;
+  right: 18px;
+  z-index: 55;
+  min-height: 44px;
+  border: 0;
+  border-radius: 6px;
+  padding: 9px 15px;
+  background: #253943;
+  color: #eef2ed;
+  cursor: pointer;
+}
+.chapter-reopen:focus-visible {
+  outline: 2px solid #e4bb7b;
+  outline-offset: 3px;
+}
+.chapter-save-warning {
+  position: absolute;
+  z-index: 75;
+  inset: auto 18px 8px;
+  margin: 0;
+  padding: 6px 12px;
+  color: #f2dab5;
+  background: #332b23;
+  font-size: 0.8rem;
+}
+@media (max-width: 720px) {
+  body[data-world="rivergate"][data-design-contract] .chapter-active {
+    min-height: 620px;
+    height: calc(100svh - 80px);
+  }
+}

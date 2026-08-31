@@ -242,6 +242,7 @@ export default function CompoundWorld({
   backgroundInert = false,
   onRiverMessage,
 }: CompoundWorldProps) {
+  const [chapterActive, setChapterActive] = useState(false);
   const [armedUpgrade, setArmedUpgrade] = useState<UpgradeId | null>(null);
   const [compounds, setCompounds] = useState(initialCompoundState);
   const [activeChallengeId, setActiveChallengeId] = useState(
@@ -784,6 +785,7 @@ export default function CompoundWorld({
   return (
     <>
       <aside
+        hidden={chapterActive}
         aria-hidden={backgroundInert || undefined}
         className="toy-box"
         inert={backgroundInert || undefined}
@@ -849,9 +851,10 @@ export default function CompoundWorld({
 
       <section
         aria-hidden={backgroundInert || undefined}
-        className={`neighborhood-panel${townAwake ? " town-awake" : ""}${challengeTrailOpen ? " challenge-trail-open" : ""}`}
+        className={`neighborhood-panel${townAwake ? " town-awake" : ""}${challengeTrailOpen ? " challenge-trail-open" : ""}${chapterActive ? " chapter-active" : ""}`}
         inert={backgroundInert || undefined}
-        aria-labelledby="neighborhood-heading"
+        aria-labelledby={chapterActive ? undefined : "neighborhood-heading"}
+        aria-label={chapterActive ? "East Bridge opening chapter" : undefined}
       >
         <header
           aria-hidden={challengeTrailOpen || undefined}
@@ -932,6 +935,7 @@ export default function CompoundWorld({
           >
             <div className="world-canvas is-immersive-3d">
               <ImmersiveTownMap
+                onChapterActiveChange={setChapterActive}
                 leoReply={leoReply}
                 timeOfDay={timeOfDay}
                 onResidentTalk={talkToResident}
@@ -1157,7 +1161,7 @@ export default function CompoundWorld({
           open={challengeTrailOpen}
           town={compounds}
         />
-        {!challengeTrailOpen && (
+        {!challengeTrailOpen && !chapterActive && (
           <ResidentCaseJournal
             open={residentJournalOpen && !backgroundInert}
             timeOfDay={timeOfDay}
