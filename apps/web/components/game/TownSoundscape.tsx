@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  canPlayTrafficHorn,
+  subscribeTrafficHorn,
+  subscribeTrafficHornContext,
+  type TrafficHornContext,
+} from "../../lib/immersive-town/traffic-horn";
 
 const AUDIO_READY_EVENT = "terra-world-audio-ready";
 let sharedAudioContext: AudioContext | null = null;
@@ -66,6 +72,7 @@ export default function TownSoundscape({
     });
     window.addEventListener("keydown", unlockFromInteraction);
     document.addEventListener("visibilitychange", handleVisibility);
+    handleVisibility();
 
     return () => {
       window.removeEventListener(AUDIO_READY_EVENT, markReady);
@@ -86,7 +93,6 @@ export default function TownSoundscape({
       timers.push(window.setInterval(() => playWelcomeTune(context), 9_000));
     } else {
       let birdDelay = 2_400;
-      let hornDelay = 8_500;
       const scheduleBird = () => {
         timers.push(
           window.setTimeout(() => {
@@ -96,20 +102,40 @@ export default function TownSoundscape({
           }, birdDelay),
         );
       };
-      const scheduleHorn = () => {
-        timers.push(
-          window.setTimeout(() => {
-            playCarHorn(context);
-            hornDelay = 15_000 + Math.round(Math.random() * 9_000);
-            scheduleHorn();
-          }, hornDelay),
-        );
-      };
       scheduleBird();
-      scheduleHorn();
     }
 
     return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, [audioReady, mode, muted, visible]);
+
+  useEffect(() => {
+    let trafficContext: TrafficHornContext = { paused: true };
+    let stopHorn = () => {};
+    const unsubscribeContext = subscribeTrafficHornContext((next) => {
+      trafficContext = next;
+      if (next.paused || next.inside || next.hidden) stopHorn();
+    });
+    const unsubscribeCue = subscribeTrafficHorn((cue) => {
+      const context = sharedAudioContext;
+      if (
+        !context ||
+        !canPlayTrafficHorn({
+          muted: mutedRef.current,
+          visible: visible && !document.hidden,
+          audioReady: context.state === "running",
+          mode,
+          context: trafficContext,
+        })
+      )
+        return;
+      stopHorn();
+      stopHorn = playCarHorn(context, cue.volume);
+    });
+    return () => {
+      unsubscribeCue();
+      unsubscribeContext();
+      stopHorn();
+    };
   }, [audioReady, mode, muted, visible]);
 
   return null;
@@ -141,17 +167,21 @@ function playBirdChirp(context: AudioContext): void {
   );
 }
 
-function playCarHorn(context: AudioContext): void {
+function playCarHorn(context: AudioContext, volume: number): () => void {
   const start = context.currentTime + 0.02;
-  [329.63, 392].forEach((frequency) =>
-    playTone(context, {
-      frequency,
-      start,
-      duration: 0.24,
-      volume: 0.012,
-      type: "triangle",
-    }),
+  // Two short, soft toots belong to an observed obstruction, never a timer.
+  const stops = [0, 0.21].flatMap((delay) =>
+    [329.63, 392].map((frequency) =>
+      playTone(context, {
+        frequency,
+        start: start + delay,
+        duration: 0.12,
+        volume: Math.min(0.01, volume),
+        type: "triangle",
+      }),
+    ),
   );
+  return () => stops.forEach((stop) => stop());
 }
 
 function playTone(
@@ -163,7 +193,7 @@ function playTone(
     type: OscillatorType;
     volume: number;
   }>,
-): void {
+): () => void {
   const oscillator = context.createOscillator();
   const gain = context.createGain();
   oscillator.frequency.setValueAtTime(options.frequency, options.start);
@@ -176,6 +206,20 @@ function playTone(
   );
   oscillator.connect(gain);
   gain.connect(context.destination);
+  oscillator.onended = () => {
+    oscillator.disconnect();
+    gain.disconnect();
+  };
   oscillator.start(options.start);
   oscillator.stop(options.start + options.duration + 0.04);
+  return () => {
+    // Pause/mute/interior changes cancel even a scheduled second toot.
+    try {
+      oscillator.stop();
+    } catch {
+      /* Already ended. */
+    }
+    oscillator.disconnect();
+    gain.disconnect();
+  };
 }
