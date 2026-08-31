@@ -49,6 +49,10 @@ export function createTownWalker(
       )
       .map(boundsForMesh),
   ];
+  const currentObstacles = (): readonly WalkBounds[] => [
+    ...obstacles,
+    ...(world.scene.metadata?.openingChapterWalkObstacles ?? []),
+  ];
   const raisedGround = world.scene.meshes
     .filter((mesh) =>
       /^(compound-lawn|compound-yard|compound-path)|-(foundation|front-step)$/.test(
@@ -193,7 +197,7 @@ export function createTownWalker(
       { x: camera.position.x, z: camera.position.z, yaw: camera.rotation.y },
       pacedInput(input, running()),
       dt,
-      obstacles,
+      currentObstacles(),
     );
     camera.position.set(pose.x, groundHeight(pose) + WALK_EYE_HEIGHT, pose.z);
     camera.rotation.y = pose.yaw;
@@ -349,7 +353,7 @@ export function createTownWalker(
   });
   const party = createWalkingParty(world.scene, camera, {
     reducedMotion: () => world.animation.reducedMotion,
-    obstacles: () => obstacles,
+    obstacles: currentObstacles,
     canStand: canWalkAt,
     groundHeight,
   });
@@ -366,7 +370,9 @@ export function createTownWalker(
   }
   return {
     camera,
-    obstacles,
+    get obstacles() {
+      return currentObstacles();
+    },
     groundHeight,
     doors,
     venueDoors,

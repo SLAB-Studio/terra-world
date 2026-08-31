@@ -20,6 +20,9 @@ export type ResidentNavigationOptions = Readonly<{
   cacheSize?: number;
   groundHeight?: (point: WalkPoint) => number;
   maxStepHeight?: number;
+  /** Scenario closures are checked for every swept step, not only path planning. */
+  dynamicObstacles?: () => readonly WalkBounds[];
+  additionalCrossings?: () => readonly ResidentCrossing[];
 }>;
 
 // These are the stripes authored in town-details.ts, not invented shortcuts.
@@ -38,10 +41,6 @@ const ROAD_BUCKET_SIZE = 8;
 const roadFrames = Array.from({ length: 480 }, (_, i) =>
   sampleRoadFrame(i / 480),
 );
-const crossingFrames = RESIDENT_CROSSINGS.map((crossing) => ({
-  crossing,
-  frame: sampleRoadFrame(crossing.progress),
-}));
 const bridgeFrames = [0.283, 0.705].map(sampleRoadFrame);
 const roadBuckets = new Map<string, typeof roadFrames>();
 for (const frame of roadFrames) {
@@ -56,6 +55,11 @@ export function createResidentNavigation(
   obstacles: readonly WalkBounds[],
   options: ResidentNavigationOptions = {},
 ) {
+  const buildCrossings = () =>
+    [...RESIDENT_CROSSINGS, ...(options.additionalCrossings?.() ?? [])].map(
+      (crossing) => ({ crossing, frame: sampleRoadFrame(crossing.progress) }),
+    );
+  let crossingFrames = buildCrossings();
   const cellSize = finiteOption(options.cellSize, 1.75, 1, 3);
   const maxSnap = finiteOption(options.maxSnapDistance, 2, 0, 2);
   const searchLimit = Math.floor(
@@ -126,6 +130,17 @@ export function createResidentNavigation(
     )
       return false;
     if (
+      (options.dynamicObstacles?.() ?? []).some((box) =>
+        insideWalkBounds(point, {
+          minX: box.minX - WALK_BODY_RADIUS,
+          maxX: box.maxX + WALK_BODY_RADIUS,
+          minZ: box.minZ - WALK_BODY_RADIUS,
+          maxZ: box.maxZ + WALK_BODY_RADIUS,
+        }),
+      )
+    )
+      return false;
+    if (
       (boxBuckets.get(bucketKey(point, 8)) ?? []).some((box) =>
         insideWalkBounds(point, box),
       )
@@ -167,6 +182,17 @@ export function createResidentNavigation(
     // Analytic rectangle sweep closes thin-wall and diagonal-corner holes that
     // point sampling alone can miss, including during path simplification.
     if (boxes.some((box) => segmentHitsBox(from, to, box))) return false;
+    if (
+      (options.dynamicObstacles?.() ?? []).some((box) =>
+        segmentHitsBox(from, to, {
+          minX: box.minX - WALK_BODY_RADIUS,
+          maxX: box.maxX + WALK_BODY_RADIUS,
+          minZ: box.minZ - WALK_BODY_RADIUS,
+          maxZ: box.maxZ + WALK_BODY_RADIUS,
+        }),
+      )
+    )
+      return false;
     const crossingIntervals = crossingFrames.flatMap(({ frame }) => {
       const local = (point: WalkPoint): WalkPoint => ({
         x:
@@ -471,8 +497,20 @@ export function createResidentNavigation(
     isWalkable,
     closestWalkablePoint,
     crossingAt,
+    get crossings() {
+      return crossingFrames.map(({ crossing }) => crossing);
+    },
     segmentIsWalkable,
     clearCache: () => pathCache.clear(),
+    /** Rebuild once at a closure change; never a per-frame operation. */
+    invalidateGeometry() {
+      crossingFrames = buildCrossings();
+      built = false;
+      points.length = 0;
+      pointBuckets.clear();
+      neighborCache.clear();
+      pathCache.clear();
+    },
   };
 }
 

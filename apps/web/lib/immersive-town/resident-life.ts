@@ -6,10 +6,7 @@ import {
 } from "./road";
 import type { TrafficSimulation, TrafficStop } from "./traffic";
 import type { WalkPoint } from "./walking";
-import {
-  RESIDENT_CROSSINGS,
-  type createResidentNavigation,
-} from "./resident-navigation";
+import type { createResidentNavigation } from "./resident-navigation";
 
 export type ResidentDestination = Readonly<{
   id: string;
@@ -307,7 +304,8 @@ export function createResidentLife(
   }
   function crossingIsClear(id: string) {
     if (!traffic) return true; // A preview scene has no vehicle system.
-    const cross = RESIDENT_CROSSINGS.find((c) => c.id === id)!;
+    const cross = navigation.crossings.find((c) => c.id === id);
+    if (!cross) return false;
     const frame = sampleRoadFrame(cross.progress);
     return !traffic.vehicles.some((vehicle) => {
       const lane = sampleLane(vehicle.laneId, vehicle.progress);
@@ -771,7 +769,65 @@ export function createResidentLife(
     states,
     destinations,
     stops: availableStops,
+    replanRoutes() {
+      corridorPasses.clear();
+      routeOwners.clear();
+      crossings.clear();
+      for (const state of states) {
+        if (state.mode !== "walking") continue;
+        const target = state.path.at(-1);
+        if (target && requestPath(state, target)) continue;
+        // A changed route is retried by the normal bounded planner. It is not
+        // a completed visit and does not move the resident through a barrier.
+        state.path = [];
+        state.waypoint = 0;
+        state.detour = null;
+        state.speed = 0;
+        state.mode = "idle";
+        state.timer = 0;
+      }
+    },
     setTraffic(value: TrafficSimulation) {
+      // A bridge diversion may reverse a vehicle at a safe approach. Keep a
+      // seated passenger's stop on its new curb; a person still approaching
+      // cancels that reservation and stays on foot, never teleports lanes.
+      for (const state of states) {
+        if (!state.ride) continue;
+        const previous = traffic?.vehicles.find(
+          (v) => v.id === state.ride!.vehicleId,
+        );
+        const vehicle = value.vehicles.find(
+          (v) => v.id === state.ride!.vehicleId,
+        );
+        if (!previous || !vehicle || previous.laneId === vehicle.laneId)
+          continue;
+        if (state.mode === "riding") {
+          const stop = availableStops.find(
+            (s) =>
+              s.progress === state.ride!.dropoff.progress &&
+              s.laneId === vehicle.laneId,
+          );
+          if (stop) {
+            const forward = sampleLane(stop.laneId, stop.progress).forward;
+            state.ride.dropoff = vehicle.id.includes("bus")
+              ? {
+                  ...stop,
+                  door: {
+                    x: stop.door.x + forward.x * 0.6,
+                    z: stop.door.z + forward.z * 0.6,
+                  },
+                }
+              : stop;
+          }
+        } else if (state.mode === "walking" || state.mode === "waiting") {
+          reservations.delete(state.ride.vehicleId);
+          state.ride = null;
+          if (state.mode === "waiting") {
+            state.mode = "idle";
+            state.timer = 3;
+          }
+        }
+      }
       traffic = value;
     },
     setNight(value: boolean) {
@@ -805,7 +861,8 @@ export function createResidentLife(
     get trafficStops(): readonly TrafficStop[] {
       const result: TrafficStop[] = [];
       for (const id of crossings) {
-        const crossing = RESIDENT_CROSSINGS.find((c) => c.id === id)!;
+        const crossing = navigation.crossings.find((c) => c.id === id);
+        if (!crossing) continue;
         for (const laneId of ["clockwise", "counter-clockwise"] as const) {
           const direction = laneId === "clockwise" ? 1 : -1;
           result.push({

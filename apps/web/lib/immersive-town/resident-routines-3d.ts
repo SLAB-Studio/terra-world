@@ -52,7 +52,10 @@ export function createResidentRoutines(
       if (b.top < 2.2 && insideWalkBounds(p, b)) y = Math.max(y, b.top);
     return y;
   };
-  const nav = createResidentNavigation(obstacles);
+  const nav = createResidentNavigation(obstacles, {
+    dynamicObstacles: () => scene.metadata?.openingChapterWalkObstacles ?? [],
+    additionalCrossings: () => scene.metadata?.openingChapterCrossings ?? [],
+  });
   const doors = new Map<
     string,
     { door: Vector3; outward: Vector3; mesh: AbstractMesh | null }
@@ -253,6 +256,10 @@ export function createResidentRoutines(
   return {
     life,
     navigation: nav,
+    refreshNavigation() {
+      nav.invalidateGeometry();
+      life.replanRoutes();
+    },
     /** Player and residents share one hinge; neither can close it on the other. */
     setPlayerDoor(id: string, open: boolean) {
       if (open) playerDoors.add(id);
