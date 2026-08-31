@@ -43,7 +43,348 @@ const person = { id: "resident-test", point: { x: -55, z: -46 }, yaw: 0 };
 const separation = (a: { x: number; z: number }, b: { x: number; z: number }) =>
   Math.hypot(a.x - b.x, a.z - b.z);
 
+describe("resident social outings", () => {
+  const family = [
+    {
+      id: "parent",
+      point: { x: -55, z: -46 },
+      yaw: -Math.PI / 2,
+      socialGroup: { id: "family", role: "leader" as const },
+      walkingSpeed: 1.2,
+    },
+    {
+      id: "child",
+      point: { x: -55, z: -45.05 },
+      yaw: -Math.PI / 2,
+      socialGroup: { id: "family", role: "companion" as const },
+      walkingSpeed: 1.05,
+    },
+  ];
+
+  it("walks and visits together for ten minutes without child car errands or position coupling", () => {
+    const navigation = createResidentNavigation([]);
+    const life = createResidentLife(family, places, navigation);
+    life.setTraffic(createTrafficSimulation());
+    let widest = 0;
+    try {
+      for (let tick = 0; tick < 12_000; tick++) {
+        const before = life.states.map((state) => ({ ...state }));
+        life.step(0.05);
+        const [parent, child] = life.states;
+        expect(parent!.destinationId).toBe(child!.destinationId);
+        expect(
+          life.states.filter(
+            (state) =>
+              ["entering", "exiting"].includes(state.mode) && state.speed > 0,
+          ).length,
+        ).toBeLessThanOrEqual(1);
+        for (let index = 0; index < life.states.length; index++) {
+          const state = life.states[index]!;
+          expect(state.ride).toBeNull();
+          expect(separation(state, before[index]!)).toBeLessThanOrEqual(0.084);
+          if (before[index]!.mode === "walking")
+            expect(navigation.segmentIsWalkable(before[index]!, state)).toBe(
+              true,
+            );
+        }
+        if (parent!.mode === "walking" && child!.mode === "walking") {
+          widest = Math.max(widest, separation(parent!, child!));
+          expect(
+            separation(parent!, child!),
+            JSON.stringify({ tick, before, after: life.states }),
+          ).toBeGreaterThanOrEqual(0.6999);
+        }
+      }
+      expect(widest).toBeLessThan(3.5);
+      expect(
+        life.states.every((state) => state.trips >= 3),
+        JSON.stringify(life.states),
+      ).toBe(true);
+      expect(life.states[0]!.visited.length).toBeGreaterThanOrEqual(3);
+      expect(life.states[0]!.visited).toEqual(life.states[1]!.visited);
+    } finally {
+      life.dispose();
+    }
+  }, 30_000);
+
+  it("allows a group across a narrow bridge in single file and retains its reservation for the last companion", () => {
+    const navigation = createResidentNavigation([]);
+    const life = createResidentLife(
+      [
+        { ...family[0]!, point: { x: -30, z: -30 } },
+        { ...family[1]!, point: { x: -30, z: -29.05 } },
+        { id: "unrelated", point: { x: -33, z: -30 }, yaw: 0 },
+      ],
+      [{ id: "far-bank", kind: "leisure", point: { x: 40, z: -30 } }],
+      navigation,
+    );
+    try {
+      life.states.forEach((state) => (state.timer = 0));
+      life.step(0.05);
+      expect(life.states.slice(0, 2).map((state) => state.mode)).toEqual([
+        "walking",
+        "walking",
+      ]);
+      life.step(0.05);
+      expect(life.states[2]!.mode).toBe("idle");
+      for (let tick = 0; tick < 8_000 && life.states[1]!.trips === 0; tick++) {
+        const before = life.states.map((state) => ({ ...state }));
+        life.step(0.05);
+        for (let index = 0; index < 2; index++) {
+          expect(
+            separation(life.states[index]!, before[index]!),
+          ).toBeLessThanOrEqual(0.084);
+          expect(
+            navigation.segmentIsWalkable(before[index]!, life.states[index]!),
+          ).toBe(true);
+        }
+        expect(separation(life.states[0]!, life.states[1]!)).toBeLessThan(4);
+      }
+      expect(life.states[0]!.visited).toContain("far-bank");
+      expect(life.states[1]!.visited).toContain("far-bank");
+    } finally {
+      life.dispose();
+    }
+  }, 30_000);
+
+  it("preserves an explicitly brisk older-adult pace and clamps malformed speed input", () => {
+    const life = createResidentLife(
+      [
+        { ...person, id: "brisk-elder", walkingSpeed: 1.45 },
+        {
+          ...person,
+          id: "invalid",
+          point: { x: -53, z: -46 },
+          walkingSpeed: NaN,
+        },
+        {
+          ...person,
+          id: "too-fast",
+          point: { x: -51, z: -46 },
+          walkingSpeed: 99,
+        },
+      ],
+      places,
+      createResidentNavigation([]),
+    );
+    try {
+      expect(life.states[0]!.walkingSpeed).toBe(1.45);
+      expect(Number.isFinite(life.states[1]!.walkingSpeed)).toBe(true);
+      expect(life.states[2]!.walkingSpeed).toBe(1.65);
+    } finally {
+      life.dispose();
+    }
+  });
+
+  it("keeps an orphaned companion walking without assigning a solo car ride", () => {
+    const life = createResidentLife(
+      [family[1]!],
+      places,
+      createResidentNavigation([]),
+    );
+    try {
+      life.setTraffic(createTrafficSimulation());
+      life.states[0]!.trips = 1;
+      life.states[0]!.timer = 0;
+      life.step(0.05);
+      expect(life.states[0]!.mode).toBe("walking");
+      expect(life.states[0]!.ride).toBeNull();
+      expect(life.states[0]!.destinationId).not.toBeNull();
+    } finally {
+      life.dispose();
+    }
+  });
+
+  it("replans a family's entire route together after a new barrier appears", () => {
+    let blocked = false;
+    const navigation = createResidentNavigation([], {
+      dynamicObstacles: () =>
+        blocked ? [{ minX: -47, maxX: -44, minZ: -48, maxZ: -44 }] : [],
+    });
+    const life = createResidentLife(
+      family,
+      [{ id: "east", kind: "leisure", point: { x: -35, z: -46 } }],
+      navigation,
+    );
+    try {
+      life.states.forEach((state) => (state.timer = 0));
+      for (let tick = 0; tick < 60; tick++) life.step(0.05);
+      const beforeChange = life.states.map((state) => ({
+        x: state.x,
+        z: state.z,
+      }));
+      blocked = true;
+      navigation.invalidateGeometry();
+      life.replanRoutes();
+      expect(life.states.map((state) => ({ x: state.x, z: state.z }))).toEqual(
+        beforeChange,
+      );
+      expect(life.states.map((state) => state.mode)).toEqual([
+        "walking",
+        "walking",
+      ]);
+      for (
+        let tick = 0;
+        tick < 2_400 && life.states.some((state) => state.trips === 0);
+        tick++
+      ) {
+        const before = life.states.map((state) => ({ x: state.x, z: state.z }));
+        life.step(0.05);
+        life.states.forEach((state, index) => {
+          expect(navigation.segmentIsWalkable(before[index]!, state)).toBe(
+            true,
+          );
+          expect(separation(before[index]!, state)).toBeLessThanOrEqual(0.084);
+        });
+        expect(separation(life.states[0]!, life.states[1]!)).toBeLessThan(4);
+      }
+      expect(
+        life.states.every((state) => state.visited.includes("east")),
+        JSON.stringify(life.states),
+      ).toBe(true);
+    } finally {
+      life.dispose();
+    }
+  });
+
+  it("keeps a bridge reservation after its leader arrives until the companion arrives too", () => {
+    const life = createResidentLife(
+      [
+        { ...family[0]!, point: { x: -30, z: -30 } },
+        { ...family[1]!, point: { x: -30, z: -29.05 } },
+        { id: "unrelated", point: { x: -33, z: -30 }, yaw: 0 },
+      ],
+      [{ id: "far-bank", kind: "leisure", point: { x: 40, z: -30 } }],
+      createResidentNavigation([]),
+    );
+    try {
+      life.states.forEach((state) => (state.timer = 0));
+      life.step(0.05);
+      life.states[0]!.mode = "inside";
+      life.states[0]!.timer = 100;
+      life.step(0.05);
+      expect(life.states[2]!.mode).toBe("idle");
+      life.states[1]!.mode = "inside";
+      life.states[1]!.timer = 100;
+      life.states[2]!.timer = 0;
+      life.step(0.05);
+      expect(life.states[2]!.mode).toBe("walking");
+    } finally {
+      life.dispose();
+    }
+  });
+});
+
 describe("resident destination life", () => {
+  it("briefly releases an unserved curb request to clear queued vehicles, then safely crosses as a family", () => {
+    const crossing = { id: "detour-crossing", progress: 0.4 };
+    const frame = sampleRoadFrame(crossing.progress);
+    const point = (side: number, along = 0) => ({
+      x:
+        frame.center.x + frame.lateral.x * side * 4.8 + frame.tangent.x * along,
+      z:
+        frame.center.z + frame.lateral.z * side * 4.8 + frame.tangent.z * along,
+    });
+    const life = createResidentLife(
+      [
+        {
+          id: "crossing-parent",
+          point: point(1),
+          yaw: 0,
+          socialGroup: { id: "crossing-family", role: "leader" },
+        },
+        {
+          id: "crossing-child",
+          point: point(1, 0.95),
+          yaw: 0,
+          socialGroup: { id: "crossing-family", role: "companion" },
+        },
+      ],
+      [{ id: "across", kind: "leisure", point: point(-1) }],
+      createResidentNavigation([], { additionalCrossings: () => [crossing] }),
+    );
+    let traffic = createTrafficSimulation([
+      {
+        id: "queued-car",
+        laneId: "clockwise",
+        startProgress: crossing.progress,
+        cruiseSpeedMetersPerSecond: 8,
+        lengthMeters: 4,
+      },
+    ]);
+    try {
+      life.setTraffic(traffic);
+      life.states.forEach((state) => (state.timer = 0));
+      const before = life.states.map((state) => ({ x: state.x, z: state.z }));
+      for (let tick = 0; tick < 220; tick++) {
+        life.step(0.05);
+        life.states.forEach((state, index) => {
+          expect(state.crossingPermit).toBeNull();
+          expect(separation(before[index]!, state)).toBeLessThan(0.03);
+        });
+      }
+      expect(life.trafficStops).toHaveLength(0);
+      for (
+        let tick = 0;
+        tick < 2_000 && life.states.some((state) => state.trips === 0);
+        tick++
+      ) {
+        traffic = stepTraffic(traffic, 0.05, { stops: life.trafficStops });
+        life.setTraffic(traffic);
+        life.step(0.05);
+      }
+      expect(
+        life.states.every((state) => state.visited.includes("across")),
+      ).toBe(true);
+    } finally {
+      life.dispose();
+    }
+  });
+
+  it("never releases a crossing while an admitted pedestrian is still clearing it", () => {
+    const crossing = { id: "detour-crossing", progress: 0.4 };
+    const frame = sampleRoadFrame(crossing.progress);
+    const point = (side: number) => ({
+      x: frame.center.x + frame.lateral.x * side * 4.8,
+      z: frame.center.z + frame.lateral.z * side * 4.8,
+    });
+    const life = createResidentLife(
+      [
+        { id: "waiting", point: point(1), yaw: 0 },
+        { id: "clearing", point: point(-1), yaw: 0 },
+      ],
+      [{ id: "across", kind: "leisure", point: point(-1) }],
+      createResidentNavigation([], { additionalCrossings: () => [crossing] }),
+    );
+    try {
+      life.setTraffic(
+        createTrafficSimulation([
+          {
+            id: "queued-car",
+            laneId: "clockwise",
+            startProgress: crossing.progress,
+            cruiseSpeedMetersPerSecond: 8,
+            lengthMeters: 4,
+          },
+        ]),
+      );
+      life.states[0]!.timer = 0;
+      life.step(0.05);
+      for (let tick = 0; tick < 500; tick++) {
+        // Retain the other person's admission throughout a long clearing phase.
+        // They are not permitted to lose protection just because this curb
+        // request would otherwise time out and yield to vehicles.
+        life.states[1]!.mode = "walking";
+        life.states[1]!.crossingPermit = crossing.id;
+        life.step(0.05);
+        expect(life.trafficStops).toHaveLength(2);
+        expect(life.states[0]!.crossingPermit).toBeNull();
+      }
+    } finally {
+      life.dispose();
+    }
+  });
+
   it("holds a conflicting bridge trip at its origin until the narrow route is released", () => {
     const life = createResidentLife(
       [

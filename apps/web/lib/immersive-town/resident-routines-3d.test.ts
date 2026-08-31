@@ -12,6 +12,16 @@ describe("resident routines in the actual town", () => {
     });
     try {
       const life = world.residents.life;
+      const families = new Map<string, typeof life.states>();
+      for (const state of life.states) {
+        if (!state.socialGroup) continue;
+        const members = families.get(state.socialGroup.id) ?? [];
+        members.push(state);
+        families.set(state.socialGroup.id, members);
+      }
+      const widest = new Map<string, number>();
+      const widestAt = new Map<string, unknown>();
+      expect(families.size).toBeGreaterThanOrEqual(4);
       let traffic = createTrafficSimulation();
       let boardings = 0,
         alightings = 0,
@@ -19,6 +29,37 @@ describe("resident routines in the actual town", () => {
       life.setTraffic(traffic);
       for (let frame = 0; frame < 12000; frame++) {
         life.step(0.05);
+        for (const [id, members] of families) {
+          expect(
+            new Set(members.map((member) => member.destinationId)).size,
+            id,
+          ).toBe(1);
+          if (members.every((member) => member.mode === "walking")) {
+            const [first, second] = members;
+            const gap = Math.hypot(first!.x - second!.x, first!.z - second!.z);
+            expect(
+              gap,
+              `${id} walking body clearance at frame ${frame}`,
+            ).toBeGreaterThanOrEqual(0.6999);
+            if (gap > (widest.get(id) ?? 0))
+              widestAt.set(id, {
+                frame,
+                members: members.map((state) => ({
+                  id: state.id,
+                  x: state.x,
+                  z: state.z,
+                  destinationId: state.destinationId,
+                  waypoint: state.waypoint,
+                  path: state.path,
+                })),
+              });
+            widest.set(id, Math.max(widest.get(id) ?? 0, gap));
+          }
+          expect(
+            members.every((member) => member.ride === null),
+            id,
+          ).toBe(true);
+        }
         boardings += life.events.filter((e) => e.type === "boarded").length;
         alightings += life.events.filter((e) => e.type === "alighted").length;
         traffic = stepTraffic(traffic, 0.05, { stops: life.trafficStops });
@@ -35,6 +76,11 @@ describe("resident routines in the actual town", () => {
       expect(boardings).toBeGreaterThan(0);
       expect(alightings).toBeGreaterThan(0);
       expect(lateTrafficMovement).toBeGreaterThan(100);
+      expect(
+        [...widest]
+          .filter(([, gap]) => gap >= 4)
+          .map(([id, gap]) => ({ id, gap, at: widestAt.get(id) })),
+      ).toEqual([]);
     } finally {
       world.dispose();
       engine.dispose();
@@ -48,6 +94,10 @@ describe("resident routines in the actual town", () => {
     });
     try {
       const { life, navigation } = world.residents;
+      const mei = life.states.find((state) => state.id === "north-walker-mei")!;
+      const ada = life.states.find((state) => state.id === "north-child-ada")!;
+      expect({ x: mei.x, z: mei.z }).toEqual({ x: -28.8, z: 61 });
+      expect({ x: ada.x, z: ada.z }).toEqual({ x: -29.8, z: 61 });
       expect(world.houses).toHaveLength(28);
       expect(world.venues).toHaveLength(18);
       expect(
@@ -106,5 +156,5 @@ describe("resident routines in the actual town", () => {
       world.dispose();
       engine.dispose();
     }
-  });
+  }, 15000);
 });

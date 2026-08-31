@@ -7,12 +7,18 @@ import {
 import type { TrafficSimulation, TrafficStop } from "./traffic";
 import type { WalkPoint } from "./walking";
 import type { createResidentNavigation } from "./resident-navigation";
+import { companionWalkingPath } from "./resident-social-path";
 
 export type ResidentDestination = Readonly<{
   id: string;
   kind: "home" | "venue" | "leisure";
   point: WalkPoint;
   threshold?: WalkPoint;
+}>;
+/** Authored relationships, not inferred from age, appearance or shared names. */
+export type ResidentSocialGroup = Readonly<{
+  id: string;
+  role: "leader" | "companion";
 }>;
 export type ResidentMode =
   | "idle"
@@ -45,6 +51,8 @@ export type ResidentLifeState = {
   detour: WalkPoint | null;
   ride: { vehicleId: string; pickup: RideStop; dropoff: RideStop } | null;
   visited: string[];
+  socialGroup?: ResidentSocialGroup;
+  walkingSpeed: number;
 };
 export type RideStop = Readonly<{
   id: string;
@@ -116,6 +124,8 @@ export function createResidentLife(
     point: WalkPoint;
     yaw: number;
     phase?: number;
+    socialGroup?: ResidentSocialGroup;
+    walkingSpeed?: number;
   }[],
   destinations: readonly ResidentDestination[],
   navigation: Navigation,
@@ -154,8 +164,37 @@ export function createResidentLife(
       detour: null,
       ride: null,
       visited: [],
+      ...(person.socialGroup ? { socialGroup: person.socialGroup } : {}),
+      walkingSpeed:
+        person.walkingSpeed !== undefined &&
+        Number.isFinite(person.walkingSpeed)
+          ? Math.max(0.65, Math.min(1.65, person.walkingSpeed))
+          : 1.05 + (hash(person.id) % 45) / 100,
     };
   });
+  const groups = new Map<string, ResidentLifeState[]>();
+  for (const state of states) {
+    if (!state.socialGroup) continue;
+    const members = groups.get(state.socialGroup.id) ?? [];
+    members.push(state);
+    groups.set(state.socialGroup.id, members);
+  }
+  // A malformed/orphaned label must not strand a resident forever. The stable
+  // first member leads when no leader was authored; singletons keep walking.
+  const groupFor = new Map<string, ResidentLifeState[]>();
+  for (const members of groups.values()) {
+    if (members.length < 2) continue;
+    members.sort(
+      (a, b) =>
+        Number(b.socialGroup?.role === "leader") -
+          Number(a.socialGroup?.role === "leader") || a.id.localeCompare(b.id),
+    );
+    for (const member of members) {
+      groupFor.set(member.id, members);
+      member.homeId = members[0]!.homeId;
+      member.timer = members[0]!.timer;
+    }
+  }
   const availableStops = RESIDENT_RIDE_STOPS.filter((stop) =>
     navigation.isWalkable(stop.curb),
   );
@@ -164,12 +203,18 @@ export function createResidentLife(
   let night = true;
   let disposed = false;
   const crossings = new Set<string>();
+  const crossingWaitSince = new Map<string, number>();
+  const crossingVehiclePhaseUntil = new Map<string, number>();
   const reservations = new Map<string, string>();
   const corridorPasses = new Map<string, CorridorPass>();
   const routeOwners = new Map<string, string>();
   const routeResourceCache = new WeakMap<
     readonly WalkPoint[],
     readonly string[]
+  >();
+  const remainingLengths = new WeakMap<
+    readonly WalkPoint[],
+    readonly number[]
   >();
   let elapsed = 0;
   let nextCorridorCheck = 0;
@@ -178,13 +223,9 @@ export function createResidentLife(
     state.seed = (Math.imul(state.seed, 1664525) + 1013904223) >>> 0;
     return state.seed / 4294967296;
   };
-  const requestPath = (
-    state: ResidentLifeState,
-    point: WalkPoint,
-    reserve = true,
-  ) => {
-    const path = navigation.findPath(state, point);
-    if (!path) return false;
+  const routeOwner = (state: ResidentLifeState) =>
+    groupFor.get(state.id)?.[0]?.id ?? state.id;
+  const resourcesFor = (path: readonly WalkPoint[]) => {
     let resources = routeResourceCache.get(path);
     if (!resources) {
       const required = new Set<string>();
@@ -206,25 +247,80 @@ export function createResidentLife(
       resources = [...required];
       routeResourceCache.set(path, resources);
     }
+    return resources;
+  };
+  const activatePath = (
+    state: ResidentLifeState,
+    path: readonly WalkPoint[],
+  ) => {
+    state.path = path;
+    state.waypoint = 1;
+    state.mode = "walking";
+    state.speed = 0;
+    state.detour = null;
+    if (!remainingLengths.has(path)) {
+      const remaining = new Array<number>(path.length).fill(0);
+      for (let index = path.length - 2; index >= 0; index--)
+        remaining[index] =
+          remaining[index + 1]! + distance(path[index]!, path[index + 1]!);
+      remainingLengths.set(path, remaining);
+    }
+  };
+  const requestPath = (
+    state: ResidentLifeState,
+    point: WalkPoint,
+    reserve = true,
+  ) => {
+    const path = navigation.findPath(state, point);
+    if (!path) return false;
+    const resources = resourcesFor(path);
+    const ownerId = routeOwner(state);
     // Admit a complete narrow-section route atomically. Waiting at the trip
     // origin leaves bridge exits free; partial reservations could deadlock two
     // opposite trips while queues prevent either pedestrian from backing out.
     if (reserve) {
       if (
         resources.some(
-          (key) => routeOwners.has(key) && routeOwners.get(key) !== state.id,
+          (key) => routeOwners.has(key) && routeOwners.get(key) !== ownerId,
         )
       )
         return false;
-      for (const [key, owner] of routeOwners)
-        if (owner === state.id) routeOwners.delete(key);
-      for (const key of resources) routeOwners.set(key, state.id);
+      if (!groupFor.has(state.id))
+        for (const [key, owner] of routeOwners)
+          if (owner === ownerId) routeOwners.delete(key);
+      for (const key of resources) routeOwners.set(key, ownerId);
     }
-    state.path = path;
-    state.waypoint = 1;
-    state.mode = "walking";
-    state.speed = 0;
-    state.detour = null;
+    activatePath(state, path);
+    return true;
+  };
+  const requestGroupPath = (members: ResidentLifeState[], point: WalkPoint) => {
+    const leader = members[0]!;
+    const leadPath = navigation.findPath(leader, point);
+    if (!leadPath) return false;
+    const paths: (readonly WalkPoint[])[] = [leadPath];
+    for (let index = 1; index < members.length; index++) {
+      const path = companionWalkingPath(
+        leadPath,
+        members[index]!,
+        navigation,
+        index,
+      );
+      if (!path) return false;
+      paths.push(path);
+    }
+    const resources = new Set(paths.flatMap((path) => [...resourcesFor(path)]));
+    if (
+      [...resources].some(
+        (key) => routeOwners.has(key) && routeOwners.get(key) !== leader.id,
+      )
+    )
+      return false;
+    // Admission is all-or-nothing; companions cannot deadlock their own
+    // leader behind a reservation or borrow another group's crossing permit.
+    for (const [key, owner] of routeOwners)
+      if (owner === leader.id) routeOwners.delete(key);
+    for (const key of resources) routeOwners.set(key, leader.id);
+    members.forEach((member, index) => activatePath(member, paths[index]!));
     return true;
   };
   const emit = (
@@ -237,10 +333,17 @@ export function createResidentLife(
     if (state.visited.length > 48) state.visited.shift();
   };
   function plan(state: ResidentLifeState) {
+    const members = groupFor.get(state.id);
+    if (
+      members &&
+      (members[0] !== state ||
+        members.some((member) => member.mode !== "idle" || member.timer > 0))
+    )
+      return;
     // Rides are errands, not a teleport shortcut: walk to a curb, wait, board,
     // remain with that vehicle, and leave only when it stops at the destination.
     const rideDue = state.trips % 3 === 1;
-    if (rideDue && traffic) {
+    if (rideDue && traffic && !state.socialGroup) {
       const vehicle = traffic.vehicles.find(
         (v) =>
           /^(berry-car|sky-car|sunny-bus|lilac-bus)$/.test(v.id) &&
@@ -281,22 +384,28 @@ export function createResidentLife(
       (d) => d.id !== state.destinationId && distance(state, d.point) > 8,
     );
     // Varied errands across districts; night makes home visits more frequent.
-    const ordered =
-      night && state.trips % 3 === 2 && home
-        ? [home, ...candidates]
-        : candidates;
+    const homeDue =
+      night &&
+      state.trips % 3 === 2 &&
+      home &&
+      (!members ||
+        (home.id !== state.destinationId && distance(state, home.point) > 8));
+    const ordered = homeDue ? [home, ...candidates] : candidates;
     const start = ordered.length
       ? Math.floor(random(state) * ordered.length)
       : 0;
     for (let attempt = 0; attempt < Math.min(8, ordered.length); attempt++) {
       const place =
         ordered[
-          night && state.trips % 3 === 2 && attempt === 0
-            ? 0
-            : (start + attempt) % ordered.length
+          homeDue && attempt === 0 ? 0 : (start + attempt) % ordered.length
         ]!;
-      if (requestPath(state, place.point)) {
-        state.destinationId = place.id;
+      if (
+        members
+          ? requestGroupPath(members, place.point)
+          : requestPath(state, place.point)
+      ) {
+        for (const member of members ?? [state])
+          member.destinationId = place.id;
         return;
       }
     }
@@ -331,6 +440,24 @@ export function createResidentLife(
             0.4 +
             footprint +
             (approaching ? vehicle.speedMetersPerSecond * 2 : 0)
+      );
+    });
+  }
+  function crossingHasPedestrians(id: string) {
+    const cross = navigation.crossings.find((entry) => entry.id === id);
+    if (!cross) return false;
+    const frame = sampleRoadFrame(cross.progress);
+    return states.some((other) => {
+      if (other.mode !== "walking") return false;
+      if (other.crossingPermit === id) return true;
+      // Also protect an authored start inside the lanes, even before its first
+      // permit. A clearance phase never sends vehicles through a pedestrian.
+      return (
+        navigation.crossingAt(other)?.id === id &&
+        Math.abs(
+          (other.x - frame.center.x) * frame.lateral.x +
+            (other.z - frame.center.z) * frame.lateral.z,
+        ) < 4.4
       );
     });
   }
@@ -551,7 +678,60 @@ export function createResidentLife(
     const wantedYaw = Math.atan2(-dx, -dz);
     const turn = angleDifference(state.yaw, wantedYaw);
     state.yaw += Math.max(-2.6 * dt, Math.min(2.6 * dt, turn));
-    const pace = 1.05 + (hash(state.id) % 45) / 100;
+    const members = groupFor.get(state.id);
+    let pace = state.walkingSpeed;
+    if (members && !portal && !corridorRecovery) {
+      const route = members[0]!.path;
+      const lengths = remainingLengths.get(route);
+      const progress = (member: ResidentLifeState) => {
+        let nearest = Infinity,
+          along = 0;
+        for (let index = 1; index < route.length; index++) {
+          const a = route[index - 1]!,
+            b = route[index]!;
+          const length = distance(a, b);
+          const t =
+            length > 0
+              ? Math.max(
+                  0,
+                  Math.min(
+                    1,
+                    ((member.x - a.x) * (b.x - a.x) +
+                      (member.z - a.z) * (b.z - a.z)) /
+                      (length * length),
+                  ),
+                )
+              : 0;
+          const gap = distance(member, {
+            x: a.x + (b.x - a.x) * t,
+            z: a.z + (b.z - a.z) * t,
+          });
+          if (gap < nearest) {
+            nearest = gap;
+            along =
+              (lengths?.[0] ?? 0) - (lengths?.[index - 1] ?? 0) + length * t;
+          }
+        }
+        return along;
+      };
+      // Compare progress along the shared center route, not remaining lengths:
+      // a safe outside bend can legitimately add metres to a companion's path.
+      const ownProgress = progress(state);
+      const groupPace = Math.min(
+        ...members.map((member) => member.walkingSpeed),
+      );
+      pace = groupPace;
+      for (const other of members) {
+        if (other === state || other.mode !== "walking") continue;
+        const lag = ownProgress - progress(other);
+        if (lag > 0.7 && distance(state, other) > 1.15)
+          pace = Math.min(pace, groupPace * Math.max(0, (2.4 - lag) / 1.7));
+        // The follower can gently catch up without exceeding their authored
+        // walking ability; the leader matches the slower person's pace.
+        if (lag < -1.1 && pace === groupPace)
+          pace = Math.min(state.walkingSpeed, groupPace * 1.12);
+      }
+    }
     const wantedSpeed =
       Math.abs(turn) > 0.6 ? 0 : Math.min(pace, Math.sqrt(2 * 1.8 * gap));
     state.speed += Math.max(
@@ -559,6 +739,24 @@ export function createResidentLife(
       Math.min(1.4 * dt, wantedSpeed - state.speed),
     );
     let travel = Math.min(gap, state.speed * dt);
+    if (members && !portal && !corridorRecovery) {
+      for (const other of members) {
+        if (other === state || other.mode !== "walking") continue;
+        const along = (other.x - state.x) * dx + (other.z - state.z) * dz;
+        const lateral = Math.abs(
+          (other.x - state.x) * dz - (other.z - state.z) * dx,
+        );
+        const otherTarget = other.detour ?? other.path[other.waypoint];
+        const headingAlignment = otherTarget
+          ? ((otherTarget.x - other.x) * dx + (otherTarget.z - other.z) * dz) /
+            Math.max(0.001, distance(other, otherTarget))
+          : 0;
+        // Queue in a narrow section instead of repeatedly sidestepping into
+        // a rail while a parent/partner is turning ahead on the same trail.
+        if (along > 0 && lateral < 0.7 && headingAlignment > 0.5)
+          travel = Math.min(travel, Math.max(0, along - 0.82));
+      }
+    }
     const ahead = {
       x: state.x + dx * Math.min(gap, 2.3),
       z: state.z + dz * Math.min(gap, 2.3),
@@ -566,11 +764,33 @@ export function createResidentLife(
     const crossing =
       navigation.crossingAt(state) ?? navigation.crossingAt(ahead);
     if (!portal && crossing) {
-      crossings.add(crossing.id);
       if (state.crossingPermit !== crossing.id) {
-        if (crossingIsClear(crossing.id)) state.crossingPermit = crossing.id;
-        else travel = 0;
-      }
+        const occupied = crossingHasPedestrians(crossing.id);
+        if (
+          (crossingVehiclePhaseUntil.get(crossing.id) ?? 0) > elapsed &&
+          !occupied
+        ) {
+          travel = 0;
+        } else if (crossingIsClear(crossing.id)) {
+          state.crossingPermit = crossing.id;
+          crossingWaitSince.delete(crossing.id);
+          crossingVehiclePhaseUntil.delete(crossing.id);
+          crossings.add(crossing.id);
+        } else {
+          const waitingSince = crossingWaitSince.get(crossing.id) ?? elapsed;
+          crossingWaitSince.set(crossing.id, waitingSince);
+          if (!occupied && elapsed - waitingSince >= 10) {
+            // A diversion can queue cars over the stripes while the outgoing
+            // lane is stopped by this same request. Release an UNADMITTED curb
+            // request briefly so that queue and its U-turn can clear, then
+            // request again. Existing pedestrians keep an uninterrupted stop.
+            crossingVehiclePhaseUntil.set(crossing.id, elapsed + 12);
+            crossingWaitSince.delete(crossing.id);
+            crossings.delete(crossing.id);
+          } else crossings.add(crossing.id);
+          travel = 0;
+        }
+      } else crossings.add(crossing.id);
     } else if (!portal) {
       state.crossingPermit = null;
     }
@@ -652,6 +872,24 @@ export function createResidentLife(
       ) < 0.25,
     );
   }
+  function groupPortalReady(state: ResidentLifeState) {
+    const members = groupFor.get(state.id);
+    if (!members) return true;
+    if (members.some((member) => member.mode === "walking")) return false;
+    // A shared destination is not a shared body position. Families use the
+    // actual doorway one at a time, then regroup at their separate approaches.
+    const entering = members.find(
+      (member) =>
+        member.mode === "entering" &&
+        member.destinationId === state.destinationId,
+    );
+    const exiting = members.find(
+      (member) =>
+        member.mode === "exiting" &&
+        member.destinationId === state.destinationId,
+    );
+    return (entering ?? exiting) === state;
+  }
   function update(state: ResidentLifeState, dt: number) {
     state.timer = Math.max(0, state.timer - dt);
     if (state.mode === "walking" && state.ride && state.timer === 0) {
@@ -691,7 +929,7 @@ export function createResidentLife(
       state.timer = 10 + random(state) * 18;
       if (place) recordVisit(state, place.id);
     } else if (state.mode === "entering" && place?.threshold) {
-      if (state.timer > 0) return;
+      if (state.timer > 0 || !groupPortalReady(state)) return;
       if (move(state, place.threshold, dt, true)) {
         state.mode = "inside";
         state.timer = 18 + random(state) * 30;
@@ -700,11 +938,23 @@ export function createResidentLife(
         emit(state, "entered", place.id);
       }
     } else if (state.mode === "inside" && state.timer === 0 && place) {
+      if (
+        groupFor
+          .get(state.id)
+          ?.some(
+            (member) =>
+              member !== state && ["entering", "exiting"].includes(member.mode),
+          )
+      )
+        return;
       state.mode = "exiting";
       state.timer = 0.7;
     } else if (state.mode === "exiting" && place) {
-      if (state.timer > 0) return;
-      if (move(state, place.point, dt, true)) {
+      if (state.timer > 0 || !groupPortalReady(state)) return;
+      const approach = groupFor.has(state.id)
+        ? (state.path.at(-1) ?? place.point)
+        : place.point;
+      if (move(state, approach, dt, true)) {
         emit(state, "exited", place.id);
         state.mode = "idle";
         state.trips++;
@@ -773,8 +1023,32 @@ export function createResidentLife(
       corridorPasses.clear();
       routeOwners.clear();
       crossings.clear();
+      crossingWaitSince.clear();
+      crossingVehiclePhaseUntil.clear();
+      const replanned = new Set<string>();
       for (const state of states) {
-        if (state.mode !== "walking") continue;
+        if (state.mode !== "walking" || replanned.has(state.id)) continue;
+        const members = groupFor.get(state.id);
+        if (members?.every((member) => member.mode === "walking")) {
+          const leader = members[0]!;
+          const goal =
+            (leader.destinationId
+              ? places.get(leader.destinationId)?.point
+              : null) ?? leader.path.at(-1);
+          members.forEach((member) => replanned.add(member.id));
+          if (goal && requestGroupPath(members, goal)) continue;
+          // A changed barrier admits the whole family or none of it. Nobody
+          // independently follows the old route while a companion is stranded.
+          for (const member of members) {
+            member.path = [];
+            member.waypoint = 0;
+            member.detour = null;
+            member.speed = 0;
+            member.mode = "idle";
+            member.timer = 0;
+          }
+          continue;
+        }
         const target = state.path.at(-1);
         if (target && requestPath(state, target)) continue;
         // A changed route is retried by the normal bounded planner. It is not
@@ -840,7 +1114,11 @@ export function createResidentLife(
       if (!dt) return;
       elapsed += dt;
       for (const [key, owner] of routeOwners)
-        if (states.find((state) => state.id === owner)?.mode !== "walking")
+        if (
+          !(
+            groupFor.get(owner) ?? states.filter((state) => state.id === owner)
+          ).some((state) => state.mode === "walking")
+        )
           routeOwners.delete(key);
       crossings.clear();
       prepareCorridorPasses();
@@ -848,7 +1126,16 @@ export function createResidentLife(
       // Spread expensive trip planning across frames, never rebuild a graph per resident.
       for (let i = 0; i < states.length; i++) {
         const state = states[(planningCursor + i) % states.length]!;
-        if (state.mode === "idle" && state.timer === 0) {
+        const members = groupFor.get(state.id);
+        if (
+          state.mode === "idle" &&
+          state.timer === 0 &&
+          (!members ||
+            (members[0] === state &&
+              members.every(
+                (member) => member.mode === "idle" && member.timer === 0,
+              )))
+        ) {
           plan(state);
           planningCursor = (planningCursor + i + 1) % states.length;
           break;
@@ -893,6 +1180,8 @@ export function createResidentLife(
       corridorPasses.clear();
       routeOwners.clear();
       crossings.clear();
+      crossingWaitSince.clear();
+      crossingVehiclePhaseUntil.clear();
       navigation.clearCache();
     },
   };

@@ -128,8 +128,16 @@ export function createResidentRoutines(
   const life = createResidentLife(
     actors.map((a) => ({
       id: a.profile.id,
-      point: { x: a.root.position.x, z: a.root.position.z },
+      // Social partners have authored adjacent starts. An old decorative
+      // walking phase must not offset one of them into a wall before routing.
+      point: a.profile.socialGroup
+        ? { x: a.profile.x, z: a.profile.z }
+        : { x: a.root.position.x, z: a.root.position.z },
       yaw: a.root.rotation.y,
+      ...(a.profile.socialGroup ? { socialGroup: a.profile.socialGroup } : {}),
+      ...(a.profile.walkingSpeed === undefined
+        ? {}
+        : { walkingSpeed: a.profile.walkingSpeed }),
     })),
     destinations,
     nav,
