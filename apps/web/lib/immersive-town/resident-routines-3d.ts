@@ -11,7 +11,7 @@ import type { TownVenueMetadata } from "./venues";
 import { createResidentNavigation } from "./resident-navigation";
 import { createResidentLife, type ResidentDestination } from "./resident-life";
 import { insideWalkBounds, walkingRoadHeight, type WalkPoint } from "./walking";
-import type { TrafficSimulation } from "./traffic";
+import type { TrafficSimulation, VehicleTransform } from "./traffic";
 
 /** Existing doorway coordinates remain authoritative; no buildings are moved. */
 export function createResidentRoutines(
@@ -281,8 +281,11 @@ export function createResidentRoutines(
         .filter((s) => s.ride && ["boarding", "alighting"].includes(s.mode))
         .map((s) => s.ride!.vehicleId);
     },
-    setTraffic(traffic: TrafficSimulation) {
-      life.setTraffic(traffic);
+    setTraffic(
+      traffic: TrafficSimulation,
+      transforms?: readonly VehicleTransform[],
+    ) {
+      life.setTraffic(traffic, transforms);
     },
     update(delta: number, reduced: boolean) {
       if (disposed) return;

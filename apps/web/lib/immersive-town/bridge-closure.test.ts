@@ -15,12 +15,181 @@ import {
   createTrafficSimulation,
   stepTraffic,
   isFiniteVehicleTransform,
+  type TrafficSimulation,
 } from "./traffic";
+import {
+  getTrafficVehicleFootprint,
+  vehicleFootprintIntersectsCapsule,
+} from "./traffic-pedestrians";
 import { createResidentNavigation } from "./resident-navigation";
 import { canWalkAt, insideWalkBounds, stepWalk } from "./walking";
 import { createResidentLife, RESIDENT_RIDE_STOPS } from "./resident-life";
 
 describe("East Bridge physical closure", () => {
+  const atTurn = (laneId: "clockwise" | "counter-clockwise") => {
+    const closure = createBridgeTrafficClosure();
+    const stop = closure.stops.find((line) => line.laneId === laneId)!;
+    const traffic = createTrafficSimulation([
+      {
+        id: "turning-car",
+        laneId,
+        startProgress: advanceRoadProgress(
+          stop.progress,
+          laneId === "clockwise" ? -2 : 2,
+        ),
+        lengthMeters: 4,
+        cruiseSpeedMetersPerSecond: 8,
+      },
+    ]);
+    return { closure, traffic };
+  };
+
+  it.each(["clockwise", "counter-clockwise"] as const)(
+    "checks the complete planned %s U-turn before admitting it",
+    (laneId) => {
+      const probe = atTurn(laneId);
+      let probeTraffic = probe.closure.route(probe.traffic);
+      probeTraffic = probe.closure.route({
+        ...probeTraffic,
+        elapsedSeconds: 1.5,
+      });
+      const midpoint = probe.closure.transforms(probeTraffic)[0]!.position;
+      const person = {
+        id: "waiting-npc",
+        x: midpoint.x,
+        z: midpoint.z,
+        radius: 0.4,
+      };
+      const { closure, traffic } = atTurn(laneId);
+      const initial = getTrafficVehicleFootprint(traffic.vehicles[0]!);
+      expect(
+        vehicleFootprintIntersectsCapsule(
+          initial,
+          person,
+          person,
+          person.radius,
+        ),
+      ).toBe(false);
+      const held = closure.route(traffic, [], [person]);
+      expect(held.vehicles[0]!.laneId).toBe(laneId);
+      expect(closure.pedestrianHazards).toEqual([
+        {
+          vehicleId: "turning-car",
+          personId: "waiting-npc",
+          distanceMeters: 0,
+          vehiclePosition: initial.center,
+          personPosition: { x: person.x, z: person.z },
+        },
+      ]);
+      expect(
+        closure.stops.some((stop) => stop.vehicleId === "turning-car"),
+      ).toBe(false);
+      const clear = closure.route({ ...held, elapsedSeconds: 20 }, [], []);
+      expect(closure.pedestrianHazards).toEqual([]);
+      expect(clear.vehicles[0]!.laneId).not.toBe(laneId);
+      expect(closure.transforms(clear)[0]!.position).toEqual(
+        closure.transforms(traffic)[0]!.position,
+      );
+      closure.dispose();
+      probe.closure.dispose();
+    },
+  );
+
+  it.each([
+    { laneId: "clockwise" as const, id: "player-rivergate", radius: 0.4 },
+    { laneId: "counter-clockwise" as const, id: "leo-dog", radius: 0.32 },
+  ])(
+    "holds a rendered turn for late-arriving $id, including a delayed frame",
+    ({ laneId, id, radius }) => {
+      const probe = atTurn(laneId);
+      let probeTraffic = probe.closure.route(probe.traffic);
+      probeTraffic = probe.closure.route({
+        ...probeTraffic,
+        elapsedSeconds: 1.5,
+      });
+      const target = probe.closure.transforms(probeTraffic)[0]!.position;
+      const person = {
+        id,
+        x: target.x,
+        z: target.z,
+        radius,
+        ignoreVehicleId: "turning-car",
+      };
+      const { closure, traffic: initial } = atTurn(laneId);
+      let traffic: TrafficSimulation = closure.route(initial);
+      const start = closure.transforms(traffic)[0]!;
+      // The person arrives after admission. A single three-second update must
+      // still test the arc, stop before contact and retain the turn reservation.
+      traffic = closure.route({ ...traffic, elapsedSeconds: 3 }, [], [person]);
+      const held = closure.transforms(traffic)[0]!;
+      expect(closure.pedestrianHazards).toEqual([
+        {
+          vehicleId: "turning-car",
+          personId: id,
+          distanceMeters: 0,
+          vehiclePosition: { x: held.position.x, z: held.position.z },
+          personPosition: { x: person.x, z: person.z },
+        },
+      ]);
+      expect(held.speedMetersPerSecond).toBe(0);
+      expect(Math.abs(held.yawRadians - start.yawRadians)).toBeLessThan(
+        Math.PI / 2,
+      );
+      expect(
+        vehicleFootprintIntersectsCapsule(
+          getTrafficVehicleFootprint(traffic.vehicles[0]!, held),
+          person,
+          person,
+          radius,
+        ),
+      ).toBe(false);
+      expect(
+        closure.stops.some((stop) => stop.vehicleId === "turning-car"),
+      ).toBe(true);
+      traffic = closure.route({ ...traffic, elapsedSeconds: 63 }, [], [person]);
+      expect(closure.transforms(traffic)[0]!).toEqual(held);
+      // Removing the person advances only the next slice, not sixty held seconds.
+      traffic = closure.route({ ...traffic, elapsedSeconds: 63.05 });
+      expect(closure.pedestrianHazards).toEqual([]);
+      const resumed = closure.transforms(traffic)[0]!;
+      expect(resumed.yawRadians - held.yawRadians).toBeCloseTo(
+        (Math.PI * 0.05) / 3,
+        8,
+      );
+      expect(resumed.speedMetersPerSecond).toBeGreaterThan(0);
+      traffic = closure.route({ ...traffic, elapsedSeconds: 67 });
+      expect(
+        closure.stops.some((stop) => stop.vehicleId === "turning-car"),
+      ).toBe(false);
+      expect(isFiniteVehicleTransform(closure.transforms(traffic)[0]!)).toBe(
+        true,
+      );
+      closure.dispose();
+      probe.closure.dispose();
+    },
+  );
+
+  it("keeps an underway turn paused for a boarding reservation and finishes after reopening", () => {
+    const { closure, traffic: initial } = atTurn("clockwise");
+    let traffic = closure.route(initial);
+    traffic = closure.route({ ...traffic, elapsedSeconds: 0.5 });
+    const pose = closure.transforms(traffic)[0]!;
+    closure.setClosed(false);
+    traffic = closure.route({ ...traffic, elapsedSeconds: 15 }, [
+      "turning-car",
+    ]);
+    expect(closure.transforms(traffic)[0]!.position).toEqual(pose.position);
+    expect(closure.transforms(traffic)[0]!.speedMetersPerSecond).toBe(0);
+    expect(closure.stops).toHaveLength(1);
+    traffic = closure.route({ ...traffic, elapsedSeconds: 15.05 });
+    expect(
+      closure.transforms(traffic)[0]!.yawRadians - pose.yawRadians,
+    ).toBeCloseTo((Math.PI * 0.05) / 3, 8);
+    traffic = closure.route({ ...traffic, elapsedSeconds: 18 });
+    expect(closure.stops).toHaveLength(0);
+    closure.dispose();
+  });
+
   it("holds both driving directions outside the deck, preserves the fleet, and uses the real remaining crossing", () => {
     const closure = createBridgeTrafficClosure();
     let traffic = closure.prepare(createTrafficSimulation());

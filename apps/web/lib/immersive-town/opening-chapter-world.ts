@@ -21,7 +21,7 @@ import {
 } from "./bridge-closure";
 import { renderedRoadHeight, sampleRoadFrame } from "./road";
 import type { ImmersiveTownWorld } from "./types";
-import type { TrafficSimulation } from "./traffic";
+import type { TrafficSimulation, TrafficPedestrian } from "./traffic";
 import { walkingRoadHeight, type WalkPoint } from "./walking";
 
 export type OpeningChapterStage = "closed" | "repair" | "shuttle" | "divert";
@@ -549,6 +549,9 @@ export function createOpeningChapterWorld(world: ImmersiveTownWorld) {
     get trafficStops() {
       return closure.stops;
     },
+    get trafficPedestrianHazards() {
+      return active ? closure.pedestrianHazards : [];
+    },
     setActive(next: boolean) {
       if (disposed || next === active) return;
       active = next;
@@ -578,8 +581,11 @@ export function createOpeningChapterWorld(world: ImmersiveTownWorld) {
     clearShot,
     prepareTraffic: (simulation: TrafficSimulation) =>
       closure.prepare(simulation),
-    routeTraffic: (simulation: TrafficSimulation) =>
-      closure.route(simulation, world.residents.boardingVehicles),
+    routeTraffic: (
+      simulation: TrafficSimulation,
+      pedestrians: readonly TrafficPedestrian[] = [],
+    ) =>
+      closure.route(simulation, world.residents.boardingVehicles, pedestrians),
     getVehicleTransforms: (simulation: TrafficSimulation) =>
       closure.transforms(simulation),
     update(dt: number) {

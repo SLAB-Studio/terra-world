@@ -4,10 +4,20 @@ import {
   sampleRoadFrame,
   type LaneId,
 } from "./road";
-import type { TrafficSimulation, TrafficStop } from "./traffic";
+import type {
+  TrafficSimulation,
+  TrafficStop,
+  VehicleTransform,
+} from "./traffic";
 import type { WalkPoint } from "./walking";
 import type { createResidentNavigation } from "./resident-navigation";
 import { companionWalkingPath } from "./resident-social-path";
+import {
+  getTrafficVehicleFootprint,
+  vehicleFootprintIntersectsCapsule,
+  vehicleFootprintPointClearance,
+  type TrafficVehicleFootprint,
+} from "./traffic-pedestrians";
 
 export type ResidentDestination = Readonly<{
   id: string;
@@ -199,6 +209,7 @@ export function createResidentLife(
     navigation.isWalkable(stop.curb),
   );
   let traffic: TrafficSimulation | null = null;
+  let trafficFootprints: readonly TrafficVehicleFootprint[] = [];
   let events: ResidentLifeEvent[] = [];
   let night = true;
   let disposed = false;
@@ -643,6 +654,30 @@ export function createResidentLife(
     }
     return true;
   }
+  function trafficAllowsMove(state: ResidentLifeState, next: WalkPoint) {
+    const ownDoor =
+      state.ride && ["boarding", "alighting"].includes(state.mode)
+        ? state.ride.vehicleId
+        : null;
+    const step = distance(state, next);
+    return trafficFootprints.every((footprint) => {
+      if (footprint.vehicleId === ownDoor) return true;
+      if (
+        distance(state, footprint.center) >
+        Math.hypot(footprint.halfLength, footprint.halfWidth) + step + 0.4
+      )
+        return true;
+      if (!vehicleFootprintIntersectsCapsule(footprint, state, next, 0.4))
+        return true;
+      // A legacy overlapping spawn must be able to escape, but never walk
+      // farther into the car. New motion is checked as a complete body sweep.
+      const clearance = vehicleFootprintPointClearance(footprint, state, 0.4);
+      return (
+        clearance < 0 &&
+        vehicleFootprintPointClearance(footprint, next, 0.4) > clearance + 1e-7
+      );
+    });
+  }
   function move(
     state: ResidentLifeState,
     target: WalkPoint,
@@ -657,6 +692,10 @@ export function createResidentLife(
       gap < 0.025 &&
       navigation.segmentIsWalkable(state, aim)
     ) {
+      if (!trafficAllowsMove(state, aim)) {
+        state.speed = 0;
+        return false;
+      }
       state.x = aim.x;
       state.z = aim.z;
       state.detour = null;
@@ -665,6 +704,10 @@ export function createResidentLife(
     }
     if (gap < 0.025) {
       if (!portal && !navigation.segmentIsWalkable(state, target)) {
+        state.speed = 0;
+        return false;
+      }
+      if (!trafficAllowsMove(state, target)) {
         state.speed = 0;
         return false;
       }
@@ -795,6 +838,10 @@ export function createResidentLife(
       state.crossingPermit = null;
     }
     const next = { x: state.x + dx * travel, z: state.z + dz * travel };
+    if (!trafficAllowsMove(state, next)) {
+      state.speed = 0;
+      return false;
+    }
     const nearby = states.filter(
       (other) =>
         other !== state && !["inside", "seated", "riding"].includes(other.mode),
@@ -1061,7 +1108,10 @@ export function createResidentLife(
         state.timer = 0;
       }
     },
-    setTraffic(value: TrafficSimulation) {
+    setTraffic(
+      value: TrafficSimulation,
+      transforms?: readonly VehicleTransform[],
+    ) {
       // A bridge diversion may reverse a vehicle at a safe approach. Keep a
       // seated passenger's stop on its new curb; a person still approaching
       // cancels that reservation and stays on foot, never teleports lanes.
@@ -1103,6 +1153,12 @@ export function createResidentLife(
         }
       }
       traffic = value;
+      const rendered = new Map(
+        transforms?.map((transform) => [transform.id, transform]),
+      );
+      trafficFootprints = value.vehicles.map((vehicle) =>
+        getTrafficVehicleFootprint(vehicle, rendered.get(vehicle.id)),
+      );
     },
     setNight(value: boolean) {
       night = value;
@@ -1182,6 +1238,7 @@ export function createResidentLife(
       crossings.clear();
       crossingWaitSince.clear();
       crossingVehiclePhaseUntil.clear();
+      trafficFootprints = [];
       navigation.clearCache();
     },
   };

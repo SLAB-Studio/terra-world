@@ -2,6 +2,10 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine";
 import { describe, expect, it } from "vitest";
 import { createImmersiveTownWorld } from "./create-town-world";
 import { createTrafficSimulation, stepTraffic } from "./traffic";
+import {
+  getTrafficVehicleFootprint,
+  vehicleFootprintIntersectsCapsule,
+} from "./traffic-pedestrians";
 
 describe("resident routines in the actual town", () => {
   it("keeps the whole population making progress through ten simulated minutes", () => {
@@ -62,7 +66,42 @@ describe("resident routines in the actual town", () => {
         }
         boardings += life.events.filter((e) => e.type === "boarded").length;
         alightings += life.events.filter((e) => e.type === "alighted").length;
-        traffic = stepTraffic(traffic, 0.05, { stops: life.trafficStops });
+        const pedestrians = life.states
+          .filter(
+            (state) => !["inside", "seated", "riding"].includes(state.mode),
+          )
+          .map((state) => ({
+            id: state.id,
+            x: state.x,
+            z: state.z,
+            radius: 0.4,
+            ...(state.ride && ["boarding", "alighting"].includes(state.mode)
+              ? { ignoreVehicleId: state.ride.vehicleId }
+              : {}),
+          }));
+        traffic = stepTraffic(traffic, 0.05, {
+          stops: life.trafficStops,
+          pedestrians,
+        });
+        const footprints = traffic.vehicles.map((vehicle) =>
+          getTrafficVehicleFootprint(vehicle),
+        );
+        const contact = pedestrians.find((person) =>
+          footprints.some(
+            (footprint) =>
+              footprint.vehicleId !== person.ignoreVehicleId &&
+              vehicleFootprintIntersectsCapsule(
+                footprint,
+                person,
+                person,
+                person.radius,
+              ),
+          ),
+        );
+        expect(
+          contact,
+          `pedestrian/vehicle body overlap at frame ${frame}`,
+        ).toBeUndefined();
         life.setTraffic(traffic);
         if (frame > 10800)
           lateTrafficMovement += traffic.vehicles.reduce(

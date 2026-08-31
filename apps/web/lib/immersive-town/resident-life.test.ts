@@ -16,7 +16,17 @@ import {
   createResidentNavigation,
   RESIDENT_CROSSINGS,
 } from "./resident-navigation";
-import { createTrafficSimulation, stepTraffic } from "./traffic";
+import {
+  createTrafficSimulation,
+  getVehicleTransforms,
+  stepTraffic,
+} from "./traffic";
+import {
+  getTrafficVehicleFootprint,
+  trafficVehicleIntersectsCapsule,
+  vehicleFootprintIntersectsCapsule,
+  vehicleFootprintPointClearance,
+} from "./traffic-pedestrians";
 
 const places: readonly ResidentDestination[] = [
   {
@@ -276,6 +286,121 @@ describe("resident social outings", () => {
 });
 
 describe("resident destination life", () => {
+  it("checks the current vehicle body even after a crossing has admitted a walker", () => {
+    const crossing = { id: "body-crossing", progress: 0.4 };
+    const frame = sampleRoadFrame(crossing.progress);
+    const point = (side: number) => ({
+      x: frame.center.x + frame.lateral.x * side * 4.8,
+      z: frame.center.z + frame.lateral.z * side * 4.8,
+    });
+    const navigation = createResidentNavigation([], {
+      additionalCrossings: () => [crossing],
+    });
+    const life = createResidentLife(
+      [{ id: "admitted", point: point(1), yaw: 0 }],
+      [{ id: "across", kind: "leisure", point: point(-1) }],
+      navigation,
+    );
+    const traffic = createTrafficSimulation([
+      {
+        id: "late-car",
+        laneId: "clockwise",
+        startProgress: crossing.progress,
+        cruiseSpeedMetersPerSecond: 8,
+        lengthMeters: 4,
+      },
+    ]);
+    try {
+      const state = life.states[0]!;
+      state.path = navigation.findPath(state, point(-1))!;
+      state.waypoint = 1;
+      state.mode = "walking";
+      state.destinationId = "across";
+      state.crossingPermit = crossing.id;
+      life.setTraffic(traffic);
+      for (let tick = 0; tick < 300; tick++) {
+        const before = { x: state.x, z: state.z };
+        life.step(0.05);
+        expect(
+          trafficVehicleIntersectsCapsule(traffic.vehicles[0]!, before, state),
+        ).toBe(false);
+        expect(separation(before, state)).toBeLessThanOrEqual(0.083);
+      }
+      expect(state.mode).toBe("walking");
+      expect(state.speed).toBe(0);
+      expect(state.crossingPermit).toBe(crossing.id);
+      life.setTraffic({ elapsedSeconds: 0, vehicles: [] });
+      for (let tick = 0; tick < 600 && state.trips === 0; tick++)
+        life.step(0.05);
+      expect(state.visited).toContain("across");
+    } finally {
+      life.dispose();
+    }
+  });
+
+  it("uses cached rendered turn bodies instead of their logical lane positions and allows overlap escape", () => {
+    const life = createResidentLife(
+      [{ ...person, yaw: -Math.PI / 2 }],
+      [{ id: "east", kind: "leisure", point: { x: -35, z: -46 } }],
+      createResidentNavigation([]),
+    );
+    const traffic = createTrafficSimulation([
+      {
+        id: "turning-car",
+        laneId: "clockwise",
+        startProgress: 0.2,
+        cruiseSpeedMetersPerSecond: 8,
+        lengthMeters: 4,
+      },
+    ]);
+    const pose = {
+      ...getVehicleTransforms(traffic)[0]!,
+      position: { x: -52, y: 0, z: -46 },
+      yawRadians: 0,
+    };
+    try {
+      const state = life.states[0]!;
+      state.timer = 0;
+      life.setTraffic(traffic, [pose]);
+      const footprint = getTrafficVehicleFootprint(traffic.vehicles[0]!, pose);
+      for (let tick = 0; tick < 300; tick++) {
+        const before = { x: state.x, z: state.z };
+        life.step(0.05);
+        expect(
+          vehicleFootprintIntersectsCapsule(footprint, before, state),
+        ).toBe(false);
+      }
+      expect(state.x).toBeLessThan(-53.5);
+      expect(state.speed).toBe(0);
+      // A restored legacy player/NPC pose may already be inside a body; allow
+      // only actual clearance improvement until they have walked back out.
+      const overlapping = {
+        ...pose,
+        position: { x: state.x, y: 0, z: state.z },
+      };
+      life.setTraffic(traffic, [overlapping]);
+      const body = getTrafficVehicleFootprint(
+        traffic.vehicles[0]!,
+        overlapping,
+      );
+      let clearance = vehicleFootprintPointClearance(body, state);
+      expect(clearance).toBeLessThan(0);
+      for (let tick = 0; tick < 100; tick++) {
+        life.step(0.05);
+        const next = vehicleFootprintPointClearance(body, state);
+        expect(next).toBeGreaterThanOrEqual(clearance - 1e-7);
+        clearance = next;
+      }
+      expect(clearance).toBeGreaterThan(0);
+      life.setTraffic(traffic);
+      for (let tick = 0; tick < 800 && state.trips === 0; tick++)
+        life.step(0.05);
+      expect(state.visited).toContain("east");
+    } finally {
+      life.dispose();
+    }
+  });
+
   it("briefly releases an unserved curb request to clear queued vehicles, then safely crosses as a family", () => {
     const crossing = { id: "detour-crossing", progress: 0.4 };
     const frame = sampleRoadFrame(crossing.progress);
