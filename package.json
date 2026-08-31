@@ -15,6 +15,10 @@
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
+    "agentic-id:test-plan": "node --test scripts/agentic-id/validate-mainnet-plan.test.mjs",
+    "zero-g:storage:preflight": "node scripts/zero-g/preflight-storage-mainnet.mjs",
+    "zero-g:storage:preflight:test": "node --test scripts/zero-g/preflight-storage-mainnet.test.mjs",
+    "zero-g:db:migrate": "pnpm --filter @terra/web zero-g:db:migrate",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

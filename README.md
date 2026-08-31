@@ -116,16 +116,19 @@ The rendering engine handles movement, traffic, doors and immediate game feedbac
 locally. The 0G integration is intended for intelligence, encrypted persistence
 and the identity of an evolving city—not a transaction for every footstep.
 
-| Component                   | Role                                                                | Current implementation                                                                                                                                                                                       |
-| --------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **0G Compute**              | Grounded LEO guidance and contextual explanations                   | Server-side Router client, bounded system prompts, guide/hint routes, validation and limited caching. Live credentials and network verification are required; the main LEO chat still uses scripted replies. |
-| **0G Storage**              | Encrypted city checkpoints and recoverable history                  | Browser encryption, a local backup queue and an official SDK adapter exist. Production SDK loading and durable account-linked recovery still need completion.                                                |
-| **Agentic NFT on 0G Chain** | One city intelligence whose memory evolves with verified milestones | Custom city-contract source and sponsor policies exist. ERC-7857 compatibility, the production transaction driver and deployment verification remain unfinished.                                             |
-| **Campaign verification**   | Validate action history and associate progress with its ruleset     | Local deterministic replay and contract source exist; local verification is not an on-chain receipt.                                                                                                         |
+| Component                   | Role                                                                | Current implementation                                                                                                                                                                                                                      |
+| --------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **0G Compute**              | Grounded LEO guidance and contextual explanations                   | Mainnet-first server Router client, bounded prompts, guide/hint/chapter routes, cancellation, caching, and strict verification of the returned `x_0g_trace`. A private result is accepted only when `tee_verified` is actually true.        |
+| **0G Storage**              | Encrypted city checkpoints and recoverable history                  | Browser AES-GCM encryption, IndexedDB retry queue, authenticated API, official 0G SDK upload/proof-checked download, and a PostgreSQL root index. The **Sync City** control exposes queued, syncing, retry, and confirmed-storage states.   |
+| **Agentic NFT on 0G Chain** | One city intelligence whose memory evolves with verified milestones | A pinned official AgenticID mainnet deployment plan, fail-closed validator, live read-only chain checks, and a no-key/no-broadcast simulation runner are included. Deployment, registration, and milestone updates have not been broadcast. |
+| **Campaign verification**   | Validate action history and associate progress with its ruleset     | Deterministic replay and contract source exist; local verification is not presented as an on-chain receipt.                                                                                                                                 |
 
-**Integration status:** this repository contains real adapter code, but does not
-yet provide a verified end-to-end production 0G flow. Configuration values alone
-do not establish successful inference, storage or minting.
+**Integration status:** real Compute and Storage adapters are implemented; local
+development deliberately keeps a clearly labelled in-memory demo mode. A
+production deployment still needs real server credentials,
+a migrated database, a paid live inference check, a finalized upload/download
+check, and the separately approved AgenticID deployment. Configuration values
+alone do not establish successful inference, storage, or minting.
 
 The public [`/api/proof`](http://localhost:3000/api/proof) endpoint reports
 configuration readiness without exposing credentials. It currently checks
@@ -138,10 +141,11 @@ supplied facts and short structured output. Current guide-task output caps range
 from 180 to 440 tokens; the challenge-hint route uses a 220-token cap. Eligible
 generic explanations can be cached for five minutes.
 
-Input-token budgets, per-player spending limits, end-to-end cancellation and
-selective narrative triggers still need implementation. The guide currently
-requests an explanation after each eligible completed turn. These limits and
-triggers must be hardened before exposing paid inference publicly.
+Input-token budgets, distributed per-player spending limits, and selective
+narrative triggers still need implementation. Requests now propagate cancellation,
+enforce bounded output, prefer the lowest-price private provider, and reject
+provider fallback. The guide currently requests an explanation after each
+eligible completed turn, so public paid inference still needs a durable quota.
 
 The separate opening-chapter route is on demand and limited to selecting
 chapter-grounded sentences from a replayed action log, with a 160-token output
@@ -152,14 +156,18 @@ guidance is labelled; no live paid 0G test is claimed. See the
 
 ### Background synchronization
 
-Local saves and an encrypted checkpoint queue are implemented. The intended
-production flow is to validate and durably queue changes, upload an encrypted
-checkpoint, then record the appropriate city milestone on-chain through a
-server-side sponsor. Ordinary gameplay should continue while this work runs.
+Local saves, encrypted checkpoint queueing, real 0G Storage upload, proof-checked
+download, and durable server-side root metadata are implemented. **Sync City**
+deduplicates an unchanged city, keeps gameplay responsive, retries after an
+offline attempt, and says **Stored on 0G** only after the upload receipt passes
+integrity checks. Demo mode says **Local preview — not stored on 0G**. An
+ambiguous sponsored-upload timeout is not automatically retried, because the
+first transaction may still settle.
 
-A durable server worker, persistent transaction records and receipt-backed sync
-status are still required. Show local saves, remote backups and chain confirmation
-as separate states; never label a pending operation as confirmed.
+Storage confirmation and AgenticID anchoring remain separate states. The UI does
+not fabricate an on-chain result. A durable milestone outbox, transaction worker,
+and confirmed AgenticID update receipt remain required after the Rivergate token
+is deployed and its key-management policy is approved.
 
 ## Configure 0G services
 
@@ -173,20 +181,29 @@ The file belongs in **`apps/web/.env.local`**, where the Next.js application run
 For a deployment, set the corresponding server-side environment variables on
 the host. Never commit credentials or prefix secrets with `NEXT_PUBLIC_`.
 
-| Variable                     | Purpose                                                                                                                                       |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ZERO_G_NETWORK`             | `testnet` or `mainnet`; selects the network defaults.                                                                                         |
-| `ZERO_G_COMPUTE_API_KEY`     | Server-only Router inference key beginning with `sk-`.                                                                                        |
-| `ZERO_G_COMPUTE_MODEL`       | An available model supporting the configured private trust mode.                                                                              |
-| `ZERO_G_SPONSOR_PRIVATE_KEY` | Dedicated, limited-balance signer for authorized Storage and chain operations.                                                                |
-| `TERRA_CHECKPOINT_MODE`      | `demo`, `disabled` or `zero-g`. The example selects `demo`; `zero-g` enables the real adapter path but does not resolve its outstanding work. |
-| `TERRA_APP_ORIGIN`           | Exact application origin, such as `http://localhost:3000` or the production HTTPS origin.                                                     |
+| Variable                           | Purpose                                                                                                                                                           |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ZERO_G_NETWORK`                   | `mainnet` by default; use `testnet` only for an explicit Galileo rehearsal.                                                                                       |
+| `ZERO_G_REQUIRED`                  | `true` makes 0G-backed AI routes fail with 503 unless a verified private Compute result is returned. Keep `false` while authored fallback is desired.             |
+| `ZERO_G_COMPUTE_API_KEY`           | Server-only Router inference key beginning with `sk-` or `app-sk-`.                                                                                               |
+| `ZERO_G_COMPUTE_MODEL`             | A currently available TeeML model from the selected Router catalog.                                                                                               |
+| `ZERO_G_SPONSOR_PRIVATE_KEY`       | Dedicated, limited-balance signer for authorized Storage operations. Never expose it to the browser.                                                              |
+| `ZERO_G_STORAGE_UPLOAD_TIMEOUT_MS` | Finality-aware Storage upload deadline; defaults to five minutes. A timeout is an unknown, non-retryable paid outcome until an operator reconciles it.            |
+| `TERRA_CHECKPOINT_MODE`            | `demo`, `disabled`, or `zero-g`. `zero-g` selects the real official SDK path and requires the sponsor key plus database.                                          |
+| `TERRA_APP_ORIGIN`                 | Exact application origin, such as `https://play.example.com`. Production requires HTTPS.                                                                          |
+| `DATABASE_URL`                     | PostgreSQL connection used only for opaque checkpoint session/root metadata when real Storage mode is enabled. Production requires `sslmode=require` or stronger. |
 
-The current shared configuration loader requires both Compute credentials and a
-sponsor key for the real adapters. Testnet and mainnet use different keys and
-funding; do not mix their configuration. Without an explicit checkpoint mode,
+Compute, Storage, chain, and sponsor configuration are loaded independently: a
+Storage sync does not require a Compute key. Testnet and mainnet use different
+Router keys and balances; do not mix them. Without an explicit checkpoint mode,
 development defaults to `demo` and production to `disabled`. Demo backups are
 in-memory development data, not 0G uploads.
+
+Apply the checkpoint schema before enabling real Storage:
+
+```sh
+DATABASE_URL='postgresql://USER:PASSWORD@HOST:5432/terra_world?sslmode=require' pnpm zero-g:db:migrate
+```
 
 Only populate `ZERO_G_CITY_AGENT_ADDRESS`, `ZERO_G_CAMPAIGN_REGISTRY_ADDRESS`,
 `ZERO_G_RIVERGATE_STORAGE_ROOT` and `ZERO_G_RIVERGATE_STORAGE_TX_HASH` from actual
@@ -199,6 +216,10 @@ Useful 0G references:
 - [Private inference configuration](https://docs.0g.ai/developer-hub/building-on-0g/compute-network/router/privacy)
 - [Storage SDK](https://docs.0g.ai/developer-hub/building-on-0g/storage/sdk)
 - [Agentic IDs and ERC-7857](https://docs.0g.ai/developer-hub/building-on-0g/agentic-id/erc7857)
+
+The exact operator sequence and remaining blockers are documented in the
+[0G mainnet go-live checklist](docs/zero-g-mainnet-go-live.md). AgenticID has a
+separate [mainnet preparation runbook](docs/agentic-id-mainnet-runbook.md).
 
 ## Development
 
