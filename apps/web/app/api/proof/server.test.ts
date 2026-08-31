@@ -6,6 +6,16 @@ const HASH = `0x${"a".repeat(64)}`;
 const ADDRESS = `0x${"b".repeat(40)}`;
 
 describe("public Terra World proof snapshot", () => {
+  it("accepts current app-scoped Router inference keys", () => {
+    const snapshot = createTerraProofSnapshot({
+      ZERO_G_NETWORK: "mainnet",
+      ZERO_G_COMPUTE_API_KEY: "app-sk-private-mainnet-key",
+      ZERO_G_COMPUTE_MODEL: "private-mainnet-model",
+    });
+
+    expect(snapshot.compute.state).toBe("configured");
+  });
+
   it("reports honest unconfigured states without returning secret fields", () => {
     const snapshot = createTerraProofSnapshot({});
 

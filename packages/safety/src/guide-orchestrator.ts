@@ -55,7 +55,10 @@ export type CityGuideOrchestratorOptions = {
 };
 
 export type CityGuideOrchestrator = {
-  readonly resolve: (request: unknown) => Promise<CityGuideOrchestrationResult>;
+  readonly resolve: (
+    request: unknown,
+    options?: Readonly<{ signal?: AbortSignal }>,
+  ) => Promise<CityGuideOrchestrationResult>;
   readonly clearCache: () => void;
   readonly cacheSize: () => number;
 };
@@ -63,6 +66,13 @@ export type CityGuideOrchestrator = {
 type CacheEntry = {
   readonly expiresAt: number;
   readonly serializedResponse: string;
+};
+
+type ProviderOperation = {
+  readonly controller: AbortController;
+  promise: Promise<unknown>;
+  subscribers: number;
+  settled: boolean;
 };
 
 /**
@@ -76,10 +86,11 @@ export function createCityGuideOrchestrator(
 
   const clock = options.clock ?? Date.now;
   const cache = new Map<string, CacheEntry>();
-  const inFlight = new Map<string, Promise<unknown>>();
+  const inFlight = new Map<string, ProviderOperation>();
 
   const resolve = async (
     requestInput: unknown,
+    resolveOptions: Readonly<{ signal?: AbortSignal }> = {},
   ): Promise<CityGuideOrchestrationResult> => {
     const requestResult = CityGuideRequestSchema.safeParse(requestInput);
     if (!requestResult.success) return { ok: false, source: "none" };
@@ -113,6 +124,7 @@ export function createCityGuideOrchestrator(
         inFlight,
         callProvider: options.callProvider,
         timeoutMs: options.timeoutMs,
+        subscriberSignal: resolveOptions.signal,
       });
     } catch {
       return resolveFallback(request, options.lookupFallback);
@@ -272,47 +284,67 @@ function writeCache(
 async function getProviderResult(input: {
   readonly request: CityGuideRequest;
   readonly inFlightKey: string | undefined;
-  readonly inFlight: Map<string, Promise<unknown>>;
+  readonly inFlight: Map<string, ProviderOperation>;
   readonly callProvider: CityGuideProviderCall;
   readonly timeoutMs: number;
+  readonly subscriberSignal: AbortSignal | undefined;
 }): Promise<unknown> {
+  throwIfSubscriberAborted(input.subscriberSignal);
   if (input.inFlightKey === undefined) {
-    return callProviderWithTimeout(
-      input.callProvider,
-      input.request,
-      input.timeoutMs,
+    return subscribeToProviderOperation(
+      createProviderOperation(
+        input.callProvider,
+        input.request,
+        input.timeoutMs,
+      ),
+      input.subscriberSignal,
     );
   }
 
   const existing = input.inFlight.get(input.inFlightKey);
-  if (existing !== undefined) return existing;
+  if (existing !== undefined) {
+    return subscribeToProviderOperation(existing, input.subscriberSignal);
+  }
 
   const inFlightKey = input.inFlightKey;
-  const pending = callProviderWithTimeout(
+  const operation = createProviderOperation(
     input.callProvider,
     input.request,
     input.timeoutMs,
-  ).finally(() => {
-    if (input.inFlight.get(inFlightKey) === pending) {
-      input.inFlight.delete(inFlightKey);
-    }
-  });
-  input.inFlight.set(inFlightKey, pending);
-  return pending;
+  );
+  input.inFlight.set(inFlightKey, operation);
+  void operation.promise.then(
+    () => {
+      if (input.inFlight.get(inFlightKey) === operation) {
+        input.inFlight.delete(inFlightKey);
+      }
+    },
+    () => {
+      if (input.inFlight.get(inFlightKey) === operation) {
+        input.inFlight.delete(inFlightKey);
+      }
+    },
+  );
+  return subscribeToProviderOperation(operation, input.subscriberSignal);
 }
 
-function callProviderWithTimeout(
+function createProviderOperation(
   callProvider: CityGuideProviderCall,
   request: CityGuideRequest,
   timeoutMs: number,
-): Promise<unknown> {
+): ProviderOperation {
   const controller = new AbortController();
+  const operation: ProviderOperation = {
+    controller,
+    promise: Promise.resolve(undefined),
+    subscribers: 0,
+    settled: false,
+  };
 
-  return new Promise((resolve, reject) => {
-    let settled = false;
+  operation.promise = new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
+      if (operation.settled) return;
+      operation.settled = true;
       controller.abort();
       reject(new Error("City guide provider timed out"));
     }, timeoutMs);
@@ -321,19 +353,62 @@ function callProviderWithTimeout(
       .then(() => callProvider(request, { signal: controller.signal }))
       .then(
         (value) => {
-          if (settled) return;
-          settled = true;
+          if (operation.settled) return;
+          operation.settled = true;
           clearTimeout(timer);
           resolve(value);
         },
         (error: unknown) => {
-          if (settled) return;
-          settled = true;
+          if (operation.settled) return;
+          operation.settled = true;
           clearTimeout(timer);
           reject(error);
         },
       );
   });
+  return operation;
+}
+
+function subscribeToProviderOperation(
+  operation: ProviderOperation,
+  signal: AbortSignal | undefined,
+): Promise<unknown> {
+  throwIfSubscriberAborted(signal);
+  operation.subscribers += 1;
+  return waitForSubscriber(operation.promise, signal).finally(() => {
+    operation.subscribers -= 1;
+    if (operation.subscribers === 0 && !operation.settled) {
+      operation.controller.abort();
+    }
+  });
+}
+
+function waitForSubscriber<T>(
+  operation: Promise<T>,
+  signal: AbortSignal | undefined,
+): Promise<T> {
+  if (signal === undefined) return operation;
+  throwIfSubscriberAborted(signal);
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      signal.removeEventListener("abort", abort);
+      callback();
+    };
+    const abort = () =>
+      finish(() => reject(new Error("Guide request aborted")));
+    signal.addEventListener("abort", abort, { once: true });
+    void operation.then(
+      (value) => finish(() => resolve(value)),
+      (error: unknown) => finish(() => reject(error)),
+    );
+  });
+}
+
+function throwIfSubscriberAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) throw new Error("Guide request aborted");
 }
 
 function resolveFallback(

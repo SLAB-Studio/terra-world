@@ -6,26 +6,37 @@ import {
   type ZeroGStorageDriverUploadResult,
 } from "./storage";
 
-const STORAGE_SDK_SPECIFIER = "@0gfoundation/0g-storage-ts-sdk";
-const ETHERS_SPECIFIER = "ethers";
-
 type MerkleTreeLike = Readonly<{ rootHash(): unknown }>;
 type MemDataLike = Readonly<{
   merkleTree(): Promise<readonly [MerkleTreeLike | null, unknown]>;
   close?: () => void | Promise<void>;
 }>;
-type IndexerLike = Readonly<{
-  upload(
+type FlowContractLike = Readonly<{ target: unknown }>;
+type UploaderLike = Readonly<{
+  flow: FlowContractLike;
+  splitableUpload(
     data: MemDataLike,
+    options: Readonly<{
+      expectedReplica: 1;
+      finalityRequired: true;
+      skipIfFinalized: true;
+    }>,
+  ): Promise<readonly [unknown, unknown]>;
+}>;
+type IndexerLike = Readonly<{
+  newUploaderFromIndexerNodes(
     chainRpcUrl: string,
     signer: unknown,
-  ): Promise<readonly [unknown, unknown]>;
+    expectedReplica: 1,
+  ): Promise<readonly [UploaderLike | null, unknown]>;
   downloadToBlob(
     rootHash: string,
     options: Readonly<{ proof: true }>,
   ): Promise<readonly [unknown, unknown]>;
 }>;
-type ProviderLike = object;
+type ProviderLike = Readonly<{
+  getNetwork(): Promise<Readonly<{ chainId: bigint | number }>>;
+}>;
 
 type StorageSdkRuntime = Readonly<{
   MemData: new (bytes: Uint8Array) => MemDataLike;
@@ -50,10 +61,8 @@ export function createOfficialZeroGStorageDriver(
 ): ZeroGStorageDriver {
   const loadStorageSdk =
     dependencies.loadStorageSdk ??
-    (() => import(/* @vite-ignore */ STORAGE_SDK_SPECIFIER));
-  const loadEthers =
-    dependencies.loadEthers ??
-    (() => import(/* @vite-ignore */ ETHERS_SPECIFIER));
+    (() => import("@0gfoundation/0g-storage-ts-sdk"));
+  const loadEthers = dependencies.loadEthers ?? (() => import("ethers"));
 
   return Object.freeze({
     async uploadBytes(
@@ -61,6 +70,14 @@ export function createOfficialZeroGStorageDriver(
       context: ZeroGStorageDriverContext,
     ): Promise<ZeroGStorageDriverUploadResult> {
       assertServerRuntime("upload");
+      if (!context.sponsorPrivateKey) {
+        throw safeError(
+          "SIGNER_UNAVAILABLE",
+          "0G Storage upload requires a server-side sponsor signer",
+          "upload",
+          false,
+        );
+      }
       const [storageSdk, ethers] = await loadRuntime(
         loadStorageSdk,
         loadEthers,
@@ -88,12 +105,64 @@ export function createOfficialZeroGStorageDriver(
         }
 
         const provider = new ethers.JsonRpcProvider(context.chainRpcUrl);
+        const providerNetwork = await provider.getNetwork();
+        if (Number(providerNetwork.chainId) !== context.chainId) {
+          throw safeError(
+            "NETWORK_MISMATCH",
+            "0G Storage RPC returned an unexpected chain",
+            "upload",
+            false,
+          );
+        }
         const signer = new ethers.Wallet(context.sponsorPrivateKey, provider);
         const indexer = new storageSdk.Indexer(context.indexerUrl);
-        const [response, uploadError] = await indexer.upload(
+        if (
+          !isRecord(indexer) ||
+          typeof indexer.newUploaderFromIndexerNodes !== "function"
+        ) {
+          throw incompatibleSdk("upload");
+        }
+        const [uploader, uploaderError] =
+          await indexer.newUploaderFromIndexerNodes(
+            context.chainRpcUrl,
+            signer,
+            1,
+          );
+        if (uploaderError !== null || uploader === null) {
+          throw safeError(
+            "UPLOAD_FAILURE",
+            "0G Storage could not prepare the official uploader",
+            "upload",
+            true,
+          );
+        }
+        if (
+          !isRecord(uploader) ||
+          !isRecord(uploader.flow) ||
+          typeof uploader.splitableUpload !== "function"
+        ) {
+          throw incompatibleSdk("upload");
+        }
+        const selectedFlowAddress = uploader.flow.target;
+        if (
+          typeof selectedFlowAddress !== "string" ||
+          selectedFlowAddress.toLowerCase() !==
+            context.flowAddress.toLowerCase()
+        ) {
+          throw safeError(
+            "NETWORK_MISMATCH",
+            "0G Storage selected an unexpected Flow contract",
+            "upload",
+            false,
+          );
+        }
+        const [fragmentResponse, uploadError] = await uploader.splitableUpload(
           data,
-          context.chainRpcUrl,
-          signer,
+          {
+            expectedReplica: 1,
+            finalityRequired: true,
+            skipIfFinalized: true,
+          },
         );
         if (uploadError !== null) {
           throw safeError(
@@ -103,6 +172,7 @@ export function createOfficialZeroGStorageDriver(
             true,
           );
         }
+        const response = singleUploadResponse(fragmentResponse);
         return Object.freeze({ calculatedRootHash, response });
       } catch (error) {
         if (error instanceof ZeroGStorageError) throw error;
@@ -134,6 +204,12 @@ export function createOfficialZeroGStorageDriver(
       );
       try {
         const indexer = new storageSdk.Indexer(context.indexerUrl);
+        if (
+          !isRecord(indexer) ||
+          typeof indexer.downloadToBlob !== "function"
+        ) {
+          throw incompatibleSdk("download");
+        }
         const [blob, downloadError] = await indexer.downloadToBlob(rootHash, {
           proof: true,
         });
@@ -169,6 +245,25 @@ export function createOfficialZeroGStorageDriver(
         );
       }
     },
+  });
+}
+
+function singleUploadResponse(response: unknown): unknown {
+  if (
+    !isRecord(response) ||
+    !Array.isArray(response.rootHashes) ||
+    !Array.isArray(response.txHashes) ||
+    !Array.isArray(response.txSeqs) ||
+    response.rootHashes.length !== 1 ||
+    response.txHashes.length !== 1 ||
+    response.txSeqs.length !== 1
+  ) {
+    return response;
+  }
+  return Object.freeze({
+    rootHash: response.rootHashes[0],
+    txHash: response.txHashes[0],
+    txSeq: response.txSeqs[0],
   });
 }
 
@@ -213,6 +308,10 @@ async function loadRuntime(
 }
 
 function invalidRuntime(operation: "upload" | "download"): never {
+  throw incompatibleSdk(operation);
+}
+
+function incompatibleSdk(operation: "upload" | "download"): never {
   throw safeError(
     "SDK_UNAVAILABLE",
     "0G Storage server SDK is incompatible",

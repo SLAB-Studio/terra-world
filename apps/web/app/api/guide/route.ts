@@ -4,7 +4,10 @@ import {
   createZeroGComputeClient,
   type ZeroGComputeClient,
 } from "../../../../../packages/zero-g/src/server/compute";
-import { loadZeroGServerConfig } from "../../../../../packages/zero-g/src/server/config";
+import {
+  isZeroGRequired,
+  loadZeroGComputeConfig,
+} from "../../../../../packages/zero-g/src/server/config";
 
 import {
   createAnonymousRateLimiter,
@@ -17,11 +20,11 @@ let computeClient: ZeroGComputeClient | undefined;
 export const runtime = "nodejs";
 
 const lazyComputeClient: ZeroGComputeClient = Object.freeze({
-  async createChatCompletion(input) {
+  async createChatCompletion(input, options) {
     computeClient ??= createZeroGComputeClient(
-      loadZeroGServerConfig(process.env),
+      loadZeroGComputeConfig(process.env),
     );
-    return computeClient.createChatCompletion(input);
+    return computeClient.createChatCompletion(input, options);
   },
 });
 
@@ -34,6 +37,7 @@ export const POST = createGuidePostHandler({
   timeoutMs: safeComputeTimeout(process.env.ZERO_G_REQUEST_TIMEOUT_MS),
   cacheTtlMs: 5 * 60_000,
   maxCacheEntries: 128,
+  required: isZeroGRequired(process.env),
 });
 
 function safeComputeTimeout(raw: string | undefined): number {

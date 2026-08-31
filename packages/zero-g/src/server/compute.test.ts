@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { ZeroGServerConfig } from "./config";
+import type { ZeroGComputeConfig } from "./config";
 import { createZeroGComputeClient, ZeroGServiceError } from "./index";
 
 type FetchLike = (
@@ -8,20 +8,19 @@ type FetchLike = (
   init?: RequestInit,
 ) => Promise<Response>;
 
-const CONFIG: ZeroGServerConfig = {
+const CONFIG: ZeroGComputeConfig = {
   network: "testnet",
   chainId: 16602,
-  chainRpcUrl: "https://evmrpc-testnet.0g.ai",
-  chainExplorerUrl: "https://chainscan-galileo.0g.ai",
+  required: false,
   compute: {
     baseUrl: "https://router-api-testnet.integratenetwork.work/v1",
     apiKey: "sk-server-only-secret",
     model: "private-model",
     trustMode: "private",
     verifyTee: true,
+    providerSort: "price",
+    allowProviderFallbacks: false,
   },
-  storage: { indexerUrl: "https://indexer.testnet.example" },
-  sponsorPrivateKey: `0x${"12".repeat(32)}`,
   request: { timeoutMs: 1_000, maxRetries: 2 },
 };
 
@@ -36,11 +35,7 @@ const INPUT = {
 describe("0G Compute Router client", () => {
   it("always requests private, synchronously verified inference", async () => {
     const fetchRequest = vi.fn<FetchLike>(async () =>
-      jsonResponse(
-        { choices: [{ message: { content: "Water is flowing." } }] },
-        200,
-        { "x-request-id": "req-private" },
-      ),
+      jsonResponse(completionPayload(), 200, { "x-request-id": "req-private" }),
     );
     const client = createZeroGComputeClient(CONFIG, { fetch: fetchRequest });
 
@@ -48,6 +43,9 @@ describe("0G Compute Router client", () => {
       requestId: "req-private",
       trustMode: "private",
       teeVerificationRequested: true,
+      teeVerified: true,
+      provider: PROVIDER,
+      billing: { input_cost: "0.01", output_cost: 0.02 },
     });
     expect(fetchRequest).toHaveBeenCalledTimes(1);
     const [url, init] = fetchRequest.mock.calls[0] ?? [];
@@ -57,6 +55,8 @@ describe("0G Compute Router client", () => {
     expect(init?.headers).toMatchObject({
       Authorization: "Bearer sk-server-only-secret",
       "X-0G-Provider-Trust-Mode": "private",
+      "X-0G-Provider-Sort": "price",
+      "X-0G-Provider-Allow-Fallbacks": "false",
     });
     expect(JSON.parse(String(init?.body))).toMatchObject({
       model: "private-model",
@@ -121,7 +121,7 @@ describe("0G Compute Router client", () => {
           "retry-after": "15",
         }),
       )
-      .mockResolvedValueOnce(jsonResponse({ choices: [] }, 200));
+      .mockResolvedValueOnce(jsonResponse(completionPayload(), 200));
     const sleep = vi.fn(async () => undefined);
     const client = createZeroGComputeClient(CONFIG, {
       fetch: fetchRequest,
@@ -155,7 +155,77 @@ describe("0G Compute Router client", () => {
       ZeroGServiceError,
     );
   });
+
+  it.each([
+    { choices: [] },
+    { choices: [], x_0g_trace: { provider: PROVIDER, request_id: "req" } },
+    {
+      choices: [],
+      x_0g_trace: {
+        provider: PROVIDER,
+        request_id: "req",
+        tee_verified: false,
+      },
+    },
+    {
+      choices: [],
+      x_0g_trace: {
+        provider: "not-an-address",
+        request_id: "req",
+        tee_verified: true,
+      },
+    },
+  ])("rejects missing, failed, or malformed Router traces", async (payload) => {
+    const client = createZeroGComputeClient(CONFIG, {
+      fetch: async () => jsonResponse(payload, 200),
+    });
+
+    await expect(client.createChatCompletion(INPUT)).rejects.toMatchObject({
+      retryable: false,
+    });
+  });
+
+  it("propagates caller cancellation without retrying", async () => {
+    const controller = new AbortController();
+    const fetchRequest = vi.fn<FetchLike>(async (_input, init) => {
+      await new Promise<void>((_resolve, reject) => {
+        init?.signal?.addEventListener(
+          "abort",
+          () => reject(new Error("abort")),
+          {
+            once: true,
+          },
+        );
+      });
+      return jsonResponse(completionPayload(), 200);
+    });
+    const client = createZeroGComputeClient(CONFIG, { fetch: fetchRequest });
+    const pending = client.createChatCompletion(INPUT, {
+      signal: controller.signal,
+    });
+    controller.abort();
+
+    await expect(pending).rejects.toMatchObject({
+      code: "CANCELLED",
+      retryable: false,
+    });
+    expect(fetchRequest).toHaveBeenCalledTimes(1);
+  });
 });
+
+const PROVIDER = `0x${"ab".repeat(20)}` as const;
+
+function completionPayload() {
+  return {
+    choices: [{ message: { content: "Water is flowing." } }],
+    x_0g_trace: {
+      provider: PROVIDER,
+      request_id: "req-private",
+      tee_verified: true,
+      billing: { input_cost: "0.01", output_cost: 0.02 },
+    },
+  };
+}
 
 function jsonResponse(
   body: unknown,

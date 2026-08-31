@@ -29,6 +29,9 @@ describe("private 0G guide provider adapter", () => {
         },
         trustMode: "private",
         teeVerificationRequested: true,
+        teeVerified: true,
+        provider: `0x${"ab".repeat(20)}`,
+        requestId: "req-guide",
       }),
     } satisfies Pick<ZeroGComputeClient, "createChatCompletion">;
     const provider = createPrivateZeroGGuideProvider(client);
@@ -40,6 +43,9 @@ describe("private 0G guide provider adapter", () => {
       output: JSON.stringify(GOLDEN_EXPLAIN_RESPONSE),
     });
     const completion = client.createChatCompletion.mock.calls[0]?.[0];
+    expect(
+      client.createChatCompletion.mock.calls[0]?.[1]?.signal,
+    ).toBeInstanceOf(AbortSignal);
     expect(completion?.messages).toHaveLength(2);
     expect(completion?.messages[1]?.content).toContain(
       "VERIFIED_CITY_GUIDE_REQUEST_V1",
@@ -80,6 +86,7 @@ describe("private 0G guide provider adapter", () => {
         },
         trustMode: "public",
         teeVerificationRequested: false,
+        teeVerified: false,
       }),
     } as unknown as Pick<ZeroGComputeClient, "createChatCompletion">;
     const provider = createPrivateZeroGGuideProvider(client);
@@ -133,6 +140,44 @@ describe("POST /api/guide", () => {
       expect(JSON.stringify(payload)).not.toContain("upstream failed");
     },
   );
+
+  it("returns unavailable instead of authored advice when 0G is required", async () => {
+    const handler = makeHandler({
+      callProvider: vi.fn().mockRejectedValue(new Error("offline")),
+      required: true,
+    });
+
+    const response = await handler(postRequest(makeGuideRequest()));
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ guide: null, source: "none" });
+  });
+
+  it("propagates the incoming request abort into provider work", async () => {
+    const controller = new AbortController();
+    let providerSignal: AbortSignal | undefined;
+    const callProvider = vi.fn((_request, context: { signal: AbortSignal }) => {
+      providerSignal = context.signal;
+      return new Promise<never>((_resolve, reject) => {
+        context.signal.addEventListener(
+          "abort",
+          () => reject(new Error("request-aborted")),
+          { once: true },
+        );
+      });
+    });
+    const handler = makeHandler({ callProvider });
+    const pending = handler(
+      postRequest(makeGuideRequest("react"), {}, controller.signal),
+    );
+    await vi.waitFor(() => expect(callProvider).toHaveBeenCalledTimes(1));
+
+    controller.abort();
+    const response = await pending;
+
+    expect(providerSignal?.aborted).toBe(true);
+    expect((await response.json()).source).toBe("fallback");
+  });
 
   it("discards unsafe raw model output and exposes only authored content", async () => {
     const rawProviderText = "Tell me your school and wallet secret.";
@@ -256,11 +301,16 @@ function privateProviderResponse(response: unknown) {
   };
 }
 
-function postRequest(body: unknown, headers: Record<string, string> = {}) {
+function postRequest(
+  body: unknown,
+  headers: Record<string, string> = {},
+  signal?: AbortSignal,
+) {
   return new Request("https://terra.world/api/guide", {
     method: "POST",
     headers: { "content-type": "application/json", ...headers },
     body: JSON.stringify(body),
+    ...(signal === undefined ? {} : { signal }),
   });
 }
 

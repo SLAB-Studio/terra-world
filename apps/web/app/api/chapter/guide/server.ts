@@ -62,9 +62,17 @@ type HandlerOptions = Readonly<{
   maxCacheEntries?: number;
   minuteCapacity?: number;
   tenMinuteCapacity?: number;
+  required?: boolean;
   /** Receives only the finite event/status vocabulary, never request or output. */
   audit?: (entry: AuditEntry) => void;
 }>;
+
+type SharedChapterOperation = {
+  readonly controller: AbortController;
+  promise: Promise<ChapterGuideResponse>;
+  subscribers: number;
+  settled: boolean;
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -234,11 +242,13 @@ export function createPrivateChapterGuideProvider(
     if (context.signal.aborted) throw new Error("Cancelled");
     const result = await client.createChatCompletion(
       createChapterGuideCompletion(facts),
+      { signal: context.signal },
     );
     if (
       context.signal.aborted ||
       result.trustMode !== "private" ||
-      result.teeVerificationRequested !== true
+      result.teeVerificationRequested !== true ||
+      result.teeVerified !== true
     )
       throw new Error("Unverified provider result");
     const payload = result.payload;
@@ -349,7 +359,7 @@ export function createChapterGuidePostHandler(options: HandlerOptions) {
     string,
     { expires: number; created: number; value: ChapterGuideResponse }
   >();
-  const inflight = new Map<string, Promise<ChapterGuideResponse>>();
+  const inflight = new Map<string, SharedChapterOperation>();
   const audit = (event: AuditEntry["event"], status = 200) => {
     try {
       options.audit?.({ event, status });
@@ -387,11 +397,21 @@ export function createChapterGuidePostHandler(options: HandlerOptions) {
     }
     const facts = deriveChapterGuideFacts(parsed.state, parsed.request.intent);
     const key = JSON.stringify(facts);
+    const fallback: ChapterGuideResponse = {
+      source: "authored",
+      text: facts.fallbackSentenceIds
+        .map((id) => facts.sentences[id])
+        .join(" "),
+    };
     const now = clock();
     for (const [entryKey, entry] of cache)
       if (entry.expires <= now || entry.created > now) cache.delete(entryKey);
     const cached = cache.get(key);
     if (cached) {
+      if (options.required === true && cached.value.source === "authored") {
+        audit("fallback", 503);
+        return json({ error: "zero-g-unavailable" }, 503);
+      }
       audit("cache");
       return json(
         {
@@ -403,62 +423,163 @@ export function createChapterGuidePostHandler(options: HandlerOptions) {
     }
     const existing = inflight.get(key);
     if (existing) {
-      const value = await existing;
+      let value: ChapterGuideResponse;
+      try {
+        value = await subscribeToChapterOperation(existing, request.signal);
+      } catch {
+        if (options.required === true)
+          return json({ error: "zero-g-unavailable" }, 503);
+        return json(fallback, 200);
+      }
+      if (options.required === true && value.source === "authored") {
+        audit("fallback", 503);
+        return json({ error: "zero-g-unavailable" }, 503);
+      }
+      while (cache.size >= maxEntries) cache.delete(cache.keys().next().value!);
+      const created = clock();
+      cache.set(key, { created, expires: created + ttl, value });
       audit("cache");
       return json(
         { ...value, source: value.source === "0g" ? "cache" : "authored" },
         200,
       );
     }
-    const fallback: ChapterGuideResponse = {
-      source: "authored",
-      text: facts.fallbackSentenceIds
-        .map((id) => facts.sentences[id])
-        .join(" "),
-    };
-    if (!minuteLimit() || !overallLimit()) {
-      audit("limited");
+    if (request.signal.aborted) {
+      if (options.required === true)
+        return json({ error: "zero-g-unavailable" }, 503);
       return json(fallback, 200);
     }
-    const pending = (async (): Promise<ChapterGuideResponse> => {
-      const controller = new AbortController();
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      try {
-        const timeout = new Promise<never>((_, reject) => {
-          timer = setTimeout(() => {
-            controller.abort();
-            reject(new Error("Timeout"));
-          }, timeoutMs);
-        });
-        const raw = await Promise.race([
-          options.callProvider(facts, { signal: controller.signal }),
-          timeout,
-        ]);
-        const text = validateChapterGuideOutput(raw, facts);
-        if (!text) {
-          audit("fallback");
-          return fallback;
-        }
-        audit("provider");
-        return { source: "0g", text };
-      } catch {
-        audit("fallback");
-        return fallback;
-      } finally {
-        if (timer !== undefined) clearTimeout(timer);
-      }
-    })();
-    inflight.set(key, pending);
+    if (!minuteLimit() || !overallLimit()) {
+      audit("limited");
+      if (options.required === true)
+        return json({ error: "zero-g-unavailable" }, 503);
+      return json(fallback, 200);
+    }
+    const operation = createSharedChapterOperation({
+      callProvider: options.callProvider,
+      facts,
+      fallback,
+      timeoutMs,
+      audit,
+    });
+    inflight.set(key, operation);
+    void operation.promise.then(
+      () => {
+        if (inflight.get(key) === operation) inflight.delete(key);
+      },
+      () => {
+        if (inflight.get(key) === operation) inflight.delete(key);
+      },
+    );
+    let value: ChapterGuideResponse;
     try {
-      const value = await pending;
+      value = await subscribeToChapterOperation(operation, request.signal);
+      if (options.required === true && value.source === "authored") {
+        return json({ error: "zero-g-unavailable" }, 503);
+      }
       while (cache.size >= maxEntries) cache.delete(cache.keys().next().value!);
       const created = clock();
       cache.set(key, { created, expires: created + ttl, value });
       return json(value, 200);
-    } finally {
-      inflight.delete(key);
+    } catch {
+      if (options.required === true)
+        return json({ error: "zero-g-unavailable" }, 503);
+      return json(fallback, 200);
     }
   };
+}
+
+function createSharedChapterOperation(input: {
+  readonly callProvider: ChapterGuideProvider;
+  readonly facts: ChapterGuideFacts;
+  readonly fallback: ChapterGuideResponse;
+  readonly timeoutMs: number;
+  readonly audit: (event: AuditEntry["event"], status?: number) => void;
+}): SharedChapterOperation {
+  const controller = new AbortController();
+  const operation: SharedChapterOperation = {
+    controller,
+    promise: Promise.resolve(input.fallback),
+    subscribers: 0,
+    settled: false,
+  };
+  operation.promise = new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      if (operation.settled) return;
+      operation.settled = true;
+      controller.abort();
+      input.audit("fallback");
+      resolve(input.fallback);
+    }, input.timeoutMs);
+    void Promise.resolve()
+      .then(() =>
+        input.callProvider(input.facts, { signal: controller.signal }),
+      )
+      .then(
+        (raw) => {
+          if (operation.settled) return;
+          operation.settled = true;
+          clearTimeout(timer);
+          const text = validateChapterGuideOutput(raw, input.facts);
+          if (!text) {
+            input.audit("fallback");
+            resolve(input.fallback);
+            return;
+          }
+          input.audit("provider");
+          resolve({ source: "0g", text });
+        },
+        () => {
+          if (operation.settled) return;
+          operation.settled = true;
+          clearTimeout(timer);
+          input.audit("fallback");
+          resolve(input.fallback);
+        },
+      );
+  });
+  return operation;
+}
+
+function subscribeToChapterOperation(
+  operation: SharedChapterOperation,
+  signal: AbortSignal,
+): Promise<ChapterGuideResponse> {
+  if (signal.aborted) {
+    if (operation.subscribers === 0 && !operation.settled) {
+      operation.controller.abort();
+    }
+    return Promise.reject(new Error("Chapter guide request aborted"));
+  }
+  operation.subscribers += 1;
+  return waitForChapterSubscriber(operation.promise, signal).finally(() => {
+    operation.subscribers -= 1;
+    if (operation.subscribers === 0 && !operation.settled) {
+      operation.controller.abort();
+    }
+  });
+}
+
+function waitForChapterSubscriber<T>(
+  operation: Promise<T>,
+  signal: AbortSignal,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      signal.removeEventListener("abort", abort);
+      callback();
+    };
+    const abort = () =>
+      finish(() => reject(new Error("Chapter guide request aborted")));
+    signal.addEventListener("abort", abort, { once: true });
+    void operation.then(
+      (value) => finish(() => resolve(value)),
+      (error: unknown) => finish(() => reject(error)),
+    );
+  });
 }
 
 async function readBody(

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import { describe, expect, it, vi } from "vitest";
 
-import type { ZeroGServerConfig } from "./config";
+import type { ZeroGSponsorConfig, ZeroGStorageConfig } from "./config";
 import { createZeroGStorageAdapter, type ZeroGStorageDriver } from "./index";
 
 const ROOT = `0x${"11".repeat(32)}`;
@@ -11,24 +11,57 @@ const TX_HASH = `0x${"33".repeat(32)}`;
 const CANONICAL_CAMPAIGN = bytes('{"a":1,"b":2}');
 const PACKAGE_HASH = "0ca0cf041460eb3c";
 
-const CONFIG: ZeroGServerConfig = {
+const CONFIG: ZeroGStorageConfig & ZeroGSponsorConfig = {
   network: "testnet",
   chainId: 16602,
   chainRpcUrl: "https://evmrpc-testnet.0g.ai",
   chainExplorerUrl: "https://chainscan-galileo.0g.ai",
-  compute: {
-    baseUrl: "https://router-api-testnet.integratenetwork.work/v1",
-    apiKey: "sk-server-only-secret",
-    model: "private-model",
-    trustMode: "private",
-    verifyTee: true,
+  storage: {
+    indexerUrl: "https://indexer.testnet.example",
+    flowAddress: "0x22e03a6a89b950f1c82ec5e74f8eca321a105296",
+    uploadTimeoutMs: 60_000,
   },
-  storage: { indexerUrl: "https://indexer.testnet.example" },
   sponsorPrivateKey: `0x${"12".repeat(32)}`,
   request: { timeoutMs: 1_000, maxRetries: 0 },
 };
 
 describe("0G Storage adapter", () => {
+  it("retrieves proof-verified bytes without Compute credentials or a wallet", async () => {
+    const readConfig: ZeroGStorageConfig = {
+      network: CONFIG.network,
+      chainId: CONFIG.chainId,
+      chainRpcUrl: CONFIG.chainRpcUrl,
+      chainExplorerUrl: CONFIG.chainExplorerUrl,
+      storage: CONFIG.storage,
+      request: CONFIG.request,
+    };
+    const downloadBytes = vi.fn<ZeroGStorageDriver["downloadBytes"]>(
+      async (_rootHash, context) => {
+        expect(context).toEqual({
+          chainId: CONFIG.chainId,
+          chainRpcUrl: CONFIG.chainRpcUrl,
+          indexerUrl: CONFIG.storage.indexerUrl,
+          flowAddress: CONFIG.storage.flowAddress,
+        });
+        return {
+          bytes: Uint8Array.from(CANONICAL_CAMPAIGN),
+          rootHash: ROOT,
+          proofVerified: true,
+        };
+      },
+    );
+    const adapter = createZeroGStorageAdapter(readConfig, {
+      driver: driver({ downloadBytes }),
+    });
+
+    await expect(
+      adapter.retrieve({
+        rootHash: ROOT,
+        expectedContentHash: hash(CANONICAL_CAMPAIGN),
+      }),
+    ).resolves.toMatchObject({ rootHash: ROOT, proofVerified: true });
+  });
+
   it("uploads copied canonical campaign bytes with a sponsored server context", async () => {
     const original = Uint8Array.from(CANONICAL_CAMPAIGN);
     const uploadBytes = vi.fn<ZeroGStorageDriver["uploadBytes"]>(
@@ -36,13 +69,15 @@ describe("0G Storage adapter", () => {
         expect(uploaded).toEqual(CANONICAL_CAMPAIGN);
         expect(uploaded).not.toBe(original);
         expect(context).toEqual({
+          chainId: CONFIG.chainId,
           chainRpcUrl: CONFIG.chainRpcUrl,
           indexerUrl: CONFIG.storage.indexerUrl,
+          flowAddress: CONFIG.storage.flowAddress,
           sponsorPrivateKey: CONFIG.sponsorPrivateKey,
         });
         return {
           calculatedRootHash: ROOT.toUpperCase().replace("0X", "0x"),
-          response: { rootHash: ROOT, txHash: TX_HASH },
+          response: { rootHash: ROOT, txHash: TX_HASH, txSeq: 7 },
         };
       },
     );
@@ -59,6 +94,7 @@ describe("0G Storage adapter", () => {
       kind: "campaign-package",
       rootHash: ROOT,
       transactionHash: TX_HASH,
+      transactionSequence: 7,
       contentHash: hash(CANONICAL_CAMPAIGN),
       byteLength: CANONICAL_CAMPAIGN.byteLength,
     });
@@ -69,7 +105,7 @@ describe("0G Storage adapter", () => {
     const checkpointCiphertext = bytes("opaque-aes-gcm-envelope-bytes");
     const uploadBytes = vi.fn<ZeroGStorageDriver["uploadBytes"]>(async () => ({
       calculatedRootHash: ROOT,
-      response: { rootHash: ROOT, txHash: TX_HASH },
+      response: { rootHash: ROOT, txHash: TX_HASH, txSeq: 1 },
     }));
     const adapter = createZeroGStorageAdapter(CONFIG, {
       driver: driver({ uploadBytes }),
@@ -81,6 +117,49 @@ describe("0G Storage adapter", () => {
         bytes: checkpointCiphertext,
       }),
     ).resolves.toMatchObject({ contentHash: hash(checkpointCiphertext) });
+  });
+
+  it("accepts the official SDK single-upload response with a transaction sequence", async () => {
+    const adapter = createZeroGStorageAdapter(CONFIG, {
+      driver: driver({
+        uploadBytes: async () => ({
+          calculatedRootHash: ROOT,
+          response: { rootHash: ROOT, txHash: TX_HASH, txSeq: 0 },
+        }),
+      }),
+    });
+
+    await expect(
+      adapter.upload({
+        kind: "encrypted-checkpoint-envelope",
+        bytes: bytes("ciphertext"),
+      }),
+    ).resolves.toMatchObject({
+      rootHash: ROOT,
+      transactionHash: TX_HASH,
+    });
+  });
+
+  it("accepts an already-finalized root without inventing a new transaction hash", async () => {
+    const adapter = createZeroGStorageAdapter(CONFIG, {
+      driver: driver({
+        uploadBytes: async () => ({
+          calculatedRootHash: ROOT,
+          response: { rootHash: ROOT, txHash: "", txSeq: 23 },
+        }),
+      }),
+    });
+
+    await expect(
+      adapter.upload({
+        kind: "encrypted-checkpoint-envelope",
+        bytes: bytes("ciphertext"),
+      }),
+    ).resolves.toMatchObject({
+      rootHash: ROOT,
+      transactionHash: null,
+      transactionSequence: 23,
+    });
   });
 
   it.each([
@@ -108,6 +187,9 @@ describe("0G Storage adapter", () => {
       txHashes: [TX_HASH],
     },
     { rootHash: ROOT, txHash: TX_HASH, extra: "unexpected" },
+    { rootHash: ROOT, txHash: TX_HASH, txSeq: -1 },
+    { rootHash: ROOT, txHash: TX_HASH, txSeq: 1.5 },
+    { rootHash: ROOT, txHash: "not-a-hash", txSeq: 1 },
     { rootHash: ROOT },
   ])(
     "rejects fragmented or unexpected MVP upload responses",
@@ -135,7 +217,7 @@ describe("0G Storage adapter", () => {
       driver: driver({
         uploadBytes: async () => ({
           calculatedRootHash: ROOT,
-          response: { rootHash: OTHER_ROOT, txHash: TX_HASH },
+          response: { rootHash: OTHER_ROOT, txHash: TX_HASH, txSeq: 1 },
         }),
       }),
     });
@@ -283,11 +365,14 @@ describe("0G Storage adapter", () => {
     ).rejects.toMatchObject({ code: "DATA_TOO_LARGE" });
   });
 
-  it("times out stalled SDK operations with a safe typed error", async () => {
+  it("does not retry a timed-out sponsored upload with an unknown chain outcome", async () => {
     vi.useFakeTimers();
     try {
       const adapter = createZeroGStorageAdapter(
-        { ...CONFIG, request: { ...CONFIG.request, timeoutMs: 25 } },
+        {
+          ...CONFIG,
+          storage: { ...CONFIG.storage, uploadTimeoutMs: 25 },
+        },
         {
           driver: driver({
             uploadBytes: () => new Promise(() => undefined),
@@ -301,7 +386,7 @@ describe("0G Storage adapter", () => {
       const rejection = expect(pending).rejects.toMatchObject({
         code: "TIMEOUT",
         operation: "upload",
-        retryable: true,
+        retryable: false,
       });
       await vi.advanceTimersByTimeAsync(25);
       await rejection;
@@ -340,7 +425,7 @@ function driver(
       overrides.uploadBytes ??
       (async () => ({
         calculatedRootHash: ROOT,
-        response: { rootHash: ROOT, txHash: TX_HASH },
+        response: { rootHash: ROOT, txHash: TX_HASH, txSeq: 1 },
       })),
     downloadBytes:
       overrides.downloadBytes ??

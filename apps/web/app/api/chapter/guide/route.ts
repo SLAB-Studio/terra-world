@@ -3,7 +3,10 @@ import {
   createZeroGComputeClient,
   type ZeroGComputeClient,
 } from "../../../../../../packages/zero-g/src/server/compute";
-import { loadZeroGServerConfig } from "../../../../../../packages/zero-g/src/server/config";
+import {
+  isZeroGRequired,
+  loadZeroGComputeConfig,
+} from "../../../../../../packages/zero-g/src/server/config";
 import {
   CHAPTER_GUIDE_LIMITS,
   createChapterGuidePostHandler,
@@ -14,9 +17,9 @@ export const runtime = "nodejs";
 let computeClient: ZeroGComputeClient | undefined;
 
 const client: ZeroGComputeClient = {
-  async createChatCompletion(input) {
+  async createChatCompletion(input, options) {
     if (!computeClient) {
-      const configured = loadZeroGServerConfig(process.env);
+      const configured = loadZeroGComputeConfig(process.env);
       // One paid attempt per uncached briefing; the Compute fetch owns abortion.
       computeClient = createZeroGComputeClient({
         ...configured,
@@ -29,10 +32,11 @@ const client: ZeroGComputeClient = {
         },
       });
     }
-    return computeClient.createChatCompletion(input);
+    return computeClient.createChatCompletion(input, options);
   },
 };
 
 export const POST = createChapterGuidePostHandler({
   callProvider: createPrivateChapterGuideProvider(client),
+  required: isZeroGRequired(process.env),
 });

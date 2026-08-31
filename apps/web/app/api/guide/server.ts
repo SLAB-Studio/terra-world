@@ -27,6 +27,7 @@ export type GuidePostHandlerOptions = Readonly<{
   timeoutMs: number;
   cacheTtlMs: number;
   maxCacheEntries: number;
+  required?: boolean;
   clock?: () => number;
 }>;
 
@@ -96,8 +97,13 @@ export function createGuidePostHandler(
       return guideResponse({ guide: null, source: "none" }, 400);
     }
 
-    const result = await orchestrator.resolve(parsed.data);
+    const result = await orchestrator.resolve(parsed.data, {
+      signal: request.signal,
+    });
     if (!result.ok) {
+      return guideResponse({ guide: null, source: "none" }, 503);
+    }
+    if (options.required === true && result.source === "fallback") {
       return guideResponse({ guide: null, source: "none" }, 503);
     }
     return guideResponse({ guide: result.value, source: result.source }, 200);
@@ -111,11 +117,14 @@ export function createPrivateZeroGGuideProvider(
   return async (request, context) => {
     if (context.signal.aborted) throw PROVIDER_CANCELLED;
     const completion = createRivergateGuideCompletion(request);
-    const result = await client.createChatCompletion(completion);
+    const result = await client.createChatCompletion(completion, {
+      signal: context.signal,
+    });
     if (
       context.signal.aborted ||
       result.trustMode !== "private" ||
-      result.teeVerificationRequested !== true
+      result.teeVerificationRequested !== true ||
+      result.teeVerified !== true
     ) {
       throw PROVIDER_CANCELLED;
     }

@@ -36,6 +36,8 @@ const CONFIG: ZeroGServerConfig = {
   },
   storage: {
     indexerUrl: "https://indexer-storage-testnet-turbo.0g.ai",
+    flowAddress: "0x22e03a6a89b950f1c82ec5e74f8eca321a105296",
+    uploadTimeoutMs: 60_000,
   },
   sponsorPrivateKey: SERVER_SECRET,
   request: { timeoutMs: 1_000, maxRetries: 0 },
@@ -74,6 +76,7 @@ describe("Rivergate campaign 0G Storage command", () => {
       byteLength: bytes(serializeRivergateCampaignPackage()).byteLength,
     });
     expect(result.publication.transactionHash).toBe(TRANSACTION_HASH);
+    expect(result.publication.transactionSequence).toBe(7);
     expect(result.retrieval).toMatchObject({
       proofVerified: true,
       reference: result.publication.reference,
@@ -229,7 +232,7 @@ function createMemoryStorageNetwork() {
           stored.set(rootHash, Uint8Array.from(uploaded));
           return {
             calculatedRootHash: rootHash,
-            response: { rootHash, txHash: TRANSACTION_HASH },
+            response: { rootHash, txHash: TRANSACTION_HASH, txSeq: 7 },
           };
         },
         async downloadBytes(rootHash, context) {

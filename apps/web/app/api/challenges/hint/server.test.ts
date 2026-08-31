@@ -57,6 +57,44 @@ describe("challenge hint API", () => {
     expect(body.hints).toHaveLength(3);
   });
 
+  it("propagates the incoming request abort to paid Compute", async () => {
+    const controller = new AbortController();
+    let providerSignal: AbortSignal | undefined;
+    const callProvider = vi.fn(
+      (_request, _challenge, context: { signal: AbortSignal }) => {
+        providerSignal = context.signal;
+        return new Promise<never>((_resolve, reject) => {
+          context.signal.addEventListener(
+            "abort",
+            () => reject(new Error("request-aborted")),
+            { once: true },
+          );
+        });
+      },
+    );
+    const handler = createChallengeHintPostHandler({ callProvider });
+    const pending = handler(requestFor(VALID_BODY, controller.signal));
+    await vi.waitFor(() => expect(callProvider).toHaveBeenCalledTimes(1));
+
+    controller.abort();
+    const response = await pending;
+
+    expect(providerSignal?.aborted).toBe(true);
+    expect((await response.json()).source).toBe("authored-server");
+  });
+
+  it("returns 503 instead of authored advice when 0G is required", async () => {
+    const handler = createChallengeHintPostHandler({
+      callProvider: vi.fn().mockRejectedValue(new Error("offline")),
+      required: true,
+    });
+
+    const response = await handler(requestFor(VALID_BODY));
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toBeNull();
+  });
+
   it("rejects unknown challenge IDs and extra child data", async () => {
     const callProvider = vi.fn();
     const handler = createChallengeHintPostHandler({ callProvider });
@@ -108,6 +146,7 @@ describe("challenge hint API", () => {
       },
       trustMode: "private",
       teeVerificationRequested: true,
+      teeVerified: true,
     });
     const provider = createPrivateZeroGChallengeHintProvider({
       createChatCompletion,
@@ -119,6 +158,7 @@ describe("challenge hint API", () => {
     expect(body.source).toBe("private-compute");
     expect(createChatCompletion).toHaveBeenCalledWith(
       expect.objectContaining({ maxTokens: 220, temperature: 0.2 }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
     const call = createChatCompletion.mock.calls[0]?.[0] as {
       messages: { role: string; content: string }[];
@@ -135,8 +175,16 @@ describe("challenge hint API", () => {
   });
 
   it.each([
-    { trustMode: "standard", teeVerificationRequested: true },
-    { trustMode: "private", teeVerificationRequested: false },
+    {
+      trustMode: "standard",
+      teeVerificationRequested: true,
+      teeVerified: true,
+    },
+    {
+      trustMode: "private",
+      teeVerificationRequested: false,
+      teeVerified: false,
+    },
   ])(
     "retains authored advice when the Compute privacy boundary fails: %j",
     async (privacy) => {
@@ -159,10 +207,11 @@ describe("challenge hint API", () => {
   );
 });
 
-function requestFor(value: unknown): Request {
+function requestFor(value: unknown, signal?: AbortSignal): Request {
   return new Request("http://terra.test/api/challenges/hint", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(value),
+    ...(signal === undefined ? {} : { signal }),
   });
 }

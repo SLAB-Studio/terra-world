@@ -1,4 +1,4 @@
-import type { ZeroGServerConfig } from "./config";
+import type { ZeroGComputeConfig } from "./config";
 import { ZeroGServiceError } from "./errors";
 import {
   isRetryableZeroGStatus,
@@ -17,16 +17,26 @@ export type ZeroGChatCompletionInput = Readonly<{
   temperature?: number;
 }>;
 
+export type ZeroGBillingMetadata = Readonly<Record<string, string | number>>;
+
 export type ZeroGComputeResult = Readonly<{
   payload: unknown;
-  requestId?: string;
+  provider: `0x${string}`;
+  requestId: string;
+  billing?: ZeroGBillingMetadata;
   trustMode: "private";
-  teeVerificationRequested: true;
+  teeVerificationRequested: boolean;
+  teeVerified: boolean;
+}>;
+
+export type ZeroGComputeRequestOptions = Readonly<{
+  signal?: AbortSignal;
 }>;
 
 export type ZeroGComputeClient = Readonly<{
   createChatCompletion(
     input: ZeroGChatCompletionInput,
+    options?: ZeroGComputeRequestOptions,
   ): Promise<ZeroGComputeResult>;
 }>;
 
@@ -40,8 +50,15 @@ type ComputeClientDependencies = Readonly<{
   sleep?: (delayMs: number) => Promise<void>;
 }>;
 
+type RouterTrace = Readonly<{
+  provider: `0x${string}`;
+  requestId: string;
+  teeVerified: boolean;
+  billing?: ZeroGBillingMetadata;
+}>;
+
 export function createZeroGComputeClient(
-  config: ZeroGServerConfig,
+  config: ZeroGComputeConfig,
   dependencies: ComputeClientDependencies = {},
 ): ZeroGComputeClient {
   const fetchRequest = dependencies.fetch ?? globalThis.fetch;
@@ -54,8 +71,10 @@ export function createZeroGComputeClient(
   return Object.freeze({
     async createChatCompletion(
       input: ZeroGChatCompletionInput,
+      options: ZeroGComputeRequestOptions = {},
     ): Promise<ZeroGComputeResult> {
       validateCompletionInput(input);
+      throwIfCancelled(options.signal);
       const body = JSON.stringify({
         model: config.compute.model,
         messages: input.messages,
@@ -71,11 +90,15 @@ export function createZeroGComputeClient(
         attempt <= config.request.maxRetries;
         attempt += 1
       ) {
+        throwIfCancelled(options.signal);
         const controller = new AbortController();
-        const timeout = setTimeout(
-          () => controller.abort(),
-          config.request.timeoutMs,
-        );
+        let timedOut = false;
+        const cancel = () => controller.abort(options.signal?.reason);
+        options.signal?.addEventListener("abort", cancel, { once: true });
+        const timeout = setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+        }, config.request.timeoutMs);
         try {
           const response = await fetchRequest(
             `${config.compute.baseUrl}/chat/completions`,
@@ -84,6 +107,10 @@ export function createZeroGComputeClient(
               headers: {
                 Authorization: `Bearer ${config.compute.apiKey}`,
                 "Content-Type": "application/json",
+                "X-0G-Provider-Allow-Fallbacks": String(
+                  config.compute.allowProviderFallbacks ?? false,
+                ),
+                "X-0G-Provider-Sort": config.compute.providerSort ?? "price",
                 "X-0G-Provider-Trust-Mode": config.compute.trustMode,
               },
               body,
@@ -93,14 +120,15 @@ export function createZeroGComputeClient(
 
           if (response.ok) {
             const payload = await parseJsonResponse(response);
-            const requestId =
-              response.headers.get("x-request-id") ??
-              requestIdFromPayload(payload);
+            const trace = parseRouterTrace(payload, config.compute.verifyTee);
             return Object.freeze({
               payload,
-              ...(requestId ? { requestId } : {}),
-              trustMode: "private" as const,
-              teeVerificationRequested: true as const,
+              provider: trace.provider,
+              requestId: trace.requestId,
+              ...(trace.billing ? { billing: trace.billing } : {}),
+              trustMode: config.compute.trustMode,
+              teeVerificationRequested: config.compute.verifyTee,
+              teeVerified: trace.teeVerified,
             });
           }
 
@@ -111,21 +139,31 @@ export function createZeroGComputeClient(
           const retryAfter = parseRetryAfterMs(
             response.headers.get("retry-after"),
           );
-          await sleep(retryDelayMs(attempt, retryAfter));
+          clearTimeout(timeout);
+          await sleepUnlessCancelled(
+            sleep,
+            retryDelayMs(attempt, retryAfter),
+            options.signal,
+          );
         } catch (error) {
           if (error instanceof ZeroGServiceError) throw error;
-          const aborted = controller.signal.aborted;
+          if (options.signal?.aborted) throw cancelledError();
           latestError = new ZeroGServiceError(
-            aborted ? "TIMEOUT" : "NETWORK_FAILURE",
-            aborted
+            timedOut ? "TIMEOUT" : "NETWORK_FAILURE",
+            timedOut
               ? "0G Compute request timed out"
               : "0G Compute network request failed",
             { retryable: true },
           );
           if (attempt === config.request.maxRetries) throw latestError;
-          await sleep(retryDelayMs(attempt));
+          await sleepUnlessCancelled(
+            sleep,
+            retryDelayMs(attempt),
+            options.signal,
+          );
         } finally {
           clearTimeout(timeout);
+          options.signal?.removeEventListener("abort", cancel);
         }
       }
 
@@ -176,11 +214,92 @@ async function parseJsonResponse(response: Response): Promise<unknown> {
     return await response.json();
   } catch {
     throw new ZeroGServiceError(
-      "UNKNOWN",
+      "INVALID_RESPONSE",
       "0G Compute returned an invalid JSON response",
       { retryable: false, status: response.status },
     );
   }
+}
+
+function parseRouterTrace(
+  payload: unknown,
+  teeRequested: boolean,
+): RouterTrace {
+  if (!isRecord(payload) || !isRecord(payload.x_0g_trace)) {
+    throw invalidTrace("0G Compute response is missing x_0g_trace");
+  }
+  const trace = payload.x_0g_trace;
+  if (
+    typeof trace.provider !== "string" ||
+    !/^0x[0-9a-fA-F]{40}$/u.test(trace.provider)
+  ) {
+    throw invalidTrace("0G Compute trace has an invalid provider");
+  }
+  if (
+    typeof trace.request_id !== "string" ||
+    !/^[A-Za-z0-9._:-]{1,256}$/u.test(trace.request_id)
+  ) {
+    throw invalidTrace("0G Compute trace has an invalid request id");
+  }
+  if (
+    trace.tee_verified !== undefined &&
+    typeof trace.tee_verified !== "boolean"
+  ) {
+    throw invalidTrace("0G Compute trace has an invalid TEE verdict");
+  }
+  if (teeRequested && trace.tee_verified !== true) {
+    throw new ZeroGServiceError(
+      "TEE_VERIFICATION_FAILED",
+      "0G Compute did not return a successful TEE verification verdict",
+      { retryable: false, requestId: trace.request_id },
+    );
+  }
+  const billing =
+    trace.billing === undefined ? undefined : parseBilling(trace.billing);
+  return Object.freeze({
+    provider: trace.provider as `0x${string}`,
+    requestId: trace.request_id,
+    teeVerified: trace.tee_verified === true,
+    ...(billing ? { billing } : {}),
+  });
+}
+
+function parseBilling(value: unknown): ZeroGBillingMetadata {
+  if (!isRecord(value)) {
+    throw invalidTrace("0G Compute trace has invalid billing metadata");
+  }
+  const entries = Object.entries(value);
+  if (entries.length > 24) {
+    throw invalidTrace("0G Compute trace has invalid billing metadata");
+  }
+  const billing: Record<string, string | number> = {};
+  for (const [key, entry] of entries) {
+    if (!/^[A-Za-z][A-Za-z0-9_]{0,63}$/u.test(key)) {
+      throw invalidTrace("0G Compute trace has invalid billing metadata");
+    }
+    if (typeof entry === "number") {
+      if (!Number.isFinite(entry) || entry < 0) {
+        throw invalidTrace("0G Compute trace has invalid billing metadata");
+      }
+      billing[key] = entry;
+      continue;
+    }
+    if (
+      typeof entry !== "string" ||
+      entry.length > 128 ||
+      !/^[A-Za-z0-9 ._:+/-]*$/u.test(entry)
+    ) {
+      throw invalidTrace("0G Compute trace has invalid billing metadata");
+    }
+    billing[key] = entry;
+  }
+  return Object.freeze(billing);
+}
+
+function invalidTrace(message: string): ZeroGServiceError {
+  return new ZeroGServiceError("INVALID_RESPONSE", message, {
+    retryable: false,
+  });
 }
 
 async function errorFromResponse(
@@ -225,10 +344,9 @@ async function errorFromResponse(
 
 function requestIdFromPayload(payload: unknown): string | undefined {
   if (
-    typeof payload === "object" &&
-    payload !== null &&
-    "request_id" in payload &&
-    typeof payload.request_id === "string"
+    isRecord(payload) &&
+    typeof payload.request_id === "string" &&
+    payload.request_id.length <= 256
   ) {
     return payload.request_id;
   }
@@ -237,12 +355,8 @@ function requestIdFromPayload(payload: unknown): string | undefined {
 
 function errorCodeFromPayload(payload: unknown): string | undefined {
   if (
-    typeof payload === "object" &&
-    payload !== null &&
-    "error" in payload &&
-    typeof payload.error === "object" &&
-    payload.error !== null &&
-    "code" in payload.error &&
+    isRecord(payload) &&
+    isRecord(payload.error) &&
     typeof payload.error.code === "string"
   ) {
     return payload.error.code.slice(0, 120);
@@ -250,6 +364,45 @@ function errorCodeFromPayload(payload: unknown): string | undefined {
   return undefined;
 }
 
+function throwIfCancelled(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) throw cancelledError();
+}
+
+function cancelledError(): ZeroGServiceError {
+  return new ZeroGServiceError(
+    "CANCELLED",
+    "0G Compute request was cancelled",
+    {
+      retryable: false,
+    },
+  );
+}
+
+async function sleepUnlessCancelled(
+  sleep: (delayMs: number) => Promise<void>,
+  delayMs: number,
+  signal: AbortSignal | undefined,
+): Promise<void> {
+  throwIfCancelled(signal);
+  if (!signal) {
+    await sleep(delayMs);
+    return;
+  }
+  await new Promise<void>((resolve, reject) => {
+    const cancel = () => reject(cancelledError());
+    signal.addEventListener("abort", cancel, { once: true });
+    void sleep(delayMs)
+      .then(resolve, reject)
+      .finally(() => {
+        signal.removeEventListener("abort", cancel);
+      });
+  });
+}
+
 function defaultSleep(delayMs: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, delayMs));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

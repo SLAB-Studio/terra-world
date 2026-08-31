@@ -1,13 +1,25 @@
 export {
+  isZeroGRequired,
+  loadZeroGChainConfig,
+  loadZeroGComputeConfig,
   loadZeroGServerConfig,
+  loadZeroGSponsorConfig,
+  loadZeroGStorageConfig,
+  type ZeroGChainConfig,
+  type ZeroGComputeConfig,
   type ZeroGEnvironment,
+  type ZeroGRequestConfig,
   type ZeroGServerConfig,
+  type ZeroGSponsorConfig,
+  type ZeroGStorageConfig,
 } from "./config";
 export {
   createZeroGComputeClient,
+  type ZeroGBillingMetadata,
   type ZeroGChatCompletionInput,
   type ZeroGChatMessage,
   type ZeroGComputeClient,
+  type ZeroGComputeRequestOptions,
   type ZeroGComputeResult,
 } from "./compute";
 export {

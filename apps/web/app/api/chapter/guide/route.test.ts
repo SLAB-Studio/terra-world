@@ -28,11 +28,16 @@ function payload(
   };
 }
 
-function request(value: unknown, headers: Record<string, string> = {}) {
+function request(
+  value: unknown,
+  headers: Record<string, string> = {},
+  signal?: AbortSignal,
+) {
   return new Request("https://rivergate.example/api/chapter/guide", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...headers },
     body: JSON.stringify(value),
+    ...(signal === undefined ? {} : { signal }),
   });
 }
 
@@ -139,6 +144,7 @@ describe("strict, private 0G chapter composition", () => {
     const createChatCompletion = vi.fn().mockResolvedValue({
       trustMode: "private",
       teeVerificationRequested: true,
+      teeVerified: true,
       payload: { choices: [{ message: { content: providerOutput(facts) } }] },
     });
     const provider = createPrivateChapterGuideProvider({
@@ -147,23 +153,41 @@ describe("strict, private 0G chapter composition", () => {
     await expect(
       provider(facts, { signal: new AbortController().signal }),
     ).resolves.toBe(providerOutput(facts));
-    expect(createChatCompletion.mock.calls[0]?.[0]).toEqual(
+    expect(createChatCompletion).toHaveBeenCalledWith(
       createChapterGuideCompletion(facts),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
   });
 
   it.each([
-    { trustMode: "public", teeVerificationRequested: false, payload: {} },
-    { trustMode: "private", teeVerificationRequested: false, payload: {} },
-    { trustMode: "private", teeVerificationRequested: true, payload: {} },
+    {
+      trustMode: "public",
+      teeVerificationRequested: false,
+      teeVerified: false,
+      payload: {},
+    },
+    {
+      trustMode: "private",
+      teeVerificationRequested: false,
+      teeVerified: false,
+      payload: {},
+    },
     {
       trustMode: "private",
       teeVerificationRequested: true,
+      teeVerified: true,
+      payload: {},
+    },
+    {
+      trustMode: "private",
+      teeVerificationRequested: true,
+      teeVerified: true,
       payload: { choices: [] },
     },
     {
       trustMode: "private",
       teeVerificationRequested: true,
+      teeVerified: true,
       payload: { choices: [{ message: { content: "x".repeat(513) } }] },
     },
   ])("rejects untrusted or unbounded Compute responses", async (result) => {
@@ -220,6 +244,37 @@ describe("POST /api/chapter/guide", () => {
     expect(callProvider).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps shared paid work alive until its last request subscriber aborts", async () => {
+    let providerSignal: AbortSignal | undefined;
+    const callProvider = vi.fn(
+      (_facts: ChapterGuideFacts, context: { signal: AbortSignal }) => {
+        providerSignal = context.signal;
+        return new Promise<string>((_resolve, reject) => {
+          context.signal.addEventListener(
+            "abort",
+            () => reject(new Error("provider-aborted")),
+            { once: true },
+          );
+        });
+      },
+    );
+    const handler = createChapterGuidePostHandler({ callProvider });
+    const firstController = new AbortController();
+    const secondController = new AbortController();
+    const first = handler(request(payload(), {}, firstController.signal));
+    const second = handler(request(payload(), {}, secondController.signal));
+    await vi.waitFor(() => expect(callProvider).toHaveBeenCalledTimes(1));
+
+    firstController.abort();
+    expect((await (await first).json()).source).toBe("authored");
+    expect(providerSignal?.aborted).toBe(false);
+
+    secondController.abort();
+    expect((await (await second).json()).source).toBe("authored");
+    expect(providerSignal?.aborted).toBe(true);
+    expect(callProvider).toHaveBeenCalledTimes(1);
+  });
+
   it("expires and evicts cache entries without persisting request data", async () => {
     let now = 100;
     const callProvider = vi.fn(async (facts: ChapterGuideFacts) =>
@@ -268,6 +323,18 @@ describe("POST /api/chapter/guide", () => {
         ),
       ).toBe(true);
     }
+  });
+
+  it("returns unavailable instead of authored advice when 0G is required", async () => {
+    const handler = createChapterGuidePostHandler({
+      callProvider: vi.fn().mockRejectedValue(new Error("offline")),
+      required: true,
+    });
+
+    const response = await handler(request(payload()));
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "zero-g-unavailable" });
   });
 
   it("returns fallback at its deadline, aborts, and discards late provider output", async () => {

@@ -316,6 +316,49 @@ describe("CityGuide generic explanation cache", () => {
     expect(callProvider).toHaveBeenCalledTimes(1);
   });
 
+  it("cancels shared provider work only after its last live subscriber aborts", async () => {
+    let providerSignal: AbortSignal | undefined;
+    const callProvider = vi.fn(
+      (_request: CityGuideRequest, context: { signal: AbortSignal }) => {
+        providerSignal = context.signal;
+        return new Promise<unknown>((_resolve, reject) => {
+          context.signal.addEventListener(
+            "abort",
+            () => reject(new Error("provider-aborted")),
+            { once: true },
+          );
+        });
+      },
+    );
+    const orchestrator = makeOrchestrator({ callProvider });
+    const request = makeGuideRequest();
+    const firstController = new AbortController();
+    const secondController = new AbortController();
+
+    const first = orchestrator.resolve(request, {
+      signal: firstController.signal,
+    });
+    const second = orchestrator.resolve(request, {
+      signal: secondController.signal,
+    });
+    await vi.waitFor(() => expect(callProvider).toHaveBeenCalledTimes(1));
+
+    firstController.abort();
+    await expect(first).resolves.toMatchObject({
+      ok: true,
+      source: "fallback",
+    });
+    expect(providerSignal?.aborted).toBe(false);
+
+    secondController.abort();
+    await expect(second).resolves.toMatchObject({
+      ok: true,
+      source: "fallback",
+    });
+    expect(providerSignal?.aborted).toBe(true);
+    expect(callProvider).toHaveBeenCalledTimes(1);
+  });
+
   it("does not coalesce different snapshots that share a persistent cache key", async () => {
     const firstRequest = makeGuideRequest();
     const secondRequest = CityGuideRequestSchema.parse({

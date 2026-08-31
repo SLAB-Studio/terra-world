@@ -29,7 +29,8 @@ export type RivergateCampaignReference = Readonly<{
 
 export type RivergateCampaignPublication = Readonly<{
   reference: RivergateCampaignReference;
-  transactionHash: `0x${string}`;
+  transactionHash: `0x${string}` | null;
+  transactionSequence: number;
 }>;
 
 export type RetrievedRivergateCampaign = Readonly<{
@@ -115,6 +116,7 @@ export function createRivergateCampaignStorageCommand(input: {
     return Object.freeze({
       reference,
       transactionHash: receipt.transactionHash,
+      transactionSequence: receipt.transactionSequence,
     });
   };
 

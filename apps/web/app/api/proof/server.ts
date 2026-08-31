@@ -53,7 +53,7 @@ export function createTerraProofSnapshot(
   ]);
   const compute = configuredTuple(environment, [
     ["ZERO_G_NETWORK", /^(?:testnet|mainnet)$/u],
-    ["ZERO_G_COMPUTE_API_KEY", /^sk-[A-Za-z0-9_-]{8,}$/u],
+    ["ZERO_G_COMPUTE_API_KEY", /^(?:app-)?sk-[A-Za-z0-9_-]{8,}$/u],
     ["ZERO_G_COMPUTE_MODEL", /^[A-Za-z0-9][A-Za-z0-9._:/-]{1,127}$/u],
   ]);
   const registry = configuredValue(

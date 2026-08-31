@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import type { ZeroGServerConfig } from "./config";
+import type { ZeroGSponsorConfig, ZeroGStorageConfig } from "./config";
 
 const HASH_32_BYTES = /^0x[0-9a-fA-F]{64}$/u;
 const CONTENT_HASH = /^sha256:[0-9a-f]{64}$/u;
@@ -13,6 +13,8 @@ export type ZeroGStorageErrorCode =
   | "DATA_TOO_LARGE"
   | "INVALID_DATA"
   | "SDK_UNAVAILABLE"
+  | "SIGNER_UNAVAILABLE"
+  | "NETWORK_MISMATCH"
   | "MERKLE_FAILURE"
   | "UPLOAD_FAILURE"
   | "DOWNLOAD_FAILURE"
@@ -43,10 +45,12 @@ export class ZeroGStorageError extends Error {
 }
 
 export type ZeroGStorageDriverContext = Readonly<{
+  chainId: 16602 | 16661;
   chainRpcUrl: string;
   indexerUrl: string;
+  flowAddress: `0x${string}`;
   /** Server/adult-sponsored signer material. It must never be sent to a child. */
-  sponsorPrivateKey: `0x${string}`;
+  sponsorPrivateKey?: `0x${string}`;
 }>;
 
 export type ZeroGStorageDriverUploadResult = Readonly<{
@@ -81,7 +85,9 @@ export type ZeroGStorageUploadInput = Readonly<{
 export type ZeroGStorageUploadReceipt = Readonly<{
   kind: ZeroGStoragePayloadKind;
   rootHash: `0x${string}`;
-  transactionHash: `0x${string}`;
+  /** Null when the SDK reports that this exact root was already finalized. */
+  transactionHash: `0x${string}` | null;
+  transactionSequence: number;
   contentHash: `sha256:${string}`;
   byteLength: number;
 }>;
@@ -126,7 +132,7 @@ type StorageAdapterDependencies = Readonly<{
  * transaction: uploads are paid by the configured adult/sponsor wallet.
  */
 export function createZeroGStorageAdapter(
-  config: ZeroGServerConfig,
+  config: ZeroGStorageConfig & Partial<ZeroGSponsorConfig>,
   dependencies: StorageAdapterDependencies,
 ): ZeroGStorageAdapter {
   const maximumUploadBytes = validateMaximumBytes(
@@ -138,9 +144,13 @@ export function createZeroGStorageAdapter(
     "maximumDownloadBytes",
   );
   const context: ZeroGStorageDriverContext = Object.freeze({
+    chainId: config.chainId,
     chainRpcUrl: config.chainRpcUrl,
     indexerUrl: config.storage.indexerUrl,
-    sponsorPrivateKey: config.sponsorPrivateKey,
+    flowAddress: config.storage.flowAddress,
+    ...(config.sponsorPrivateKey
+      ? { sponsorPrivateKey: config.sponsorPrivateKey }
+      : {}),
   });
 
   return Object.freeze({
@@ -152,8 +162,9 @@ export function createZeroGStorageAdapter(
       try {
         driverResult = await withTimeout(
           dependencies.driver.uploadBytes(bytes, context),
-          config.request.timeoutMs,
+          config.storage.uploadTimeoutMs,
           "upload",
+          false,
         );
       } catch (error) {
         throw mapDriverError(error, "upload");
@@ -177,6 +188,7 @@ export function createZeroGStorageAdapter(
         kind: input.kind,
         rootHash: response.rootHash,
         transactionHash: response.transactionHash,
+        transactionSequence: response.transactionSequence,
         contentHash: contentHash(bytes),
         byteLength: bytes.byteLength,
       });
@@ -199,6 +211,7 @@ export function createZeroGStorageAdapter(
           ),
           config.request.timeoutMs,
           "download",
+          true,
         );
       } catch (error) {
         throw mapDriverError(error, "download");
@@ -375,23 +388,36 @@ async function verifyCampaignPackage(
 
 function parseSingleUploadResponse(response: unknown): {
   rootHash: `0x${string}`;
-  transactionHash: `0x${string}`;
+  transactionHash: `0x${string}` | null;
+  transactionSequence: number;
 } {
   if (!isPlainRecord(response)) return invalidUploadResponse();
   const keys = Object.keys(response).sort();
-  if (keys.length !== 2 || keys[0] !== "rootHash" || keys[1] !== "txHash") {
+  const transactionSequence = response.txSeq;
+  if (
+    keys.length !== 3 ||
+    keys[0] !== "rootHash" ||
+    keys[1] !== "txHash" ||
+    keys[2] !== "txSeq" ||
+    typeof transactionSequence !== "number" ||
+    !Number.isSafeInteger(transactionSequence) ||
+    transactionSequence < 0 ||
+    typeof response.txHash !== "string"
+  ) {
     return invalidUploadResponse();
   }
   return {
     rootHash: normalizeHash(response.rootHash, "upload"),
-    transactionHash: normalizeHash(response.txHash, "upload"),
+    transactionHash:
+      response.txHash === "" ? null : normalizeHash(response.txHash, "upload"),
+    transactionSequence,
   };
 }
 
 function invalidUploadResponse(): never {
   throw storageError(
     "INVALID_RESPONSE",
-    "0G Storage did not return one root and one transaction hash",
+    "0G Storage did not return one root and one transaction sequence",
     "upload",
     false,
   );
@@ -439,6 +465,7 @@ async function withTimeout<T>(
   operation: Promise<T>,
   timeoutMs: number,
   operationName: "upload" | "download",
+  retryable: boolean,
 ): Promise<T> {
   let timeout: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<never>((_resolve, reject) => {
@@ -449,7 +476,7 @@ async function withTimeout<T>(
             "TIMEOUT",
             `0G Storage ${operationName} timed out`,
             operationName,
-            true,
+            retryable,
           ),
         ),
       timeoutMs,
