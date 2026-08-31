@@ -44,7 +44,7 @@ describe("privacy-safe adult checkpoint sessions", () => {
     expect(session?.sessionId).not.toContain(cookiePair.split("=")[1]);
   });
 
-  it("expires sessions and removes their attached checkpoint references", async () => {
+  it("expires authorization while retaining portable encrypted recovery roots", async () => {
     let now = 5_000;
     const repository = createMemoryAdultCheckpointRepository();
     const post = createAdultSessionPostHandler({
@@ -76,7 +76,10 @@ describe("privacy-safe adult checkpoint sessions", () => {
     now = 65_000;
 
     expect(await authorize(request)).toBeNull();
-    expect(await repository.findByRoot(active!, "demo:root")).toBeNull();
+    expect(await repository.findByRoot(active!, "demo:root")).toMatchObject({
+      root: "demo:root",
+      contentHash: `sha256:${"a".repeat(64)}`,
+    });
   });
 
   it.each([

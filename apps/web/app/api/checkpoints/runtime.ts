@@ -1,7 +1,8 @@
 import {
   createOfficialZeroGStorageDriver,
   createZeroGStorageAdapter,
-  loadZeroGServerConfig,
+  loadZeroGSponsorConfig,
+  loadZeroGStorageConfig,
 } from "../../../../../packages/zero-g/src/server";
 import {
   CheckpointRemoteError,
@@ -23,6 +24,10 @@ import {
   createMemoryAdultCheckpointRepository,
   type AdultCheckpointRepository,
 } from "./session-server";
+import {
+  createPostgresAdultCheckpointRepository,
+  readCheckpointDatabaseConfig,
+} from "./postgres-repository";
 
 export type CheckpointRuntimeMode = "demo" | "disabled" | "zero-g";
 
@@ -93,10 +98,14 @@ type CheckpointRuntimeGlobal = typeof globalThis & {
 
 export function getCheckpointRouteRuntime(): CheckpointRouteRuntime {
   const runtimeGlobal = globalThis as CheckpointRuntimeGlobal;
-  runtimeGlobal[CHECKPOINT_RUNTIME_KEY] ??= createCheckpointRouteRuntime({
-    mode: readMode(process.env),
-    allowedOrigins: readAllowedOrigins(process.env),
-  });
+  if (!runtimeGlobal[CHECKPOINT_RUNTIME_KEY]) {
+    const mode = readMode(process.env);
+    runtimeGlobal[CHECKPOINT_RUNTIME_KEY] = createCheckpointRouteRuntime({
+      mode,
+      allowedOrigins: readAllowedOrigins(process.env),
+      repository: repositoryForMode(mode, process.env),
+    });
+  }
   return runtimeGlobal[CHECKPOINT_RUNTIME_KEY];
 }
 
@@ -187,11 +196,17 @@ function remoteForMode(
   let remote: CheckpointRemoteStorage | undefined;
   const resolve = (): CheckpointRemoteStorage => {
     remote ??= createZeroGCheckpointRemoteStorage(
-      createZeroGStorageAdapter(loadZeroGServerConfig(env), {
-        driver: createOfficialZeroGStorageDriver(),
-        maximumUploadBytes: CHECKPOINT_API_LIMITS.maximumBodyBytes,
-        maximumDownloadBytes: CHECKPOINT_API_LIMITS.maximumBodyBytes,
-      }),
+      createZeroGStorageAdapter(
+        {
+          ...loadZeroGStorageConfig(env),
+          ...loadZeroGSponsorConfig(env),
+        },
+        {
+          driver: createOfficialZeroGStorageDriver(),
+          maximumUploadBytes: CHECKPOINT_API_LIMITS.maximumBodyBytes,
+          maximumDownloadBytes: CHECKPOINT_API_LIMITS.maximumBodyBytes,
+        },
+      ),
     );
     return remote;
   };
@@ -201,6 +216,18 @@ function remoteForMode(
       resolve().download(request),
   };
   return Object.freeze(lazyRemote);
+}
+
+function repositoryForMode(
+  mode: CheckpointRuntimeMode,
+  env: NodeJS.ProcessEnv,
+): AdultCheckpointRepository {
+  if (mode !== "zero-g") return createMemoryAdultCheckpointRepository();
+  const database = readCheckpointDatabaseConfig(env);
+  return createPostgresAdultCheckpointRepository({
+    databaseUrl: database.databaseUrl,
+    maximumConnections: database.maximumConnections,
+  });
 }
 
 function unavailableRemote(): CheckpointRemoteStorage {

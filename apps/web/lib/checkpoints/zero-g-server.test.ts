@@ -22,6 +22,7 @@ import {
 
 const ROOT = `0x${"11".repeat(32)}`;
 const OTHER_ROOT = `0x${"22".repeat(32)}`;
+const TRANSACTION_HASH = `0x${"33".repeat(32)}`;
 const checkpoint = {
   schemaVersion: 1,
   cityId: "rivergate-test",
@@ -53,6 +54,8 @@ describe("server-only 0G checkpoint bridge", () => {
           rootHash: ROOT,
           contentHash: request.contentHash,
           byteLength: request.byteLength,
+          transactionHash: TRANSACTION_HASH,
+          transactionSequence: 7,
         };
       },
     );
@@ -64,6 +67,8 @@ describe("server-only 0G checkpoint bridge", () => {
       root: ROOT,
       contentHash: request.contentHash,
       byteLength: request.byteLength,
+      transactionHash: TRANSACTION_HASH,
+      transactionSequence: 7,
     });
     expect(upload).toHaveBeenCalledTimes(1);
     expect(Object.keys(upload.mock.calls[0]?.[0] ?? {}).sort()).toEqual([
@@ -96,6 +101,8 @@ describe("server-only 0G checkpoint bridge", () => {
               receipt.byteLength === "request"
                 ? request.byteLength
                 : Number(receipt.byteLength),
+            transactionHash: TRANSACTION_HASH,
+            transactionSequence: 7,
           }),
         }),
       );
@@ -201,6 +208,8 @@ describe("server-only 0G checkpoint bridge", () => {
           rootHash: ROOT,
           contentHash: hash(input.bytes),
           byteLength: input.bytes.byteLength,
+          transactionHash: TRANSACTION_HASH,
+          transactionSequence: 7,
         };
       },
     });
@@ -346,7 +355,13 @@ class ContentAddressedStorage implements ZeroGCheckpointStorageAdapter {
     const contentHash = hash(input.bytes);
     const rootHash = `0x${contentHash.slice(7)}`;
     this.records.set(rootHash, Uint8Array.from(input.bytes));
-    return { rootHash, contentHash, byteLength: input.bytes.byteLength };
+    return {
+      rootHash,
+      contentHash,
+      byteLength: input.bytes.byteLength,
+      transactionHash: TRANSACTION_HASH,
+      transactionSequence: 7,
+    };
   }
 
   async retrieve(input: { rootHash: string; expectedContentHash: string }) {
@@ -371,6 +386,8 @@ function storageAdapter(
         rootHash: ROOT,
         contentHash: hash(input.bytes),
         byteLength: input.bytes.byteLength,
+        transactionHash: TRANSACTION_HASH,
+        transactionSequence: 7,
       })),
     retrieve:
       overrides.retrieve ??

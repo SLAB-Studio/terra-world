@@ -8,8 +8,10 @@ import {
 } from "./backup";
 
 const DEFAULT_ENDPOINT = "/api/checkpoints";
-const DEFAULT_TIMEOUT_MS = 20_000;
-const MAXIMUM_TIMEOUT_MS = 60_000;
+// 0G Storage waits for finality by default. This promise is asynchronous and
+// does not block the game loop, but the transport must not abort it early.
+const DEFAULT_TIMEOUT_MS = 360_000;
+const MAXIMUM_TIMEOUT_MS = 900_000;
 const MAXIMUM_RESPONSE_BYTES = 7_100_000;
 const SAFE_CODE = /^[a-z0-9_:-]{1,64}$/u;
 

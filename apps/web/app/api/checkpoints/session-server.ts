@@ -153,7 +153,7 @@ export function createMemoryAdultCheckpointRepository(
       assertSessionId(sessionId);
       validTimestamp(expiresAt);
       if (!sessions.has(sessionId) && sessions.size >= maximumSessions) {
-        evictEarliestSession(sessions, byIdempotency, byRoot);
+        evictEarliestSession(sessions, byIdempotency);
       }
       sessions.set(sessionId, expiresAt);
     },
@@ -163,7 +163,7 @@ export function createMemoryAdultCheckpointRepository(
       const expiresAt = sessions.get(sessionId);
       if (expiresAt === undefined) return false;
       if (expiresAt <= now) {
-        removeSession(sessionId, sessions, byIdempotency, byRoot);
+        removeSession(sessionId, sessions, byIdempotency);
         return false;
       }
       return true;
@@ -188,21 +188,22 @@ export function createMemoryAdultCheckpointRepository(
       }
       assertReference(reference);
       const idKey = referenceKey(session.sessionId, reference.idempotencyKey);
-      const rootKey = referenceKey(session.sessionId, reference.root);
-      if (
-        !byIdempotency.has(idKey) &&
-        byIdempotency.size >= maximumReferences
-      ) {
+      if (!byRoot.has(reference.root) && byRoot.size >= maximumReferences) {
         throw new RangeError("Adult checkpoint reference capacity reached");
       }
       byIdempotency.set(idKey, Object.freeze({ ...reference }));
-      byRoot.set(rootKey, Object.freeze({ ...reference }));
+      byRoot.set(reference.root, Object.freeze({ ...reference }));
     },
 
     async findByRoot(session, root) {
-      if (!isKnownSession(session, sessions) || !SAFE_ROOT.test(root))
+      // 0G Storage is public-by-root and contains ciphertext only. Keeping the
+      // root catalog portable lets a recovery pack work after its short-lived
+      // authorization session expires; the API still authenticates and rate
+      // limits the current session, and decryption stays client-side.
+      if (!SESSION_ID.test(session.sessionId) || !SAFE_ROOT.test(root)) {
         return null;
-      return byRoot.get(referenceKey(session.sessionId, root)) ?? null;
+      }
+      return byRoot.get(root) ?? null;
     },
   };
   return Object.freeze(repository);
@@ -337,20 +338,16 @@ function removeSession(
   sessionId: string,
   sessions: Map<string, number>,
   byIdempotency: Map<string, AdultCheckpointStorageReference>,
-  byRoot: Map<string, AdultCheckpointStorageReference>,
 ): void {
   sessions.delete(sessionId);
   const prefix = `${sessionId}:`;
   for (const key of byIdempotency.keys())
     if (key.startsWith(prefix)) byIdempotency.delete(key);
-  for (const key of byRoot.keys())
-    if (key.startsWith(prefix)) byRoot.delete(key);
 }
 
 function evictEarliestSession(
   sessions: Map<string, number>,
   byIdempotency: Map<string, AdultCheckpointStorageReference>,
-  byRoot: Map<string, AdultCheckpointStorageReference>,
 ): void {
   let earliestId: string | undefined;
   let earliestExpiry = Number.POSITIVE_INFINITY;
@@ -361,7 +358,7 @@ function evictEarliestSession(
     }
   }
   if (earliestId !== undefined)
-    removeSession(earliestId, sessions, byIdempotency, byRoot);
+    removeSession(earliestId, sessions, byIdempotency);
 }
 
 function referenceKey(sessionId: string, value: string): string {

@@ -35,6 +35,11 @@ export interface AdultCheckpointSessionStore {
     session: AdultSession,
     reference: AdultCheckpointStorageReference,
   ): Promise<void>;
+  /**
+   * Resolve ciphertext metadata by its public 0G root. The current request is
+   * authenticated separately; this lookup is intentionally portable so a
+   * recovery pack can be used after the upload session expires.
+   */
   findByRoot(
     session: AdultSession,
     root: string,
@@ -223,7 +228,7 @@ async function uploadCheckpoint(
       idempotencyKey: request.idempotencyKey,
       attachedAt: validTimestamp(clock()),
     });
-    return success({ receipt });
+    return success({ receipt: toRemoteReceipt(receipt) });
   } catch (error) {
     return remoteFailure(error);
   }
@@ -409,7 +414,7 @@ function responseHeaders(): HeadersInit {
 }
 
 function toRemoteReceipt(
-  reference: AdultCheckpointStorageReference,
+  reference: CheckpointRemoteReceipt,
 ): CheckpointRemoteReceipt {
   return {
     root: reference.root,

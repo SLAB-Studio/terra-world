@@ -14,6 +14,7 @@ const BASE64URL = /^[A-Za-z0-9_-]{43}$/u;
 const RECOVERY_PACK_PREFIX = "terra1.";
 const SAFE_TEXT = /^[A-Za-z0-9._:-]+$/u;
 const CONTENT_HASH = /^sha256:[a-f0-9]{64}$/u;
+const MAINNET_UPLOAD_LEASE_MS = 15 * 60_000;
 
 export type AdultBackupKit = Readonly<{
   reference: AdultCheckpointReference;
@@ -83,6 +84,7 @@ export async function backUpCampaignSession(input: {
     remote: input.remote,
     autoUpload: false,
     now: () => createdAt,
+    uploadLeaseMs: MAINNET_UPLOAD_LEASE_MS,
   });
   const local = await coordinator.saveEncryptedCheckpoint(envelope);
   const [synced] = await coordinator.flush(createdAt);

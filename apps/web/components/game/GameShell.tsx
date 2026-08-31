@@ -6,6 +6,7 @@ import "./TownAtmosphere.css";
 import type { SafeCityPersonality } from "../../../../packages/safety/src/city-guide";
 import {
   RIVERGATE_FOUNDATIONS_CAMPAIGN,
+  deterministicHash,
   hashActionLog,
   hashCityState,
 } from "@terra/simulation";
@@ -53,8 +54,10 @@ import {
 import CompoundWorld from "./CompoundWorld";
 import GameLanding from "./GameLanding";
 import { GameIcon } from "./GameIcon";
+import SyncCityControl, { type CitySyncOutcome } from "./SyncCityControl";
 import TownSoundscape, { requestTownAudioStart } from "./TownSoundscape";
 
+const ZERO_G_STORAGE_ROOT = /^0x[0-9a-f]{64}$/iu;
 const RIVERGATE_CITY_ID = "rivergate-city";
 const LOCAL_PROFILE_ID = "local-builder";
 const ADULT_PIN_STORAGE_KEY = "terra-world-adult-pin-v1";
@@ -106,6 +109,9 @@ export default function GameShell() {
   const expertCloseRef = useRef<HTMLButtonElement | null>(null);
   const expertDialogRef = useRef<HTMLElement | null>(null);
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const citySyncRequestsRef = useRef(
+    new Map<string, Promise<CitySyncOutcome>>(),
+  );
   const expertMessageSequenceRef = useRef(0);
   const [persistenceReady, setPersistenceReady] = useState(false);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
@@ -132,7 +138,6 @@ export default function GameShell() {
   const [audioReady, setAudioReady] = useState(false);
   const [timeOfDay, setTimeOfDay] = useState<TownTimeOfDay>("night");
   const [backupKit, setBackupKit] = useState<AdultBackupKit | null>(null);
-  const [backupKitImported, setBackupKitImported] = useState(false);
   const [backupState, setBackupState] = useState<BackupState>("idle");
   const [backupMessage, setBackupMessage] = useState(
     "Create an encrypted recovery point when an adult is ready.",
@@ -178,6 +183,10 @@ export default function GameShell() {
     [state.city.actionLog],
   );
   const cityStateHash = useMemo(() => hashCityState(state.city), [state.city]);
+  const citySyncRevision = useMemo(
+    () => deterministicHash(createGameSessionSave(state, 0)),
+    [state],
+  );
 
   useEffect(() => {
     const explanation = displayedFeedback?.explanation;
@@ -653,7 +662,6 @@ export default function GameShell() {
         remote: opened.remote,
       });
       setBackupKit(kit);
-      setBackupKitImported(false);
       setBackupState("ready");
       setBackupMessage(
         "Encrypted recovery point ready. Keep the recovery code private.",
@@ -668,13 +676,62 @@ export default function GameShell() {
     }
   }
 
+  function syncRivergate(revision: string): Promise<CitySyncOutcome> {
+    const existing = citySyncRequestsRef.current.get(revision);
+    if (existing !== undefined) return existing;
+
+    const session = createGameSessionSave(state);
+    const request = (async () => {
+      let store: DurableCheckpointBackupStore | null = null;
+      try {
+        await writeQueueRef.current.catch(() => undefined);
+        const opened = await openAdultBackupStore();
+        store = opened.store;
+        const kit = await backUpCampaignSession({
+          session,
+          store,
+          remote: opened.remote,
+        });
+        setBackupKit(kit);
+        setBackupState("ready");
+        setBackupMessage(
+          "Encrypted recovery point ready. Keep the recovery code private.",
+        );
+        return {
+          root: kit.reference.root,
+          status: ZERO_G_STORAGE_ROOT.test(kit.reference.root)
+            ? ("stored" as const)
+            : ("demo" as const),
+        };
+      } catch (error) {
+        citySyncRequestsRef.current.delete(revision);
+        setBackupState("error");
+        setBackupMessage(
+          "The network backup is waiting. Rivergate is still safe on this device.",
+        );
+        throw error;
+      } finally {
+        store?.close();
+      }
+    })();
+
+    citySyncRequestsRef.current.set(revision, request);
+    if (citySyncRequestsRef.current.size > 8) {
+      const oldestRevision = citySyncRequestsRef.current.keys().next().value;
+      if (oldestRevision !== undefined && oldestRevision !== revision) {
+        citySyncRequestsRef.current.delete(oldestRevision);
+      }
+    }
+    return request;
+  }
+
   async function restoreRivergateFromBackup() {
     if (backupKit === null) return;
     setBackupState("restoring");
     setBackupMessage("Checking and restoring the encrypted recovery point…");
     let store: DurableCheckpointBackupStore | null = null;
     try {
-      const opened = await openAdultBackupStore(!backupKitImported);
+      const opened = await openAdultBackupStore();
       store = opened.store;
       const session = await restoreCampaignSession({
         kit: backupKit,
@@ -700,7 +757,6 @@ export default function GameShell() {
     try {
       const kit = parseAdultBackupKit(value.trim());
       setBackupKit(kit);
-      setBackupKitImported(true);
       setBackupState("ready");
       setBackupMessage(
         "Recovery pack loaded. Restore checks its encrypted city before changing anything.",
@@ -847,6 +903,10 @@ export default function GameShell() {
                 Night
               </button>
             </div>
+            <SyncCityControl
+              revision={citySyncRevision}
+              onSync={syncRivergate}
+            />
             <button
               aria-label={
                 !muted && audioReady

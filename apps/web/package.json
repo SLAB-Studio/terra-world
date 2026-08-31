@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "zero-g:db:migrate": "node scripts/migrate-checkpoints.mjs"
   },
   "dependencies": {
     "@babylonjs/core": "^9.23.0",
@@ -14,6 +15,7 @@
     "@terra/simulation": "workspace:*",
     "next": "^15.2.0",
     "phaser": "^3.90.0",
+    "postgres": "3.4.9",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

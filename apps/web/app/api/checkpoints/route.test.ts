@@ -138,7 +138,7 @@ describe("composable checkpoint Next route", () => {
     });
   });
 
-  it("isolates restore references between adult sessions", async () => {
+  it("restores portable ciphertext from a fresh authorized session", async () => {
     const runtime = createCheckpointRouteRuntime({
       mode: "demo",
       allowedOrigins: [ORIGIN],
@@ -167,7 +167,16 @@ describe("composable checkpoint Next route", () => {
         secondCookie,
       ),
     );
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      ok: true,
+      checkpoint: {
+        root: payload.receipt.root,
+        contentHash: prepared.contentHash,
+        byteLength: prepared.byteLength,
+        encryptedEnvelope: ENVELOPE,
+      },
+    });
   });
 });
 

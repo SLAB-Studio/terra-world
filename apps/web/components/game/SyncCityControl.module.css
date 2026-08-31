@@ -1,0 +1,156 @@
+.control {
+  min-width: 132px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border: 1px solid var(--city-line, #48606b);
+  border-radius: 5px;
+  color: var(--city-text, #eef2ed);
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+  text-align: left;
+  touch-action: manipulation;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
+}
+
+.control:hover:not([aria-disabled="true"]) {
+  border-color: var(--city-accent, #e4bb7b);
+  background: var(--city-raised, #253943);
+}
+
+.control[aria-disabled="true"] {
+  cursor: default;
+}
+
+.marker {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  color: var(--city-muted, #b8c8cd);
+}
+
+.copy {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.copy strong,
+.copy > span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.copy strong {
+  color: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.copy > span {
+  color: var(--city-muted, #b8c8cd);
+  font-size: 0.58rem;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.control[data-phase="syncing"] .marker,
+.control[data-phase="anchoring"] .marker {
+  border-radius: 50%;
+  border-color: color-mix(
+    in srgb,
+    var(--city-accent, #e4bb7b) 35%,
+    transparent
+  );
+  border-top-color: var(--city-accent, #e4bb7b);
+  animation: sync-city-turn 900ms linear infinite;
+}
+
+.control[data-phase="stored"] .marker,
+.control[data-phase="synced"] .marker {
+  border-color: #87c9a1;
+  background: #87c9a1;
+  clip-path: polygon(14% 48%, 0 65%, 40% 100%, 100% 20%, 82% 4%, 39% 72%);
+}
+
+.control[data-phase="offline-queued"] .marker {
+  border-style: dashed;
+  border-radius: 50%;
+}
+
+.control[data-phase="retry"] .marker {
+  border-color: #e3a27d;
+  transform: rotate(45deg);
+}
+
+.liveStatus {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes sync-city-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 760px) {
+  .control {
+    min-width: 44px;
+    max-width: 102px;
+    padding-inline: 7px;
+    gap: 6px;
+  }
+
+  .copy > span {
+    display: none;
+  }
+
+  .copy strong {
+    font-size: 0.64rem;
+  }
+}
+
+@media (max-width: 520px) {
+  .control {
+    width: 44px;
+    padding: 6px;
+    justify-content: center;
+  }
+
+  .copy {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .control {
+    transition: none;
+  }
+
+  .control[data-phase="syncing"] .marker,
+  .control[data-phase="anchoring"] .marker {
+    animation: none;
+  }
+}

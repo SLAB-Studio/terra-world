@@ -11,6 +11,7 @@ import { assertEncryptedCheckpointEnvelope } from "./encryption";
 
 const CONTENT_HASH = /^sha256:[a-f0-9]{64}$/u;
 const IDEMPOTENCY_KEY = /^checkpoint-v1-([a-f0-9]{64})$/u;
+const TRANSACTION_HASH = /^0x[a-fA-F0-9]{64}$/u;
 
 /** The server-only subset of the official `ZeroGStorageAdapter`. */
 export type ZeroGCheckpointStorageAdapter = Readonly<{
@@ -21,6 +22,8 @@ export type ZeroGCheckpointStorageAdapter = Readonly<{
     rootHash: string;
     contentHash: string;
     byteLength: number;
+    transactionHash: string | null;
+    transactionSequence: number;
   }>;
   retrieve(input: { rootHash: string; expectedContentHash: string }): Promise<{
     bytes: Uint8Array;
@@ -57,7 +60,11 @@ export function createZeroGCheckpointRemoteStorage(
           receipt.contentHash !== request.contentHash ||
           receipt.byteLength !== request.byteLength ||
           typeof receipt.rootHash !== "string" ||
-          receipt.rootHash.length === 0
+          receipt.rootHash.length === 0 ||
+          (receipt.transactionHash !== null &&
+            !TRANSACTION_HASH.test(receipt.transactionHash)) ||
+          !Number.isSafeInteger(receipt.transactionSequence) ||
+          receipt.transactionSequence < 0
         ) {
           throw new CheckpointRemoteError("integrity_mismatch", false);
         }
@@ -65,6 +72,8 @@ export function createZeroGCheckpointRemoteStorage(
           root: receipt.rootHash,
           contentHash: receipt.contentHash,
           byteLength: receipt.byteLength,
+          transactionHash: receipt.transactionHash,
+          transactionSequence: receipt.transactionSequence,
         });
       } catch (error) {
         throw mapStorageError(error);

@@ -65,6 +65,9 @@ export type CheckpointRemoteReceipt = Readonly<{
   root: string;
   contentHash: string;
   byteLength: number;
+  /** Server-side 0G evidence; omitted from browser-facing demo transports. */
+  transactionHash?: string | null;
+  transactionSequence?: number | null;
 }>;
 
 export type CheckpointDownload = CheckpointRemoteReceipt &
@@ -577,6 +580,21 @@ function assertValidReceipt(receipt: CheckpointRemoteReceipt): void {
   assertContentHash(receipt.contentHash);
   positiveInteger(receipt.byteLength, "byteLength");
   if (receipt.byteLength > MAX_ENVELOPE_BYTES) {
+    throw new CheckpointBackupIntegrityError();
+  }
+  if (
+    receipt.transactionHash !== undefined &&
+    receipt.transactionHash !== null &&
+    !/^0x[a-fA-F0-9]{64}$/u.test(receipt.transactionHash)
+  ) {
+    throw new CheckpointBackupIntegrityError();
+  }
+  if (
+    receipt.transactionSequence !== undefined &&
+    receipt.transactionSequence !== null &&
+    (!Number.isSafeInteger(receipt.transactionSequence) ||
+      receipt.transactionSequence < 0)
+  ) {
     throw new CheckpointBackupIntegrityError();
   }
 }
