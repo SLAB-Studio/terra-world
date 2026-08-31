@@ -20,6 +20,9 @@ Core play does not require a wallet or a live blockchain connection.
   Maya, Malik and Nia, then commit to one of three costed responses. Four
   skippable in-engine shots introduce the story; a notebook records evidence,
   choices and explicitly advanced outcomes.
+- **A side mission map.** Find your street position and next objective on a
+  north-up map, with a compass bearing and straight-line distance. Fold the map
+  while keeping the destination visible; it is guidance, not a walking route.
 - **A populated city.** Homes, apartment blocks, downtown towers, shops and civic
   spaces share the map with pedestrians, road traffic and public transport.
 - **Interiors with activity.** Furnished rooms, offices and service areas include
@@ -87,6 +90,7 @@ pnpm start
 | Turn                           | **Left / Right arrows** or drag the view                   |
 | Enter, exit or interact nearby | **E** or the on-screen action                              |
 | Find a destination             | **Places** directory                                       |
+| Fold or expand the mission map | Select the **Mission map** header                          |
 | Visit another floor            | Approach the lift, then use its floor selector             |
 | Restore a property             | Drag an upgrade onto a home or use an indoor repair point  |
 | Chapter evidence               | Approach the location, then choose **Inspect** / **Speak** |
@@ -244,6 +248,7 @@ universal frame-rate guarantee.
 - [Rivergate story bible](storyline.md)
 - [Living-city architecture and release requirements](docs/living-city-architecture.md)
 - [Playable opening chapter, narration and local saves](docs/opening-chapter.md)
+- [Side mission map, destinations and navigation limits](docs/mission-minimap.md)
 - [Walking, building entry and interiors](docs/walking-mode.md)
 - [Resident travel and everyday routines](docs/resident-routines.md)
 - [Lived-in interiors](docs/interior-life.md)
