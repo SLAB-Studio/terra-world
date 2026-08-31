@@ -10,7 +10,7 @@ import { createVenueWorld, type VenueWorld } from "./venue-world";
 import type { ImmersiveTownWorld } from "./types";
 import type { TownWalker, WalkCommand } from "./town-walker";
 import type { TownVenue } from "./venue-catalog";
-import { WALK_EYE_HEIGHT } from "./walking";
+import { WALK_EYE_HEIGHT, type WalkPoint } from "./walking";
 import { neighborhoodHomeProfile } from "./neighborhood-home-stories";
 
 export type BuildingVisit = Readonly<{
@@ -38,6 +38,8 @@ export function createBuildingTraversal(
     onNearby(area: string | null): void;
     onError(message: string): void;
     onLift(): void;
+    /** Dynamic street bodies only; doorway portals deliberately cross walls. */
+    canMoveStreet?(from: WalkPoint, to: WalkPoint): boolean;
   },
 ) {
   let visit: BuildingVisit | null = null;
@@ -64,24 +66,39 @@ export function createBuildingTraversal(
   const entryPoint = () =>
     visit?.kind === "home" ? { x: -1.4, z: -6.4 } : { x: 0, z: -9.65 };
   const restoreStreet = (animate = false) => {
-    interior?.dispose();
-    interior = null;
-    if (canvas) world.scene.attachControl();
-    world.scene.activeCamera = street.camera;
-    street.camera.position.copyFrom(returnPoint);
-    street.camera.rotation.set(0, Math.atan2(outward.x, outward.z), 0);
-    street.clearInput();
-    options.onRoom(null);
-    options.onNearby(null);
+    let emergenceStart: Vector3 | null = null;
     if (animate && visit) {
       const door =
         street.venueDoors.find((d) => d.id === visit?.id) ??
         street.doors.find((d) => d.id === visit?.id);
-      start = new Vector3(
-        (door?.x ?? returnPoint.x) + outward.x * 0.25,
-        returnPoint.y,
-        (door?.z ?? returnPoint.z) + outward.z * 0.25,
-      );
+      emergenceStart =
+        phase === "leaving"
+          ? new Vector3(
+              (door?.x ?? returnPoint.x) + outward.x * 0.25,
+              returnPoint.y,
+              (door?.z ?? returnPoint.z) + outward.z * 0.25,
+            )
+          : street.camera.position.clone();
+      // Keep the interior alive until the actual exterior threshold is free.
+      // Otherwise an emergence would spawn directly inside a parked car.
+      if (
+        phase === "leaving" &&
+        options.canMoveStreet &&
+        !options.canMoveStreet(emergenceStart, emergenceStart)
+      )
+        return false;
+    }
+    interior?.dispose();
+    interior = null;
+    if (canvas) world.scene.attachControl();
+    world.scene.activeCamera = street.camera;
+    if (!emergenceStart) street.camera.position.copyFrom(returnPoint);
+    street.camera.rotation.set(0, Math.atan2(outward.x, outward.z), 0);
+    street.clearInput();
+    options.onRoom(null);
+    options.onNearby(null);
+    if (emergenceStart) {
+      start = emergenceStart;
       end = returnPoint.clone();
       street.camera.position.copyFrom(start);
       setPhase("emerging");
@@ -91,6 +108,7 @@ export function createBuildingTraversal(
       setPhase("outside");
     }
     canvas?.focus({ preventScroll: true });
+    return true;
   };
   function allocateInterior() {
     if (!visit) return;
@@ -170,6 +188,12 @@ export function createBuildingTraversal(
       ) > 4.8
     )
       return false;
+    if (
+      !wasWalking &&
+      options.canMoveStreet &&
+      !options.canMoveStreet(door.approach, door.approach)
+    )
+      return false;
     street.setActive(true);
     street.clearInput();
     outward =
@@ -230,6 +254,65 @@ export function createBuildingTraversal(
     setPhase("leaving");
   }
   const ease = (n: number) => n * n * (3 - 2 * n);
+  const inverseEase = (amount: number) => {
+    let low = 0,
+      high = 1;
+    for (let iteration = 0; iteration < 24; iteration++) {
+      const middle = (low + high) / 2;
+      if (ease(middle) < amount) low = middle;
+      else high = middle;
+    }
+    return (low + high) / 2;
+  };
+  function moveStreet(
+    target: Vector3,
+    nextTimer: number,
+    delay: number,
+    duration: number,
+  ) {
+    if (!options.canMoveStreet) {
+      street.camera.position.copyFrom(target);
+      timer = nextTimer;
+      return true;
+    }
+    const from = street.camera.position.clone();
+    const distance = Math.hypot(target.x - from.x, target.z - from.z);
+    const steps = Math.max(1, Math.ceil(distance / 0.1));
+    let previous = from;
+    for (let step = 1; step <= steps; step++) {
+      const point = Vector3.Lerp(from, target, step / steps);
+      if (distance > 1e-9 && !options.canMoveStreet(previous, point)) {
+        if (step > 1) {
+          const dx = end.x - start.x,
+            dz = end.z - start.z;
+          const lengthSquared = dx * dx + dz * dz;
+          const amount =
+            lengthSquared > 0
+              ? Math.max(
+                  0,
+                  Math.min(
+                    1,
+                    ((previous.x - start.x) * dx +
+                      (previous.z - start.z) * dz) /
+                      lengthSquared,
+                  ),
+                )
+              : 0;
+          // Retain only progress actually walked. A blocked door cannot bank
+          // time and jump through the car on its next clear frame.
+          timer = Math.max(
+            timer,
+            Math.min(nextTimer, delay + duration * inverseEase(amount)),
+          );
+        }
+        return false;
+      }
+      street.camera.position.copyFrom(point);
+      previous = point;
+    }
+    timer = nextTimer;
+    return true;
+  }
   function update(seconds: number) {
     if (!visit || disposed) return;
     if (options.isBlocked()) {
@@ -241,10 +324,18 @@ export function createBuildingTraversal(
       ? Math.max(0, Math.min(0.05, seconds))
       : 0;
     const reduced = options.reducedMotion();
-    timer += dt;
+    const nextTimer = timer + dt;
+    if (phase !== "opening" && phase !== "emerging") timer = nextTimer;
     if (phase === "opening") {
-      const t = reduced ? 1 : Math.min(1, Math.max(0, (timer - 0.45) / 1.05));
-      Vector3.LerpToRef(start, end, ease(t), street.camera.position);
+      const t = reduced
+        ? 1
+        : Math.min(1, Math.max(0, (nextTimer - 0.45) / 1.05));
+      const moved = moveStreet(
+        Vector3.Lerp(start, end, ease(t)),
+        reduced ? 1.5 : nextTimer,
+        0.45,
+        1.05,
+      );
       const turn = Math.atan2(
         Math.sin(endYaw - startYaw),
         Math.cos(endYaw - startYaw),
@@ -254,11 +345,11 @@ export function createBuildingTraversal(
         startYaw + turn * ease(Math.min(1, timer / 0.4)),
         0,
       );
-      if (t === 1) {
+      if (moved && t === 1) {
         try {
           allocateInterior();
         } catch {
-          restoreStreet();
+          restoreStreet(true);
           options.onError(
             "The interior could not open. You're safely outside—try the door again.",
           );
@@ -278,13 +369,19 @@ export function createBuildingTraversal(
         interior.walker.camera.rotation.y = startYaw + turn * ease(t);
       }
       if (t === 1) {
-        if (phase === "leaving") restoreStreet(true);
-        else setPhase("inside");
+        if (phase === "leaving") {
+          if (!restoreStreet(true)) timer = 0.75;
+        } else setPhase("inside");
       }
     } else if (phase === "emerging") {
-      const t = reduced ? 1 : Math.min(1, timer / 0.75);
-      Vector3.LerpToRef(start, end, ease(t), street.camera.position);
-      if (t === 1) restoreStreet();
+      const t = reduced ? 1 : Math.min(1, nextTimer / 0.75);
+      const moved = moveStreet(
+        Vector3.Lerp(start, end, ease(t)),
+        reduced ? 0.75 : nextTimer,
+        0,
+        0.75,
+      );
+      if (moved && t === 1) restoreStreet();
     } else if (phase === "inside" && interior) {
       const p = interior.walker.camera.position;
       const entry = entryPoint();

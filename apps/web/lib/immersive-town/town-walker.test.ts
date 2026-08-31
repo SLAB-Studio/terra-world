@@ -4,8 +4,65 @@ import { describe, expect, it, vi } from "vitest";
 import { createImmersiveTownWorld } from "./create-town-world";
 import { createTownWalker } from "./town-walker";
 import { canWalkAt, nearbyWalkDoor } from "./walking";
+import { createTrafficContacts } from "./traffic-contacts";
+import { createTrafficSimulation } from "./traffic";
+import { sampleLane } from "./road";
 
 describe("Rivergate walking camera", () => {
+  it("respects live car bodies when running and resumes beside traffic, not inside it", () => {
+    const engine = new NullEngine();
+    const world = createImmersiveTownWorld(engine, {
+      attachCameraControls: false,
+      quality: "low",
+      reducedMotion: true,
+    });
+    const contacts = createTrafficContacts();
+    const traffic = createTrafficSimulation([
+      {
+        id: "test-car",
+        laneId: "clockwise",
+        startProgress: 0.1,
+        lengthMeters: 4,
+        cruiseSpeedMetersPerSecond: 8,
+      },
+    ]);
+    contacts.update(traffic);
+    const walker = createTownWalker(world, null, {
+      isBlocked: () => false,
+      onNearbyHouse: vi.fn(),
+      onEnterHouse: vi.fn(),
+      canMove: contacts.canMove,
+      canStand: contacts.canStand,
+    });
+    try {
+      walker.setActive(true);
+      const lane = sampleLane("clockwise", 0.1);
+      walker.camera.position.set(
+        lane.position.x - Math.sin(lane.yawRadians) * 6,
+        2,
+        lane.position.z - Math.cos(lane.yawRadians) * 6,
+      );
+      walker.camera.rotation.y = lane.yawRadians;
+      walker.setRunning(true);
+      for (let step = 0; step < 40; step++) {
+        walker.nudge("forward");
+        expect(contacts.canStand(walker.camera.position)).toBe(true);
+      }
+      walker.setActive(false);
+      walker.camera.position.copyFromFloats(
+        lane.position.x,
+        2,
+        lane.position.z,
+      );
+      walker.setActive(true);
+      expect(contacts.canStand(walker.camera.position)).toBe(true);
+      expect(canWalkAt(walker.camera.position, walker.obstacles)).toBe(true);
+    } finally {
+      walker.dispose();
+      world.dispose();
+      engine.dispose();
+    }
+  });
   it("keeps a held movement control running when another pointer releases", () => {
     const engine = new NullEngine();
     const world = createImmersiveTownWorld(engine, {

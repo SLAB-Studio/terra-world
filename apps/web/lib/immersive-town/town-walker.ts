@@ -16,6 +16,7 @@ import {
   type WalkBounds,
   type WalkDoor,
   type WalkInput,
+  type WalkPoint,
 } from "./walking";
 
 export type WalkCommand = "forward" | "back" | "left" | "right";
@@ -31,6 +32,8 @@ export function createTownWalker(
     onEnterHouse(house: TownHouseMetadata): void;
     onNearbyVenue?(venue: TownVenueMetadata | null): void;
     onEnterVenue?(venue: TownVenueMetadata): void;
+    canMove?(from: WalkPoint, to: WalkPoint): boolean;
+    canStand?(point: WalkPoint): boolean;
   },
 ) {
   const boundsForMesh = (mesh: AbstractMesh): WalkBounds & { top: number } => {
@@ -198,6 +201,7 @@ export function createTownWalker(
       pacedInput(input, running()),
       dt,
       currentObstacles(),
+      callbacks.canMove,
     );
     camera.position.set(pose.x, groundHeight(pose) + WALK_EYE_HEIGHT, pose.z);
     camera.rotation.y = pose.yaw;
@@ -227,7 +231,10 @@ export function createTownWalker(
             start.approach.z - start.z,
           ).normalize();
           const streetStart = start.approach.add(away.scale(5));
-          if (canWalkAt(streetStart, obstacles))
+          if (
+            canWalkAt(streetStart, obstacles) &&
+            (callbacks.canStand?.(streetStart) ?? true)
+          )
             camera.position.copyFrom(streetStart);
           camera.position.y = groundHeight(camera.position) + WALK_EYE_HEIGHT;
           camera.rotation.y =
@@ -237,6 +244,34 @@ export function createTownWalker(
             ) + 0.48;
         }
         hasStarted = true;
+      }
+      // Traffic keeps moving in the aerial view. Re-enter beside, never inside,
+      // a car which has since occupied the old standing position.
+      if (callbacks.canStand && !callbacks.canStand(camera.position)) {
+        const origin = camera.position.clone();
+        let clear: WalkPoint | undefined;
+        for (let radius = 0.5; radius <= 6 && !clear; radius += 0.5) {
+          for (let index = 0; index < 24; index++) {
+            const angle = (index * Math.PI) / 12;
+            const point = {
+              x: origin.x + Math.sin(angle) * radius,
+              z: origin.z + Math.cos(angle) * radius,
+            };
+            if (
+              canWalkAt(point, currentObstacles()) &&
+              callbacks.canStand(point)
+            ) {
+              clear = point;
+              break;
+            }
+          }
+        }
+        if (clear)
+          camera.position.set(
+            clear.x,
+            groundHeight(clear) + WALK_EYE_HEIGHT,
+            clear.z,
+          );
       }
       world.scene.activeCamera = camera;
       canvas?.focus({ preventScroll: true });
@@ -354,7 +389,8 @@ export function createTownWalker(
   const party = createWalkingParty(world.scene, camera, {
     reducedMotion: () => world.animation.reducedMotion,
     obstacles: currentObstacles,
-    canStand: canWalkAt,
+    canStand: (point, bounds) =>
+      canWalkAt(point, bounds) && (callbacks.canStand?.(point) ?? true),
     groundHeight,
   });
   if (canvas !== null) {

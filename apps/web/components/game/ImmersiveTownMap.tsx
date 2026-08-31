@@ -7,6 +7,17 @@ import MissionMinimap from "./MissionMinimap";
 import LeoSpeechBubble from "./LeoSpeechBubble";
 import { createLeoReplyLifetime } from "../../lib/immersive-town/leo-reply-lifetime";
 import {
+  collectTrafficPeople,
+  createTrafficContacts,
+} from "../../lib/immersive-town/traffic-contacts";
+import { getTrafficPedestrianHazards } from "../../lib/immersive-town/traffic-pedestrians";
+import {
+  createTrafficHornController,
+  publishTrafficHorn,
+  setTrafficHornContext,
+  type TrafficBlockage,
+} from "../../lib/immersive-town/traffic-horn";
+import {
   buildMissionMapGeometry,
   EAST_BRIDGE_MAP_POSITION,
   type MissionMapBuilding,
@@ -197,6 +208,7 @@ function ImmersiveTownMap({
   const [room, setRoom] = useState<InteriorRoomId | null>(null);
   const [indoorNearby, setIndoorNearby] = useState<string | null>(null);
   const [entryError, setEntryError] = useState<string | null>(null);
+  const [trafficAlert, setTrafficAlert] = useState<string | null>(null);
   const [requestedVisit, setRequestedVisit] = useState<string | null>(null);
   const [nearExit, setNearExit] = useState(false);
   const [indoorActivity, setIndoorActivity] = useState<{
@@ -443,7 +455,10 @@ function ImmersiveTownMap({
           return resized;
         };
         adapterTools.configureKidFriendlyCamera(world.camera);
+        const trafficContacts = createTrafficContacts();
         const walker = walkingTools.createTownWalker(world, canvas, {
+          canMove: (from, to) => trafficContacts.canMove(from, to),
+          canStand: (point) => trafficContacts.canStand(point, 0.75),
           isBlocked: () =>
             visitOpenRef.current ||
             journalOpenRef.current ||
@@ -469,6 +484,7 @@ function ImmersiveTownMap({
           world,
           walker,
           {
+            canMoveStreet: (from, to) => trafficContacts.canMove(from, to),
             isBlocked: () =>
               visitOpenRef.current ||
               journalOpenRef.current ||
@@ -525,11 +541,31 @@ function ImmersiveTownMap({
         upgrades.setReducedMotion(reducedMotionQuery.matches);
         let traffic = trafficTools.createTrafficSimulation();
         const chapterWorld = chapterTools.createOpeningChapterWorld(world);
+        const horns = createTrafficHornController();
+        const residentIds = new Set(
+          world.residents.life.states.map((resident) => resident.id),
+        );
+        // Stable roots, not a full scene traversal every frame. Includes residents
+        // at front doors and the chapter cast as well as the mobile population.
+        const bystanders = world.scene.transformNodes.filter(
+          (node) =>
+            ["town-resident", "town-companion"].includes(node.metadata?.kind) &&
+            !residentIds.has(node.metadata?.characterId),
+        );
+        let blockages: readonly TrafficBlockage[] = [];
+        let nextHornCheck = 0;
+        let alertExpires = 0;
+        let alertVisible = false;
+        const clearTrafficAlert = () => {
+          if (alertVisible) setTrafficAlert(null);
+          alertVisible = false;
+        };
         const vehicles = vehicleTools.createVehicleFleet(
           world.scene,
           traffic.vehicles.map((vehicle) => vehicle.id),
         );
         vehicles.sync(trafficTools.getVehicleTransforms(traffic), 0);
+        trafficContacts.update(traffic);
         world.residents.setTraffic(traffic);
         world.setTimeOfDay(timeOfDayRef.current);
         vehicles.setNight(timeOfDayRef.current === "night");
@@ -546,20 +582,104 @@ function ImmersiveTownMap({
             lastConversationKey = key;
             setNearbyConversation(nearby);
           }
+          const party = partyTools.walkingPartyFor(world.scene);
+          const people = collectTrafficPeople(
+            world.residents.life.states,
+            bystanders
+              .filter((node) => node.isEnabled())
+              .map((node) => {
+                const position = node.getAbsolutePosition();
+                return {
+                  id: node.metadata.characterId,
+                  x: position.x,
+                  z: position.z,
+                };
+              }),
+            walker.active && !traversal.inside
+              ? {
+                  player: walker.camera.position,
+                  ...(party?.leo.isEnabled()
+                    ? { dog: party.leo.position }
+                    : {}),
+                }
+              : null,
+          );
           traffic = trafficTools.stepTraffic(traffic, frame.deltaSeconds, {
+            pedestrians: people,
             reducedMotion: frame.reducedMotion,
             stops: [
               ...world.residents.trafficStops,
               ...chapterWorld.trafficStops,
             ],
           });
-          traffic = chapterWorld.routeTraffic(traffic);
-          world.residents.setTraffic(traffic);
+          traffic = chapterWorld.routeTraffic(traffic, people);
+          const transforms = chapterWorld.getVehicleTransforms(traffic);
+          trafficContacts.update(traffic, transforms);
+          world.residents.setTraffic(traffic, transforms);
           vehicles.setBoardingDoors(world.residents.boardingVehicles);
-          vehicles.sync(
-            chapterWorld.getVehicleTransforms(traffic),
-            traffic.elapsedSeconds,
-          );
+          vehicles.sync(transforms, traffic.elapsedSeconds);
+          // Physical yielding runs every frame; audio only needs a 10Hz sample.
+          if (traffic.elapsedSeconds >= nextHornCheck) {
+            nextHornCheck = traffic.elapsedSeconds + 0.1;
+            const stopped = new Set(
+              transforms
+                .filter((car) => car.speedMetersPerSecond < 0.15)
+                .map((car) => car.id),
+            );
+            const listener = walker.active
+              ? walker.camera.position
+              : world.camera.position;
+            const turningBlockages = chapterWorld.trafficPedestrianHazards;
+            const turningIds = new Set(
+              turningBlockages.map((hazard) => hazard.vehicleId),
+            );
+            blockages = [
+              ...turningBlockages,
+              ...getTrafficPedestrianHazards(traffic, people).filter(
+                (hazard) => !turningIds.has(hazard.vehicleId),
+              ),
+            ]
+              .filter(
+                (hazard) =>
+                  stopped.has(hazard.vehicleId) && hazard.distanceMeters <= 1.5,
+              )
+              .map((hazard) => ({
+                vehicleId: hazard.vehicleId,
+                personId: hazard.personId,
+                x: hazard.vehiclePosition.x,
+                z: hazard.vehiclePosition.z,
+                distance: Math.hypot(
+                  listener.x - hazard.vehiclePosition.x,
+                  listener.z - hazard.vehiclePosition.z,
+                ),
+              }));
+          }
+          const context = {
+            paused: frame.reducedMotion,
+            inside: traversal.phase !== "outside",
+            hidden: document.visibilityState !== "visible",
+          };
+          for (const cue of horns.update(
+            frame.deltaSeconds,
+            blockages,
+            context,
+          )) {
+            publishTrafficHorn(cue);
+            if (cue.playerBlocked) {
+              setTrafficAlert(cue.message);
+              alertVisible = true;
+              alertExpires = traffic.elapsedSeconds + 5;
+            }
+          }
+          if (
+            alertVisible &&
+            (traffic.elapsedSeconds > alertExpires ||
+              !walker.active ||
+              !blockages.some((blockage) =>
+                ["player-rivergate", "leo-dog"].includes(blockage.personId),
+              ))
+          )
+            clearTrafficAlert();
         });
 
         let cancelCameraAnimation: () => void = () => undefined;
@@ -751,7 +871,14 @@ function ImmersiveTownMap({
             chapterWorld.setActive(next !== null);
             if (next && !wasActive) {
               traffic = chapterWorld.prepareTraffic(traffic);
-              world.residents.setTraffic(traffic);
+              trafficContacts.update(
+                traffic,
+                chapterWorld.getVehicleTransforms(traffic),
+              );
+              world.residents.setTraffic(
+                traffic,
+                chapterWorld.getVehicleTransforms(traffic),
+              );
               vehicles.sync(
                 chapterWorld.getVehicleTransforms(traffic),
                 traffic.elapsedSeconds,
@@ -784,6 +911,9 @@ function ImmersiveTownMap({
           },
           syncPauseState: () => syncPauseState(),
           dispose() {
+            horns.reset();
+            setTrafficHornContext({ paused: true });
+            clearTrafficAlert();
             cancelCameraAnimation();
             chapterWorld.dispose();
             traversal?.dispose();
@@ -885,6 +1015,15 @@ function ImmersiveTownMap({
           if (frameMs > 0 && resolution.sample(frameMs) !== null)
             applyResolution();
           traversal?.update(frameMs / 1000);
+          setTrafficHornContext({
+            paused: renderingBlockedRef.current || reducedMotionQuery.matches,
+            inside: traversal.phase !== "outside",
+            hidden: document.visibilityState !== "visible",
+          });
+          if (traversal.phase !== "outside") {
+            horns.update(0, [], { inside: true });
+            clearTrafficAlert();
+          }
           chapterWorld.update(frameMs / 1000);
           const nextChapterPoint =
             chapterWorld.active &&
@@ -1011,6 +1150,15 @@ function ImmersiveTownMap({
             traversal?.walker.clearInput();
           }
           world.animation.setPaused(paused || traversal?.inside === true);
+          setTrafficHornContext({
+            paused: paused || reducedMotionQuery.matches,
+            inside: traversal.phase !== "outside",
+            hidden: !isPageVisible,
+          });
+          if (paused) {
+            horns.update(0, [], { paused: true });
+            clearTrafficAlert();
+          }
           if (paused && isRendering) {
             engine.stopRenderLoop(renderFrame);
             isRendering = false;
@@ -1366,6 +1514,22 @@ function ImmersiveTownMap({
       {entryError ? (
         <p className="building-entry-error" role="alert">
           {entryError}
+        </p>
+      ) : null}
+      {trafficAlert &&
+      viewMode === "walk" &&
+      visitPhase === "outside" &&
+      !residentJournalOpen &&
+      !chapterReading &&
+      !directoryOpen ? (
+        <p
+          className="town-traffic-alert"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          <strong>Driver waiting</strong>
+          <span>{trafficAlert}</span>
         </p>
       ) : null}
       {visit ? (

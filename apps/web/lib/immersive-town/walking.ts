@@ -89,6 +89,7 @@ export function stepWalk(
   input: WalkInput,
   elapsedSeconds: number,
   obstacles: readonly WalkBounds[],
+  canStep: (from: WalkPoint, to: WalkPoint) => boolean = () => true,
 ): WalkPose {
   const dt = Number.isFinite(elapsedSeconds)
     ? Math.max(0, Math.min(0.05, elapsedSeconds))
@@ -110,8 +111,10 @@ export function stepWalk(
   const steps = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.1));
   let { x, z } = pose;
   for (let index = 0; index < steps; index += 1) {
-    if (canWalkAt({ x: x + dx / steps, z }, obstacles)) x += dx / steps;
-    if (canWalkAt({ x, z: z + dz / steps }, obstacles)) z += dz / steps;
+    const across = { x: x + dx / steps, z };
+    if (canWalkAt(across, obstacles) && canStep({ x, z }, across)) x = across.x;
+    const along = { x, z: z + dz / steps };
+    if (canWalkAt(along, obstacles) && canStep({ x, z }, along)) z = along.z;
   }
   return { x, z, yaw };
 }

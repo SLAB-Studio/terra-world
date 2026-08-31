@@ -5,14 +5,19 @@ import { createTownWalker } from "./town-walker";
 import { createBuildingTraversal } from "./building-traversal";
 import { canWalkInside, INTERIOR_EYE_HEIGHT } from "./interior-navigation";
 import { VENUE_LIMITS } from "./venue-world";
-import { WALK_EYE_HEIGHT } from "./walking";
+import { WALK_EYE_HEIGHT, type WalkPoint } from "./walking";
+import { createTrafficContacts } from "./traffic-contacts";
+import { createTrafficSimulation, getVehicleTransforms } from "./traffic";
 import type { InteriorUpgradeId } from "./house-interior-world";
 import {
   neighborhoodHomeProfile,
   startingNeighborhoodUpgrades,
 } from "./neighborhood-home-stories";
 
-function setup(reduced = true) {
+function setup(
+  reduced = true,
+  canMoveStreet?: (from: WalkPoint, to: WalkPoint) => boolean,
+) {
   const engine = new NullEngine();
   const world = createImmersiveTownWorld(engine, {
     attachCameraControls: false,
@@ -40,6 +45,7 @@ function setup(reduced = true) {
     onRoom: vi.fn(),
     onNearby: vi.fn(),
     onLift: vi.fn(),
+    ...(canMoveStreet ? { canMoveStreet } : {}),
   });
   const tick = (count = 1) => {
     for (let i = 0; i < count; i++) {
@@ -58,6 +64,9 @@ function setup(reduced = true) {
     tick,
     block: (next: boolean) => {
       blocked = next;
+    },
+    reduce: (next: boolean) => {
+      reduced = next;
     },
     dispose() {
       traversal.dispose();
@@ -124,6 +133,165 @@ describe("walk-through building entrances", () => {
       s.traversal.leave();
       s.tick(2);
       expect(s.traversal.phase).toBe("outside");
+    } finally {
+      s.dispose();
+    }
+  });
+
+  it("waits for street bodies in both doorway directions without banking blocked time", () => {
+    let clear = false;
+    const s = setup(false, () => clear);
+    try {
+      const aerialPosition = s.street.camera.position.clone();
+      expect(s.traversal.open("sunny")).toBe(false);
+      expect(s.street.camera.position.equals(aerialPosition)).toBe(true);
+      expect(s.traversal.phase).toBe("outside");
+      clear = true;
+      expect(s.traversal.open("sunny")).toBe(true);
+      const porch = s.street.camera.position.clone();
+      s.tick(12);
+      clear = false;
+      const blockedEntry = s.street.camera.position.clone();
+      s.tick(60);
+      expect(s.traversal.phase).toBe("opening");
+      expect(s.traversal.inside).toBe(false);
+      expect(s.street.camera.position.equals(blockedEntry)).toBe(true);
+      clear = true;
+      s.tick();
+      expect(s.traversal.phase).toBe("opening");
+      expect(
+        s.street.camera.position.subtract(blockedEntry).length(),
+      ).toBeLessThan(0.4);
+      s.tick(40);
+      expect(s.traversal.phase).toBe("inside");
+      s.traversal.leave();
+      clear = false;
+      s.tick(60);
+      expect(s.traversal.phase).toBe("leaving");
+      expect(s.traversal.inside).toBe(true);
+      expect(s.engine.scenes).toHaveLength(2);
+      clear = true;
+      s.tick(3);
+      expect(s.traversal.phase).toBe("emerging");
+      clear = false;
+      const blockedExit = s.street.camera.position.clone();
+      s.tick(60);
+      expect(s.traversal.phase).toBe("emerging");
+      expect(s.traversal.inside).toBe(false);
+      expect(s.street.camera.position.equals(blockedExit)).toBe(true);
+      clear = true;
+      s.tick();
+      expect(s.traversal.phase).toBe("emerging");
+      expect(
+        s.street.camera.position.subtract(blockedExit).length(),
+      ).toBeLessThan(0.4);
+      s.tick(20);
+      expect(s.traversal.phase).toBe("outside");
+      expect(s.street.camera.position.equalsWithEpsilon(porch)).toBe(true);
+    } finally {
+      s.dispose();
+    }
+  });
+
+  it("sweeps reduced-motion doorways in small steps and retains partial progress across preference changes", () => {
+    let barrier: { x: number; z: number; dx: number; dz: number } | null = null;
+    let blockedByBody = true;
+    let longestStep = 0;
+    const s = setup(true, (from, to) => {
+      longestStep = Math.max(
+        longestStep,
+        Math.hypot(to.x - from.x, to.z - from.z),
+      );
+      if (!barrier || !blockedByBody) return true;
+      const a =
+        (from.x - barrier.x) * barrier.dx + (from.z - barrier.z) * barrier.dz;
+      const b =
+        (to.x - barrier.x) * barrier.dx + (to.z - barrier.z) * barrier.dz;
+      return a * b > 0;
+    });
+    try {
+      expect(s.traversal.open("sunny")).toBe(true);
+      const porch = s.street.camera.position.clone();
+      const door = s.street.doors.find((d) => d.id === "sunny")!;
+      const dx = door.x - porch.x,
+        dz = door.z - porch.z;
+      barrier = { x: porch.x + dx / 2, z: porch.z + dz / 2, dx, dz };
+      s.tick();
+      expect(s.traversal.phase).toBe("opening");
+      const entry = s.street.camera.position.clone();
+      expect(entry.subtract(porch).length()).toBeGreaterThan(0.1);
+      s.tick(20);
+      expect(s.street.camera.position.equals(entry)).toBe(true);
+      s.reduce(false);
+      s.tick(20);
+      expect(s.street.camera.position.equals(entry)).toBe(true);
+      blockedByBody = false;
+      s.tick();
+      expect(s.street.camera.position.subtract(entry).length()).toBeLessThan(
+        0.4,
+      );
+      expect(
+        (s.street.camera.position.x - entry.x) * dx +
+          (s.street.camera.position.z - entry.z) * dz,
+      ).toBeGreaterThan(0);
+      s.reduce(true);
+      s.tick(2);
+      expect(s.traversal.phase).toBe("inside");
+      s.traversal.leave();
+      s.tick();
+      expect(s.traversal.phase).toBe("emerging");
+      blockedByBody = true;
+      s.tick();
+      expect(s.traversal.phase).toBe("emerging");
+      const exit = s.street.camera.position.clone();
+      s.tick(20);
+      expect(s.street.camera.position.equals(exit)).toBe(true);
+      blockedByBody = false;
+      s.tick();
+      expect(s.traversal.phase).toBe("outside");
+      expect(s.street.camera.position.equalsWithEpsilon(porch)).toBe(true);
+      expect(longestStep).toBeLessThanOrEqual(0.100001);
+    } finally {
+      s.dispose();
+    }
+  });
+
+  it("permits reduced-motion entry to recover outward from an existing car overlap", () => {
+    const contacts = createTrafficContacts();
+    const s = setup(true, contacts.canMove);
+    try {
+      const door = s.street.doors.find((d) => d.id === "sunny")!;
+      s.street.setActive(true);
+      s.street.camera.position.copyFrom(door.approach);
+      const porch = s.street.camera.position.clone();
+      const dx = door.x - porch.x,
+        dz = door.z - porch.z;
+      const length = Math.hypot(dx, dz);
+      const traffic = createTrafficSimulation([
+        {
+          id: "porch-car",
+          laneId: "clockwise",
+          startProgress: 0.1,
+          cruiseSpeedMetersPerSecond: 8,
+          lengthMeters: 4,
+        },
+      ]);
+      contacts.update(traffic, [
+        {
+          ...getVehicleTransforms(traffic)[0]!,
+          position: {
+            x: porch.x - (dx / length) * 1.8,
+            y: 0,
+            z: porch.z - (dz / length) * 1.8,
+          },
+          yawRadians: Math.atan2(dx, dz),
+        },
+      ]);
+      expect(contacts.canStand(porch)).toBe(false);
+      expect(s.traversal.open("sunny")).toBe(true);
+      s.tick(2);
+      expect(s.traversal.phase).toBe("inside");
+      expect(contacts.canStand(s.street.camera.position)).toBe(true);
     } finally {
       s.dispose();
     }

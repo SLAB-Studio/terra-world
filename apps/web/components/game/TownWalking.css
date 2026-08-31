@@ -1,4 +1,37 @@
 /* Walking and LEO belong to the same live city canvas. */
+.town-traffic-alert {
+  position: absolute;
+  z-index: 19;
+  bottom: 166px;
+  left: 18px;
+  display: grid;
+  gap: 4px;
+  width: min(290px, calc(100% - 36px));
+  box-sizing: border-box;
+  margin: 0;
+  padding: 12px 15px;
+  border: 1px solid #bda56d;
+  border-left: 3px solid #e6bf6b;
+  border-radius: 10px;
+  background: #192c28f5;
+  color: #f4efe4;
+  box-shadow: 0 5px 18px #09120f38;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  pointer-events: none;
+}
+.town-traffic-alert strong {
+  color: #eed193;
+}
+@media (max-width: 760px) {
+  .town-traffic-alert {
+    top: 130px;
+    bottom: auto;
+    left: 10px;
+    width: calc(100% - 20px);
+    max-width: 370px;
+  }
+}
 .leo-load-status {
   position: absolute;
   z-index: 18;
