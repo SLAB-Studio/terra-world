@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "network": {
+    "name": "0G Mainnet",
+    "chainId": 16661,
+    "rpcUrl": "https://evmrpc.0g.ai",
+    "storageIndexer": "https://indexer-storage-turbo.0g.ai",
+    "canonicalERC8004": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "canonicalVersion": "2.0.0"
+  },
+  "upstream": {
+    "repository": "https://github.com/0gfoundation/0g-agentic-id.git",
+    "commit": "afc4d0e94af94ad5f2351215ed32c94e2fe7a54e"
+  },
+  "governance": {
+    "ownerMultisig": "FILL_OWNER_MULTISIG",
+    "ownerHasContractCode": true,
+    "ownerMultisigConfirmed": true,
+    "pauser": "FILL_SEPARATE_PAUSER",
+    "pauserSeparationConfirmed": true,
+    "proposers": ["FILL_OWNER_MULTISIG"],
+    "executors": ["0x0000000000000000000000000000000000000000"],
+    "timelockDelaySeconds": 172800,
+    "proposedDeployer": "FILL_FUNDED_DEPLOYER"
+  },
+  "deployment": {
+    "nftName": "Rivergate AgenticID",
+    "nftSymbol": "RGAID",
+    "maxProofAgeSeconds": 86400,
+    "agenticIdProxy": "FILL_AFTER_DEPLOYMENT",
+    "verifier": {
+      "mode": "disabled",
+      "proxy": "FILL_AFTER_DEPLOYMENT",
+      "teeOracle": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  "claims": {
+    "teeAttested": false,
+    "sealedRuntime": false,
+    "serveProof": false,
+    "reputation": false,
+    "secureTransfer": false
+  },
+  "registration": {
+    "mode": "non-seal",
+    "registrant": "FILL_TOKEN_OWNER_AND_TRANSACTION_SENDER",
+    "agentURI": "FILL_PUBLIC_AGENT_CARD_URI",
+    "metadata": [],
+    "intelligentData": [
+      {
+        "dataDescription": "Rivergate encrypted agent bundle on 0G Storage",
+        "dataHash": "FILL_0G_STORAGE_ROOT_HASH",
+        "sealedKey": "FILL_KEY_ENCRYPTED_TO_REGISTRANT_RECOVERY_KEY",
+        "encryption": {
+          "algorithm": "FILL_REVIEWED_AUTHENTICATED_ENCRYPTION_SCHEME",
+          "recipient": "FILL_RECIPIENT_KEY_FINGERPRINT",
+          "ciphertextOnlyUploaded": true,
+          "keyRecoveryTested": true
+        },
+        "storage": {
+          "rootHash": "FILL_0G_STORAGE_ROOT_HASH",
+          "transactionHash": "FILL_FINALIZED_UPLOAD_TRANSACTION_HASH",
+          "finalized": true,
+          "downloadVerified": true
+        }
+      }
+    ],
+    "acknowledgements": {
+      "noAgentSealEver": true,
+      "noServeProofOrReputation": true,
+      "transfersDisabledUntilRealOracleReview": true,
+      "lostUnsealingKeyCanFreezeToken": true
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "repository": "https://github.com/0gfoundation/0g-agentic-id.git",
+  "commit": "afc4d0e94af94ad5f2351215ed32c94e2fe7a54e",
+  "contractsDirectory": "contracts",
+  "versions": {
+    "AgenticID": "1.1.0",
+    "TEEDataVerifier": "1.1.0",
+    "AgenticIDReputationRegistry": "1.2.0"
+  },
+  "network": {
+    "name": "0G Mainnet",
+    "chainId": 16661,
+    "rpc": "https://evmrpc.0g.ai",
+    "storageIndexer": "https://indexer-storage-turbo.0g.ai",
+    "canonicalERC8004": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "canonicalVersion": "2.0.0"
+  }
+}
