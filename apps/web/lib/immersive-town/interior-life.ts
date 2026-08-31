@@ -18,6 +18,7 @@ import { interiorRoomAt } from "./interior-navigation";
 import { createIndoorRoutines } from "./indoor-routines";
 import { interiorRoutinePlan } from "./interior-routine-plans";
 import type { WalkBounds, WalkPoint } from "./walking";
+import { residentAppearanceSeed } from "./resident-models";
 
 export type InteriorLife = ReturnType<typeof createInteriorLife>;
 
@@ -38,9 +39,29 @@ export function createInteriorLife(
   const utensil = new StandardMaterial("held-kitchen-utensil", scene);
   utensil.diffuseColor = Color3.FromHexString("#957751");
   const people = plan.people.map((person, i) => {
+    // A building/floor has a stable cast; neighbouring homes no longer repeat
+    // the very same four faces. Gender/age stays authored, not guessed from names.
+    const appearanceIndex = residentAppearanceSeed(`${variant}:${i}`);
+    const model = person.child
+      ? person.woman
+        ? "girl"
+        : (["boy", "boy-sport"] as const)[appearanceIndex % 2]!
+      : person.woman
+        ? (
+            [
+              "woman-knit",
+              "woman-purple",
+              "woman-casual",
+              "woman-headscarf",
+            ] as const
+          )[appearanceIndex % 4]!
+        : (["man-denim", "man-jacket", "elder-man", "man-tee"] as const)[
+            appearanceIndex % 4
+          ]!;
     const rig = createTownCharacter(scene, root, shadows, {
       id: `indoor-${person.name.toLowerCase()}-${i}`,
-      age: person.child ? "child" : "adult",
+      age: person.child ? "child" : model === "elder-man" ? "elder" : "adult",
+      model,
       activity: "idle",
       hair: person.woman ? "ponytail" : "short",
       skin: i % 2 ? "#9B6446" : "#704A36",

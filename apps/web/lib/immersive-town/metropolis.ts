@@ -465,7 +465,32 @@ export function createMetropolis(
       const x = index % 2 ? -14.15 : -12.85;
       return {
         id: `downtown-resident-${index}`,
-        age: "adult",
+        age: index === 10 ? "elder" : "adult",
+        model: (
+          [
+            "woman-knit",
+            "man-jacket",
+            "woman-headscarf",
+            "woman-purple",
+            "man-denim",
+            "woman-casual",
+            "man-tee",
+            "woman-knit",
+            "woman-purple",
+            "man-jacket",
+            "elder-man",
+            "woman-headscarf",
+          ] as const
+        )[index]!,
+        walkingSpeed: index === 10 ? 0.95 : 1.02 + (index % 4) * 0.085,
+        ...(index < 4
+          ? {
+              socialGroup: {
+                id: index < 2 ? "downtown-couple" : "downtown-partners",
+                role: index % 2 ? ("companion" as const) : ("leader" as const),
+              },
+            }
+          : {}),
         activity: "walk",
         hair: (["coils", "bun", "short", "waves"] as const)[index % 4]!,
         skin: ["#6F3F2A", "#A9623D", "#DBA580", "#855339"][index % 4]!,

@@ -10,6 +10,25 @@ import { createVenueWorld } from "./venue-world";
 import { canWalkInside } from "./interior-navigation";
 
 describe("lived-in interiors", () => {
+  it("gives neighbouring homes different real casts and keeps each cast stable", () => {
+    const engine = new NullEngine();
+    const snapshots: string[][] = [];
+    try {
+      for (const id of ["sunny", "bluebell", "sunny"] as const) {
+        const world = createHouseInteriorWorld(engine, id, []);
+        snapshots.push(world.life.people.map(({ rig }) => rig.profile.model!));
+        expect(
+          new Set(world.life.people.map(({ rig }) => rig.profile.model)).size,
+        ).toBe(4);
+        world.dispose();
+      }
+      expect(snapshots[0]).not.toEqual(snapshots[1]);
+      expect(snapshots[0]).toEqual(snapshots[2]);
+    } finally {
+      engine.dispose();
+    }
+  });
+
   it("gives every advertised floor a bounded, place-specific cast without adding venues", () => {
     expect(TOWN_VENUES).toHaveLength(18);
     for (const venue of TOWN_VENUES)

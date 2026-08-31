@@ -15,6 +15,7 @@ import {
   type TownCharacterRig,
 } from "./characters-3d";
 import type { TownHouseMetadata } from "./types";
+import { residentAppearanceSeed } from "./resident-models";
 
 export type PlayableHouseId = "sunny" | "bluebell" | "mango";
 export type PlayableUpgradeId =
@@ -543,6 +544,7 @@ function createResident(scene: Scene, house: TownHouseMetadata) {
   const profiles: Readonly<Record<string, TownCharacterProfile>> = {
     sunny: {
       id: "sunny-resident-ayo",
+      model: "boy-sport",
       age: "child",
       activity: "wave",
       hair: "coils",
@@ -558,6 +560,7 @@ function createResident(scene: Scene, house: TownHouseMetadata) {
     },
     bluebell: {
       id: "bluebell-resident-mina",
+      model: "woman-knit",
       age: "adult",
       activity: "wave",
       hair: "waves",
@@ -573,6 +576,7 @@ function createResident(scene: Scene, house: TownHouseMetadata) {
     },
     mango: {
       id: "mango-resident-tomi",
+      model: "girl",
       age: "child",
       activity: "wave",
       hair: "bun",
@@ -587,7 +591,21 @@ function createResident(scene: Scene, house: TownHouseMetadata) {
       phase: 4.3,
     },
   };
-  const profile = profiles[house.id] ?? profiles.sunny!;
+  const preset = profiles[house.id];
+  const profile: TownCharacterProfile = {
+    ...(preset ?? profiles.bluebell!),
+    // Every doorstep is its own resident; the old fallback cloned Ayo into all
+    // 25 additional homes, including the character id and clothing.
+    id: preset?.id ?? `home-${house.id}-resident`,
+    ...(preset
+      ? {}
+      : {
+          hair:
+            residentAppearanceSeed(house.id) % 2
+              ? ("short" as const)
+              : ("waves" as const),
+        }),
+  };
   const resident = createTownCharacter(scene, house.root, null, profile);
 
   const bubbleTexture = new DynamicTexture(

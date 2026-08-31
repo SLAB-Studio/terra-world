@@ -342,6 +342,14 @@ export function createOpeningChapterWorld(world: ImmersiveTownWorld) {
     const role = point.id === "bridge" ? undefined : point.id;
     const profile: TownCharacterProfile = {
       id: `chapter-${point.id === "bridge" ? "inspector" : point.id}`,
+      model:
+        point.id === "maya"
+          ? "woman-purple"
+          : point.id === "nia"
+            ? "woman-knit"
+            : point.id === "malik"
+              ? "man-jacket"
+              : "man-denim",
       age: "adult",
       activity: "idle",
       hair: index === 0 ? "short" : index === 1 ? "bun" : "coils",

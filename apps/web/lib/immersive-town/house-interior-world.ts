@@ -26,6 +26,7 @@ import { createArchitecturalBatch } from "./geometry";
 import { createInteriorLife, type InteriorLife } from "./interior-life";
 import { homeLifePlan } from "./interior-life-plan";
 import { INTERIOR_LIMITS } from "./interior-navigation";
+import { residentAppearanceSeed } from "./resident-models";
 
 export type InteriorRoomId =
   "living-room" | "kitchen" | "garden-room" | "utility-room";
@@ -178,7 +179,7 @@ export function createHouseInteriorWorld(
     homeLifePlan(),
     () => callbacks.isBlocked?.() ?? false,
     shadows,
-    ["sunny", "bluebell", "mango"].indexOf(houseId),
+    residentAppearanceSeed(houseId),
   );
 
   const collisionMeshes = scene.meshes.filter(

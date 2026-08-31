@@ -22,6 +22,7 @@ import {
 import {
   residentAsset,
   residentModelFor,
+  RESIDENT_MODELS,
   type ResidentDetail,
   type ResidentModelId,
 } from "./resident-models";
@@ -177,14 +178,7 @@ describe("realistic resident lifecycle", () => {
       engine.dispose();
     }
   });
-  it.each([
-    "man-denim",
-    "man-casual",
-    "woman-casual",
-    "woman-knit",
-    "boy",
-    "girl",
-  ] as ResidentModelId[])(
+  it.each(RESIDENT_MODELS)(
     "smoothly stands, walks and sits again with the actual %s indoor skeleton",
     async (model) => {
       const profile = RIVERGATE_CHARACTER_PROFILES.find(
@@ -370,14 +364,7 @@ describe("realistic resident lifecycle", () => {
       }
     },
   );
-  it.each([
-    "man-denim",
-    "man-casual",
-    "woman-casual",
-    "woman-knit",
-    "boy",
-    "girl",
-  ] as ResidentModelId[])(
+  it.each(RESIDENT_MODELS)(
     "seats the real %s skeleton on furniture, bends knees forward and holds a stable task pose",
     async (model) => {
       const profile = RIVERGATE_CHARACTER_PROFILES.find(
@@ -470,14 +457,7 @@ describe("realistic resident lifecycle", () => {
       }
     },
   );
-  it.each([
-    "man-denim",
-    "man-casual",
-    "woman-casual",
-    "woman-knit",
-    "boy",
-    "girl",
-  ] as ResidentModelId[])(
+  it.each(RESIDENT_MODELS)(
     "keeps actual %s poses continuous through idle, walking, stopping and conversation",
     async (model) => {
       const profile = RIVERGATE_CHARACTER_PROFILES.find(

@@ -25,6 +25,29 @@ describe("Rivergate 3D characters", () => {
     );
   });
 
+  it("keeps families and couples identifiable without increasing crowd density", () => {
+    const grouped = RIVERGATE_CHARACTER_PROFILES.filter((p) => p.socialGroup);
+    const ids = new Set(grouped.map((p) => p.socialGroup!.id));
+    expect(ids.size).toBe(4);
+    for (const id of ids) {
+      const members = grouped.filter((p) => p.socialGroup!.id === id);
+      expect(members).toHaveLength(2);
+      expect(
+        members.filter((p) => p.socialGroup!.role === "leader"),
+      ).toHaveLength(1);
+      expect(
+        members.find((p) => p.socialGroup!.role === "leader")!.age,
+      ).not.toBe("child");
+      expect(members[0]!.model).not.toBe(members[1]!.model);
+      expect(
+        Math.hypot(
+          members[0]!.x - members[1]!.x,
+          members[0]!.z - members[1]!.z,
+        ),
+      ).toBeLessThan(3);
+    }
+  });
+
   it("samples a deterministic walking loop without drifting from its radius", () => {
     const first = sampleTownCharacterMotion("walk", 12.5, 0.7, false, 2.2);
     const repeated = sampleTownCharacterMotion("walk", 12.5, 0.7, false, 2.2);

@@ -21,9 +21,9 @@ export const CITY_CONVERSATIONS: readonly ConversationGroup[] = [
     names: ["Amara", "Ben"],
     offset: 0,
     day: [
-      "The basil smells incredible today.",
-      "Try the tomatoes with it. I grew a few on my balcony.",
-      "A balcony garden? You'll have to show me.",
+      "Dinner together tonight? I'll pick up some basil.",
+      "It's a date. I'll cook if you choose the music.",
+      "Deal. Let's take the scenic way home.",
     ],
     night: [
       "The market is finally quiet.",
@@ -56,13 +56,30 @@ export const CITY_CONVERSATIONS: readonly ConversationGroup[] = [
     offset: 27,
     day: [
       "This story is about building a home by the river.",
-      "Does their town have a bridge like ours?",
+      "Mum, does their town have a bridge like ours?",
       "It does! That part reminds me of Rivergate.",
     ],
     night: [
       "Look at the lights on the water.",
       "Every reflection moves with the river.",
       "Let's see which ones reach the bridge.",
+    ],
+  },
+  {
+    id: "school-family",
+    place: "Walking with family",
+    participants: ["school-parent-jules", "playground-noah"],
+    names: ["Jules", "Noah"],
+    offset: 38,
+    day: [
+      "Stay beside me. Shall we stop at the garden?",
+      "Yes, Mum! I want to see how tall the sunflowers are.",
+      "Then we'll have a look together.",
+    ],
+    night: [
+      "Let's walk home together now.",
+      "Can we read one more chapter before bed?",
+      "Of course. You can choose where we start.",
     ],
   },
 ];

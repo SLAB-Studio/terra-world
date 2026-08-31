@@ -1,29 +1,72 @@
 import converted from "../../public/models/residents/conversion.json";
 import type { TownCharacterProfile } from "./characters-3d";
 
-export type ResidentModelId =
-  "man-denim" | "man-casual" | "woman-casual" | "woman-knit" | "boy" | "girl";
+export const RESIDENT_MODELS = [
+  "man-denim",
+  "man-casual",
+  "woman-casual",
+  "woman-knit",
+  "boy",
+  "girl",
+  "elder-man",
+  "woman-purple",
+  "woman-headscarf",
+  "man-tee",
+  "man-jacket",
+  "boy-sport",
+] as const;
+export type ResidentModelId = (typeof RESIDENT_MODELS)[number];
 export type ResidentDetail = "near" | "far";
 export type ResidentClip = "idle" | "walk" | "talk" | "run";
 
 export function residentModelFor(
-  profile: Pick<TownCharacterProfile, "id" | "age" | "hair">,
+  profile: Pick<TownCharacterProfile, "id" | "age" | "hair" | "model">,
 ): ResidentModelId {
+  // The player's running clip is retargeted to this specific rig.
+  if (profile.id === "player-rivergate") return "man-casual";
+  const children: readonly ResidentModelId[] = ["boy", "girl", "boy-sport"];
+  if (
+    profile.model &&
+    children.includes(profile.model) === (profile.age === "child")
+  )
+    return profile.model;
+  const hash = residentAppearanceSeed(profile.id);
   if (profile.age === "child") {
-    return /maya|anya|nia|tomi/.test(profile.id) ? "girl" : "boy";
+    return children[hash % children.length]!;
   }
+  if (profile.age === "elder") return "elder-man";
   const longHair = ["bun", "ponytail", "waves"].includes(profile.hair);
-  const hash = [...profile.id].reduce(
-    (value, character) => value + character.charCodeAt(0),
-    0,
+  const pool: readonly ResidentModelId[] = longHair
+    ? ["woman-knit", "woman-casual", "woman-purple", "woman-headscarf"]
+    : ["man-casual", "man-denim", "man-tee", "man-jacket"];
+  return pool[hash % pool.length]!;
+}
+
+export function residentAppearanceSeed(id: string) {
+  let hash = 2166136261;
+  for (const char of id) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+  // Mix high bits too: directly using FNV's low two bits repeated wardrobes
+  // for many different home names with the same suffix/character parity.
+  hash = Math.imul(hash ^ (hash >>> 16), 0x85ebca6b);
+  hash = Math.imul(hash ^ (hash >>> 13), 0xc2b2ae35);
+  hash ^= hash >>> 16;
+  return hash >>> 0;
+}
+
+/** Small stature differences keep original anatomy; stride uses this same scale. */
+export function residentHeightFor(
+  profile: Pick<TownCharacterProfile, "id" | "age" | "stature">,
+) {
+  if (profile.id === "player-rivergate") return 1.82;
+  const child = profile.age === "child";
+  if (profile.stature !== undefined && Number.isFinite(profile.stature))
+    return Math.max(
+      child ? 1.18 : 1.58,
+      Math.min(child ? 1.52 : 1.94, profile.stature),
+    );
+  return (
+    (child ? 1.26 : 1.64) + (residentAppearanceSeed(profile.id) % 7) * 0.035
   );
-  return longHair
-    ? hash % 2
-      ? "woman-knit"
-      : "woman-casual"
-    : hash % 2
-      ? "man-casual"
-      : "man-denim";
 }
 
 export function residentAsset(id: ResidentModelId, detail: ResidentDetail) {

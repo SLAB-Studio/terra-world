@@ -18,6 +18,7 @@ import {
   residentClipProgress,
   residentDetailFor,
   residentModelFor,
+  residentHeightFor,
   residentPoseRate,
   residentTalkWeight,
   residentTransitionBlend,
@@ -158,8 +159,7 @@ async function requestDetail(state: ResidentState, detail: ResidentDetail) {
     // Preserve child/adult stature, independent of the imported authoring units.
     const indoorPose = state.rig.root.metadata?.indoorPose as
       IndoorPose | undefined;
-    const height =
-      indoorPose?.height ?? (state.rig.profile.age === "child" ? 1.38 : 1.82);
+    const height = indoorPose?.height ?? residentHeightFor(state.rig.profile);
     mount.scaling.setAll(
       height / residentAsset(model, detail).height / state.rig.root.scaling.x,
     );
@@ -389,8 +389,7 @@ export function updateRealisticResident(
   const model = residentAsset(residentModelFor(rig.profile), state.detail);
   const indoorPose = rig.root.metadata?.indoorPose as IndoorPose | undefined;
   const stature =
-    (indoorPose?.height ?? (rig.profile.age === "child" ? 1.38 : 1.82)) /
-    model.height;
+    (indoorPose?.height ?? residentHeightFor(rig.profile)) / model.height;
   const progress = reducedMotion
     ? 0
     : residentClipProgress(

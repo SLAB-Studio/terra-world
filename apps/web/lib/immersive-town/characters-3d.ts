@@ -4,6 +4,7 @@ import { Color3 } from "@babylonjs/core/Maths/math.color";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
+import type { ResidentModelId } from "./resident-models";
 import {
   hasRealisticResident,
   registerRealisticResident,
@@ -18,7 +19,7 @@ import {
   type PedestrianRoute,
 } from "./pedestrian-motion";
 
-export type TownCharacterAge = "adult" | "child";
+export type TownCharacterAge = "adult" | "child" | "elder";
 export type TownCharacterActivity = "chat" | "idle" | "play" | "walk" | "wave";
 export type TownCharacterHair =
   "bun" | "coils" | "curls" | "ponytail" | "short" | "waves";
@@ -37,6 +38,11 @@ export type TownCharacterProfile = Readonly<{
   z: number;
   rotation: number;
   phase: number;
+  /** Authored appearance, never inferred from a name or a character's job. */
+  model?: ResidentModelId;
+  stature?: number;
+  walkingSpeed?: number;
+  socialGroup?: Readonly<{ id: string; role: "leader" | "companion" }>;
   pathRadius?: number;
   walkingRoute?: PedestrianRoute;
   glasses?: boolean;
@@ -94,6 +100,7 @@ const MATERIAL_CACHE = new WeakMap<Scene, Map<string, StandardMaterial>>();
 export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
   {
     id: "playground-maya",
+    model: "girl",
     age: "child",
     activity: "play",
     hair: "coils",
@@ -110,6 +117,9 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
   },
   {
     id: "playground-noah",
+    model: "boy-sport",
+    socialGroup: { id: "jules-family", role: "companion" },
+    walkingSpeed: 1.05,
     age: "child",
     activity: "play",
     hair: "curls",
@@ -118,13 +128,14 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
     shirt: "#4A92C2",
     bottoms: "#2F5E4A",
     shoes: "#EED9BA",
-    x: 34,
-    z: 22,
+    x: 46,
+    z: 32.5,
     rotation: 2.35,
     phase: 1.7,
   },
   {
     id: "school-anya",
+    model: "girl",
     age: "child",
     activity: "wave",
     hair: "ponytail",
@@ -140,6 +151,9 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
   },
   {
     id: "market-amara",
+    model: "woman-purple",
+    socialGroup: { id: "market-couple", role: "leader" },
+    walkingSpeed: 1.03,
     age: "adult",
     activity: "chat",
     hair: "bun",
@@ -156,6 +170,9 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
   },
   {
     id: "market-ben",
+    model: "man-denim",
+    socialGroup: { id: "market-couple", role: "companion" },
+    walkingSpeed: 1.09,
     age: "adult",
     activity: "chat",
     hair: "short",
@@ -171,6 +188,7 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
   },
   {
     id: "clinic-zoe",
+    model: "woman-knit",
     age: "adult",
     activity: "wave",
     hair: "waves",
@@ -186,6 +204,7 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
   },
   {
     id: "clinic-eli",
+    model: "boy",
     age: "child",
     activity: "idle",
     hair: "curls",
@@ -201,6 +220,8 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
   },
   {
     id: "south-walker-kai",
+    model: "man-jacket",
+    walkingSpeed: 1.3,
     age: "adult",
     activity: "walk",
     hair: "coils",
@@ -217,6 +238,8 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
   },
   {
     id: "south-walker-lina",
+    model: "woman-casual",
+    walkingSpeed: 1.12,
     age: "adult",
     activity: "walk",
     hair: "ponytail",
@@ -233,6 +256,8 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
   },
   {
     id: "river-walker-omar",
+    model: "man-casual",
+    walkingSpeed: 1.24,
     age: "adult",
     activity: "walk",
     hair: "short",
@@ -249,6 +274,7 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
   },
   {
     id: "guide-elliot",
+    model: "man-tee",
     age: "adult",
     activity: "wave",
     hair: "curls",
@@ -265,6 +291,7 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
   },
   {
     id: "resident-malik",
+    model: "boy-sport",
     age: "child",
     activity: "walk",
     hair: "coils",
@@ -282,6 +309,7 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
   },
   {
     id: "resident-nia",
+    model: "girl",
     age: "child",
     activity: "play",
     hair: "ponytail",
@@ -298,7 +326,10 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
   },
   {
     id: "resident-mr-sam",
-    age: "adult",
+    age: "elder",
+    model: "elder-man",
+    stature: 1.75,
+    walkingSpeed: 0.91,
     activity: "chat",
     hair: "short",
     skin: "#7A4931",
@@ -316,6 +347,7 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
   },
   {
     id: "school-teacher-sana",
+    model: "woman-headscarf",
     age: "adult",
     activity: "chat",
     hair: "bun",
@@ -331,6 +363,9 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
   },
   {
     id: "school-parent-jules",
+    model: "woman-casual",
+    socialGroup: { id: "jules-family", role: "leader" },
+    walkingSpeed: 1.02,
     age: "adult",
     activity: "chat",
     hair: "waves",
@@ -346,6 +381,9 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
   },
   {
     id: "river-reader-iman",
+    model: "woman-headscarf",
+    socialGroup: { id: "iman-family", role: "leader" },
+    walkingSpeed: 0.97,
     age: "adult",
     activity: "idle",
     hair: "coils",
@@ -354,7 +392,7 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
     shirt: "#DCA83A",
     bottoms: "#615174",
     shoes: "#30251F",
-    x: 18,
+    x: 20,
     z: 42,
     rotation: 2.9,
     phase: 1.8,
@@ -362,6 +400,9 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
   },
   {
     id: "river-child-tomi",
+    model: "boy-sport",
+    socialGroup: { id: "iman-family", role: "companion" },
+    walkingSpeed: 1.04,
     age: "child",
     activity: "wave",
     hair: "coils",
@@ -370,13 +411,16 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
     shirt: "#EF805E",
     bottoms: "#3B7183",
     shoes: "#F7E4C6",
-    x: 14.5,
-    z: 43,
+    x: 21,
+    z: 42,
     rotation: -1.35,
     phase: 4.7,
   },
   {
     id: "north-walker-mei",
+    model: "woman-purple",
+    socialGroup: { id: "mei-family", role: "leader" },
+    walkingSpeed: 1.1,
     age: "adult",
     activity: "walk",
     hair: "ponytail",
@@ -385,7 +429,7 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
     shirt: "#6C91C2",
     bottoms: "#4D554D",
     shoes: "#322824",
-    x: -31,
+    x: -28.8,
     z: 61,
     rotation: 1.1,
     phase: 3.4,
@@ -393,6 +437,9 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
   },
   {
     id: "north-child-ada",
+    model: "girl",
+    socialGroup: { id: "mei-family", role: "companion" },
+    walkingSpeed: 1.15,
     age: "child",
     activity: "play",
     hair: "bun",
@@ -401,8 +448,8 @@ export const RIVERGATE_CHARACTER_PROFILES: readonly TownCharacterProfile[] = [
     shirt: "#F1B93D",
     bottoms: "#41735B",
     shoes: "#FFF3DD",
-    x: -27,
-    z: 62.5,
+    x: -29.8,
+    z: 61,
     rotation: -1.6,
     phase: 5.5,
   },

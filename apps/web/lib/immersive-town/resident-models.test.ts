@@ -14,18 +14,13 @@ import {
   residentPoseRate,
   residentTalkWeight,
   residentTransitionBlend,
+  residentHeightFor,
+  RESIDENT_MODELS,
   type ResidentModelId,
 } from "./resident-models";
 import { RIVERGATE_CHARACTER_PROFILES } from "./characters-3d";
 
-const models: ResidentModelId[] = [
-  "man-denim",
-  "man-casual",
-  "woman-casual",
-  "woman-knit",
-  "boy",
-  "girl",
-];
+const models = RESIDENT_MODELS;
 const readModel = (id: ResidentModelId, detail: "near" | "far") =>
   readFileSync(
     new URL(`../../public${residentAsset(id, detail).url}`, import.meta.url),
@@ -36,11 +31,54 @@ describe("realistic Rivergate resident assets", () => {
     for (const profile of RIVERGATE_CHARACTER_PROFILES) {
       const model = residentModelFor(profile);
       expect(residentModelFor({ ...profile })).toBe(model);
-      expect(["boy", "girl"].includes(model)).toBe(profile.age === "child");
+      expect(["boy", "girl", "boy-sport"].includes(model)).toBe(
+        profile.age === "child",
+      );
       expect(residentAsset(model, "far").url).toMatch(
         /^\/models\/residents\/[-a-z]+-far\.glb$/,
       );
     }
+  });
+
+  it("uses the expanded real wardrobe and preserves the player rig", () => {
+    const appearances = new Set(
+      RIVERGATE_CHARACTER_PROFILES.map(residentModelFor),
+    );
+    expect(appearances.size).toBeGreaterThanOrEqual(10);
+    const elder = RIVERGATE_CHARACTER_PROFILES.find((p) => p.age === "elder")!;
+    expect(residentModelFor(elder)).toBe("elder-man");
+    expect(
+      residentModelFor({ id: "player-rivergate", age: "adult", hair: "short" }),
+    ).toBe("man-casual");
+    expect(
+      residentModelFor({
+        id: "test-child",
+        age: "child",
+        hair: "short",
+        model: "elder-man",
+      }),
+    ).not.toBe("elder-man");
+  });
+
+  it("varies stature deterministically and rejects extreme or invalid heights", () => {
+    expect(
+      new Set(RIVERGATE_CHARACTER_PROFILES.map(residentHeightFor)).size,
+    ).toBeGreaterThan(5);
+    for (const p of RIVERGATE_CHARACTER_PROFILES) {
+      expect(residentHeightFor(p)).toBe(residentHeightFor({ ...p }));
+      expect(residentHeightFor(p)).toBeGreaterThanOrEqual(
+        p.age === "child" ? 1.18 : 1.58,
+      );
+      expect(residentHeightFor(p)).toBeLessThanOrEqual(
+        p.age === "child" ? 1.52 : 1.94,
+      );
+    }
+    expect(residentHeightFor({ id: "test", age: "adult", stature: 99 })).toBe(
+      1.94,
+    );
+    expect(residentHeightFor({ id: "test", age: "adult", stature: NaN })).toBe(
+      residentHeightFor({ id: "test", age: "adult" }),
+    );
   });
 
   it("bounds shipped geometry and includes textured, skinned meshes and all three clips", () => {
@@ -112,7 +150,9 @@ describe("realistic Rivergate resident assets", () => {
       }
       expect(triangles[1]).toBeLessThan(triangles[0]! * 0.35);
     }
-    expect(totalBytes).toBeLessThan(16_000_000);
+    // Twice the authored identities, not twice the rendered population. Both
+    // LODs stay local and shared, with distant variants smaller than 2.5k tris.
+    expect(totalBytes).toBeLessThan(28_000_000);
   });
 
   it("loads and clones actual glTF rigs without a browser or external request", async () => {
@@ -167,8 +207,9 @@ describe("realistic Rivergate resident assets", () => {
     }
   });
 
-  it("ships continuous joint curves, closed loops and restrained breathing in every actual GLB", () => {
-    for (const id of models) {
+  it.each(models)(
+    "ships continuous joint curves, closed loops and restrained breathing in %s",
+    (id) => {
       for (const detail of ["near", "far"] as const) {
         const bytes = readModel(id, detail);
         const jsonLength = bytes.readUInt32LE(12);
@@ -247,8 +288,8 @@ describe("realistic Rivergate resident assets", () => {
           }
         }
       }
-    }
-  });
+    },
+  );
 
   it("uses distance hysteresis and lower pose frequency without deleting distant people", () => {
     expect(residentDetailFor(21, "far", false)).toBe("far");

@@ -17,6 +17,7 @@ import { createArchitecturalBatch } from "./geometry";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { createInteriorLife } from "./interior-life";
 import { venueLifePlan } from "./interior-life-plan";
+import { residentAppearanceSeed } from "./resident-models";
 
 export const VENUE_LIMITS: WalkBounds = {
   minX: -10.8,
@@ -609,7 +610,7 @@ export function createVenueWorld(
     venueLifePlan(venue, floorIndex),
     () => callbacks.isBlocked?.() ?? false,
     null,
-    floorIndex,
+    residentAppearanceSeed(`${venue.id}:${floorIndex}`),
   );
   const currentObstacles = () => [...obstacles, ...life.obstacles];
   const walker = createIndoorWalker<Zone>(
