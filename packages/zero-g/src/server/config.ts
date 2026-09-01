@@ -215,6 +215,36 @@ function assertServiceNetwork(
   }
 }
 
+function assertComputeNetwork(
+  network: ZeroGNetworkName,
+  url: string,
+  field: string,
+): void {
+  const parsed = new URL(url);
+  const isOfficialRouter =
+    parsed.hostname === OFFICIAL_COMPUTE_HOSTS[network] &&
+    parsed.pathname === "/v1";
+  const isPrivateComputerProvider =
+    /^compute-network-\d+\.integratenetwork\.work$/u.test(parsed.hostname) &&
+    parsed.pathname === "/v1/proxy";
+  const isExactEndpoint =
+    parsed.protocol === "https:" &&
+    parsed.port === "" &&
+    parsed.username === "" &&
+    parsed.password === "" &&
+    parsed.search === "" &&
+    parsed.hash === "" &&
+    (isOfficialRouter || isPrivateComputerProvider);
+
+  if (!isExactEndpoint) {
+    throw new ZeroGConfigError(
+      "NETWORK_MISMATCH",
+      field,
+      `${field} must be the official ${network} Router /v1 endpoint or a 0G Private Computer provider /v1/proxy endpoint`,
+    );
+  }
+}
+
 export function isZeroGRequired(env: ZeroGEnvironment): boolean {
   const value = env.ZERO_G_REQUIRED?.trim().toLowerCase();
   if (!value || value === "false") return false;
@@ -256,13 +286,7 @@ export function loadZeroGComputeConfig(
     env.ZERO_G_COMPUTE_ROUTER_URL ?? defaults.computeRouterUrl,
     "ZERO_G_COMPUTE_ROUTER_URL",
   );
-  assertServiceNetwork(
-    network,
-    baseUrl,
-    "ZERO_G_COMPUTE_ROUTER_URL",
-    OFFICIAL_COMPUTE_HOSTS,
-    ["/v1"],
-  );
+  assertComputeNetwork(network, baseUrl, "ZERO_G_COMPUTE_ROUTER_URL");
   return Object.freeze({
     network,
     chainId: defaults.chainId,

@@ -100,6 +100,8 @@ ZERO_G_NETWORK=mainnet
 ZERO_G_REQUIRED=false
 ZERO_G_COMPUTE_API_KEY=sk-REPLACE_LOCALLY
 ZERO_G_COMPUTE_MODEL=REPLACE_WITH_CURRENT_TEEML_MODEL
+# Optional for Private Computer provider keys:
+# ZERO_G_COMPUTE_ROUTER_URL=https://compute-network-20.integratenetwork.work/v1/proxy
 ZERO_G_SPONSOR_PRIVATE_KEY=0xREPLACE_LOCALLY
 ZERO_G_AGENTIC_OWNER_PRIVATE_KEY=0xREPLACE_WITH_SEPARATE_OWNER_KEY
 ZERO_G_STORAGE_UPLOAD_TIMEOUT_MS=300000
@@ -125,6 +127,10 @@ manifest, screenshot, or browser environment.
 Create a mainnet Router inference key and fund its Router account, then choose a
 currently listed private TeeML model. A native 0G balance alone does not fund
 Compute requests.
+
+If the key was created from a selected Private Computer provider's **Advanced**
+API panel, set `ZERO_G_COMPUTE_ROUTER_URL` to that provider service URL ending
+in `/v1/proxy`; do not include the final `/chat/completions` path.
 
 ## Database and Storage activation
 

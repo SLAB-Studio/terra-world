@@ -75,6 +75,24 @@ describe("loadZeroGServerConfig", () => {
     });
   });
 
+  it("accepts a 0G Private Computer provider proxy endpoint for app-scoped keys", () => {
+    expect(
+      loadZeroGComputeConfig({
+        ZERO_G_NETWORK: "mainnet",
+        ZERO_G_COMPUTE_API_KEY: "app-sk-mainnet-key",
+        ZERO_G_COMPUTE_MODEL: "0GM-1.0-35B-A3B",
+        ZERO_G_COMPUTE_ROUTER_URL:
+          "https://compute-network-20.integratenetwork.work/v1/proxy",
+      }),
+    ).toMatchObject({
+      network: "mainnet",
+      compute: {
+        baseUrl: "https://compute-network-20.integratenetwork.work/v1/proxy",
+        model: "0GM-1.0-35B-A3B",
+      },
+    });
+  });
+
   it("loads Storage without Compute credentials or a wallet", () => {
     expect(loadZeroGStorageConfig({ ZERO_G_NETWORK: "testnet" })).toMatchObject(
       {
@@ -183,6 +201,16 @@ describe("loadZeroGServerConfig", () => {
     [
       "ZERO_G_COMPUTE_ROUTER_URL",
       "https://router-api.0g.ai/v2",
+      () => loadZeroGComputeConfig,
+    ],
+    [
+      "ZERO_G_COMPUTE_ROUTER_URL",
+      "https://compute-network-20.integratenetwork.work/v1",
+      () => loadZeroGComputeConfig,
+    ],
+    [
+      "ZERO_G_COMPUTE_ROUTER_URL",
+      "https://compute-network-mainnet.integratenetwork.work/v1/proxy",
       () => loadZeroGComputeConfig,
     ],
     [

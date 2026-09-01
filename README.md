@@ -195,6 +195,7 @@ the host. Never commit credentials or prefix secrets with `NEXT_PUBLIC_`.
 | `ZERO_G_REQUIRED`                  | `true` makes 0G-backed AI routes fail with 503 unless a verified private Compute result is returned. Keep `false` while authored fallback is desired.             |
 | `ZERO_G_COMPUTE_API_KEY`           | Server-only Router inference key beginning with `sk-` or `app-sk-`.                                                                                               |
 | `ZERO_G_COMPUTE_MODEL`             | A currently available TeeML model from the selected Router catalog.                                                                                               |
+| `ZERO_G_COMPUTE_ROUTER_URL`        | Optional Compute base URL. Leave blank for the central Router, or use the Private Computer provider URL ending in `/v1/proxy` when your key was created for that provider. |
 | `ZERO_G_SPONSOR_PRIVATE_KEY`       | Dedicated, limited-balance signer for authorized Storage operations. Never expose it to the browser.                                                              |
 | `ZERO_G_AGENTIC_OWNER_PRIVATE_KEY` | Separate server-only owner authorized to update Rivergate AgenticID. Never expose it to the browser or reuse it as a public sponsor.                              |
 | `ZERO_G_STORAGE_UPLOAD_TIMEOUT_MS` | Finality-aware Storage upload deadline; defaults to five minutes. A timeout is an unknown, non-retryable paid outcome until an operator reconciles it.            |
