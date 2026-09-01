@@ -196,8 +196,12 @@
     }
   },
   "rivergateRegistration": {
-    "status": "not-registered",
-    "note": "No Rivergate token identifier or registration transaction is recorded in this manifest."
+    "status": "registered",
+    "agentId": 3531123,
+    "manifest": "rivergate-registration-mainnet.v1.json",
+    "registerTransactionHash": "0xab9d0f46348cd6c4cd6512639ede9ceeb106cec542b285ffdc1786abf56b099a",
+    "agentUriUpdateTransactionHash": "0x40f810ffeb83286b5e3e16ef09cd68da2d1d450048a751fda58e5ef1b4b1a941",
+    "completedAt": "2026-09-01T00:40:36.000Z"
   },
   "provenance": [
     "https://docs.0g.ai/developer-hub/mainnet/mainnet-overview",

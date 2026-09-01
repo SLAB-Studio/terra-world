@@ -76,9 +76,15 @@ printing remote error bodies. Run its deterministic offline tests with
 - The complete public transaction, block, address, bytecode-hash, governance,
   and wiring record is
   `contracts/agentic-id-mainnet/deployment-mainnet.v1.json`.
-- No Rivergate token registration is recorded yet. The verifier oracle is the
-  zero address, so this deployment must not claim a TEE-bound identity, sealed
-  runtime, ServeProof, verified AgenticID reputation, or secure transfer.
+- Rivergate City Steward is registered as canonical agent `3531123`. The
+  application-managed proxy is the canonical custodian, the public operator is
+  the local owner, and the final local/canonical Agent Card URIs match.
+- The registration, URI update, encrypted 0G Storage artifact, commitments, and
+  live verification results are recorded in
+  `contracts/agentic-id-mainnet/rivergate-registration-mainnet.v1.json`.
+- The registration is non-seal and `agentSeal` is zero. The verifier oracle is
+  also zero, so this identity must not claim a TEE-bound identity, sealed runtime,
+  ServeProof, verified AgenticID reputation, or secure transfer.
 - The official 0G-hosted AgenticID service remains Galileo-only. This deployed
   stack is not an official 0G-operated mainnet attestor.
 
@@ -96,6 +102,11 @@ ZERO_G_COMPUTE_MODEL=REPLACE_WITH_CURRENT_TEEML_MODEL
 ZERO_G_SPONSOR_PRIVATE_KEY=0xREPLACE_LOCALLY
 ZERO_G_STORAGE_UPLOAD_TIMEOUT_MS=300000
 
+ZERO_G_RIVERGATE_STORAGE_ROOT=0x6bec9714b20d3ac73545f3d383de14be75dd267ee5a93b2c31b4f3f48ac96abf
+ZERO_G_RIVERGATE_STORAGE_TX_HASH=0x939459398540b3e52bab569d23b22a2e239efc65a47578bcdfdb0580d26a398c
+ZERO_G_CITY_AGENT_ADDRESS=0x0953a70D8c055799ef55404dE72d1d6c541046a9
+ZERO_G_CITY_AGENT_TOKEN_ID=3531123
+
 TERRA_CHECKPOINT_MODE=zero-g
 TERRA_APP_ORIGIN=https://REPLACE_WITH_DEPLOYED_ORIGIN
 DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/terra_world?sslmode=require
@@ -103,7 +114,7 @@ TERRA_DATABASE_MAX_CONNECTIONS=4
 ```
 
 Use a dedicated, limited-balance sponsor wallet. Do not use the Rivergate
-governance multisig key and do not paste either secret into an issue, chat,
+governance/operator key and do not paste either secret into an issue, chat,
 manifest, screenshot, or browser environment.
 
 0G Compute Router balance is separate from the wallet's native 0G balance.
@@ -155,25 +166,25 @@ Normal pedestrian movement, traffic, rendering, doors, local saves, and authored
 ambient dialogue do not call 0G Compute. This keeps token consumption and latency
 away from the frame loop.
 
-## AgenticID registration and governance
+## AgenticID identity and governance
 
 Follow [`agentic-id-mainnet-runbook.md`](agentic-id-mainnet-runbook.md). Contract
-deployment is complete and is recorded in the versioned public manifest.
-Registration remains a separate irreversible approval:
+deployment and Rivergate registration are complete and recorded in separate
+versioned public manifests. Current evidence includes:
 
-1. Recheck the manifest's ten addresses, receipt statuses, runtime bytecode
-   hashes, beacon ownership, proxy wiring, canonical binding, versions, and
-   two-day timelock against the live chain.
-2. Prepare one ERC-8004 Agent Card for Rivergate, upload its exact bytes to 0G
-   Storage, wait for finality, retrieve it, and verify its root and contents.
-3. Explicitly choose direct canonical ERC-8004 registration or non-seal
-   registration through the deployed AgenticID proxy. Neither route may be
-   presented as TEE-backed while the verifier oracle is zero.
-4. Independently decode and review the exact registration calldata, intended
-   owner, target, chain ID, nonce, and gas before signing.
-5. After mining, create a separate versioned registration manifest containing
-   the transaction, block, canonical agent ID, owner, Agent Card URI, and
-   Storage evidence. No token ID is currently claimed.
+1. Canonical agent ID `3531123` in registry
+   `eip155:16661:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`.
+2. Local owner `0x402eA1d4e1335Cc6BdcB6b1AA1563AD93eb5392e`
+   and canonical proxy custody at
+   `0x0953a70D8c055799ef55404dE72d1d6c541046a9`.
+3. Final Agent URI hash
+   `0xb2df1da1978f9b99783caac57d31428b7d7512a75c1a054a2a352f97fd7df05a`,
+   with identical local and canonical URI reads.
+4. Finalized encrypted 0G Storage root
+   `0x6bec9714b20d3ac73545f3d383de14be75dd267ee5a93b2c31b4f3f48ac96abf`,
+   sequence `211646`, proof-checked download, and successful key recovery.
+5. Non-seal mode, zero `agentSeal`, zero verifier oracle, and no advertised TEE
+   trust.
 
 Owner, proposer, pauser, and deployer are currently the same public EOA,
 `0x402eA1d4e1335Cc6BdcB6b1AA1563AD93eb5392e`. Before unattended production use,
@@ -183,9 +194,9 @@ emergency pauser through an independently reviewed timelock operation.
 Routine repairs remain local and inexpensive. At a meaningful milestone, the
 server should create a minimal encrypted city-memory artifact, upload it to 0G
 Storage, and enqueue one idempotent `updateAt` operation for the Rivergate token.
-That milestone worker is not implemented yet because no Rivergate registration,
-token ID, or wrapped-key policy exists. A Storage sync is therefore not labelled
-as AgenticID-anchored today.
+That milestone worker is not implemented yet. A checkpoint Storage sync is
+therefore not labelled as a new AgenticID milestone today, even though the base
+Rivergate identity and initial encrypted intelligence registration are complete.
 
 ## Remaining release gates
 
@@ -199,9 +210,9 @@ as AgenticID-anchored today.
   current self-issued checkpoint session is suitable only for a controlled
   demo and must not guard a funded public sponsor.
 - A sanitized durable Compute trace/audit sink.
-- Governance migration, separate pauser, wrapped-key policy, registration
-  security review, and one explicitly approved Rivergate token registration.
-- Durable milestone outbox/worker after the Rivergate token ID exists.
+- Governance migration and a separate emergency pauser before unattended use.
+- Durable milestone outbox/allowlisted worker and independently verified update
+  receipts before later progress is presented as AgenticID-anchored.
 - Monitoring and alerts for Router failures, Storage retries, database errors,
   sponsor balance, stuck transactions, and unexpected contract events.
 

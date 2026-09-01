@@ -1,6 +1,6 @@
 # Rivergate AgenticID mainnet runbook
 
-Status: **the Terra World AgenticID contract stack is deployed on 0G mainnet; no Rivergate token registration is recorded yet.**
+Status: **the Terra World AgenticID contract stack and Rivergate agent `3531123` are registered on 0G mainnet.**
 
 The deployment is an application-managed instance of the official
 [`0gfoundation/0g-agentic-id`](https://github.com/0gfoundation/0g-agentic-id)
@@ -16,6 +16,18 @@ The public, machine-readable deployment record is
 It records all ten creation transactions, blocks, bytecode addresses, source
 revision, configuration, and post-deployment wiring checks.
 
+The implementation follows the 0G
+[Agentic ID integration guide](https://docs.0g.ai/developer-hub/building-on-0g/agentic-id/integration)
+for encrypted metadata and lifecycle management, while replacing that guide's
+explicit testnet/mock-oracle example with the pinned official contract source
+and fail-closed mainnet configuration recorded below.
+
+The separate public registration record is
+[`contracts/agentic-id-mainnet/rivergate-registration-mainnet.v1.json`](../contracts/agentic-id-mainnet/rivergate-registration-mainnet.v1.json).
+It records the Storage artifact, registration and URI-update receipts, ownership,
+Agent Card fields, commitments, and post-registration reads without publishing
+the wrapped key or any signing material.
+
 ## Deployed mainnet stack
 
 - Network: 0G mainnet, chain `16661`; official RPC
@@ -30,6 +42,8 @@ revision, configuration, and post-deployment wiring checks.
   [`0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`](https://chainscan.0g.ai/address/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432), version `2.0.0`.
 - Canonical ERC-8004 ReputationRegistry:
   [`0x8004BAa17C55a88189AE136b182e5fdA19dE9b63`](https://chainscan.0g.ai/address/0x8004BAa17C55a88189AE136b182e5fdA19dE9b63).
+- Rivergate canonical agent ID:
+  [`3531123`](https://chainscan.0g.ai/token/0x8004A169FB4a3325136EB29fA0ceB6D2e539a432/instance/3531123).
 
 The three upgradeable-contract beacons are owned by the TimelockController and
 point to the implementations recorded in the manifest. AgenticID is bound to the
@@ -56,50 +70,61 @@ Do not add a placeholder oracle, mock attestor, or unverified framework hash.
 `TerraCityAgent.sol` remains a separate application contract and must not be
 presented as ERC-7857, AgenticID, or the canonical ERC-8004 registry.
 
-## Rivergate registration preconditions
+## Completed Rivergate registration
 
-No token ID, registration transaction, Agent Card URI, or finalized Rivergate
-Storage root is claimed by the deployment manifest. Registration is a separate
-irreversible approval and remains pending.
+Rivergate was registered once through the application-managed AgenticID proxy.
+That call minted canonical ERC-8004 agent `3531123` into AgenticID custody while
+the local AgenticID token is owned by
+`0x402eA1d4e1335Cc6BdcB6b1AA1563AD93eb5392e`.
 
-Before constructing registration calldata:
+- Registration transaction:
+  [`0xab9d0f46348cd6c4cd6512639ede9ceeb106cec542b285ffdc1786abf56b099a`](https://chainscan.0g.ai/tx/0xab9d0f46348cd6c4cd6512639ede9ceeb106cec542b285ffdc1786abf56b099a),
+  block `43182149`, receipt status `1`.
+- Final Agent Card URI update:
+  [`0x40f810ffeb83286b5e3e16ef09cd68da2d1d450048a751fda58e5ef1b4b1a941`](https://chainscan.0g.ai/tx/0x40f810ffeb83286b5e3e16ef09cd68da2d1d450048a751fda58e5ef1b4b1a941),
+  block `43182707`, receipt status `1`.
+- Final Agent URI hash: `0xb2df1da1978f9b99783caac57d31428b7d7512a75c1a054a2a352f97fd7df05a`.
+- Local owner: `0x402eA1d4e1335Cc6BdcB6b1AA1563AD93eb5392e`.
+- Canonical owner/custodian: AgenticID proxy
+  `0x0953a70D8c055799ef55404dE72d1d6c541046a9`.
+- Registration mode: non-seal; `getAgentSeal(3531123)` is the zero address.
 
-1. Prepare one Rivergate Agent Card following the
-   [ERC-8004 registration-file specification](https://eips.ethereum.org/EIPS/eip-8004#registration-v1).
-   It represents the evolving city as one identity, not one identity per resident,
-   building, repair, or checkpoint.
-2. Upload the exact Agent Card bytes to 0G Storage mainnet with the official
-   [`@0gfoundation/0g-storage-ts-sdk` flow](https://docs.0g.ai/developer-hub/building-on-0g/storage/sdk).
-   Wait for the upload receipt, retrieve the bytes through the official indexer,
-   and verify the Merkle root and content before using its durable retrieval URI.
-3. Decide explicitly between direct canonical ERC-8004 registration and a
-   non-seal registration through this AgenticID proxy. Direct canonical
-   registration provides the public identity without implying ERC-7857 or TEE
-   features. A non-seal AgenticID registration remains permanently without an
-   `agentSeal` and cannot produce ServeProof.
-4. Have a second operator verify chain ID, target address, exact ABI, Agent Card
-   URI, intended owner, nonce, gas limit, and decoded calldata. The signer must
-   separately approve the registration transaction.
-5. After mining, record the transaction hash, block number/hash, canonical
-   `agentId`, owner, `agentURI`, and exact Storage root in a new versioned
-   registration manifest. Do not add a token ID to the deployment manifest.
+The final ERC-8004 registration document is named **Rivergate City Steward**,
+has `active: true`, identifies registry
+`eip155:16661:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`,
+commits to the intelligent-data root below, and declares `sealMode: none`. Local
+and canonical `tokenURI` reads are identical and hash to the recorded URI hash.
+Its `supportedTrust` list is empty; it does not advertise TEE trust.
 
-If direct canonical registration is selected, call only the official mainnet
-IdentityRegistry using its published ABI. If non-seal AgenticID registration is
-selected, use the pinned AgenticID ABI and acknowledge in the signed review that
-TEE-dependent capabilities are unavailable while the oracle is zero.
+## Encrypted intelligence evidence
 
-## Post-registration verification
+The registered intelligent-data description is “Rivergate encrypted city
+intelligence v1 on 0G Storage.” Its public evidence is:
 
-For either route, verify the `Registered` event, canonical owner, `tokenURI`,
-Agent Card retrieval, and exact downloaded bytes. For a non-seal AgenticID mint,
-also verify local ownership, canonical visibility, intelligent-data commitments,
-`getAgentSeal(agentId) == 0`, and expected failure of TEE-dependent operations.
+- 0G Storage root:
+  `0x6bec9714b20d3ac73545f3d383de14be75dd267ee5a93b2c31b4f3f48ac96abf`.
+- Storage transaction sequence: `211646`.
+- Storage transaction:
+  [`0x939459398540b3e52bab569d23b22a2e239efc65a47578bcdfdb0580d26a398c`](https://chainscan.0g.ai/tx/0x939459398540b3e52bab569d23b22a2e239efc65a47578bcdfdb0580d26a398c),
+  block `43182066`, receipt status `1`, sent to the official mainnet Flow
+  contract `0x62D4144dB0F0a6fBBaeb6296c785C71B3D57C526`.
+- Ciphertext SHA-256:
+  `e8269a892bec02ba0fe28951254e0710f7b738ddf4d0b4535446ee4f2c97ef99`;
+  byte length: `2923`.
+- Recipient fingerprint:
+  `fd70aa7b6b5720db84c9462ccf374167b5b8bee051e712e2f3a40376e091a2f0`.
+- Wrapped-key commitment:
+  `0xac434a395e98f4a82a8864044214d458763fb8fa728f2c66e434a853dfcb2f30`.
+- Proof-checked download and key-recovery test: both complete.
+
+Only the commitment is public; the wrapped key and signing material are not in
+the repository. Live reads confirm the registered intelligent-data root and the
+commitment of the single on-chain sealed-key entry.
 
 Routine city simulation, saves, movement, dialogue, and repairs remain local.
 They do not create identity transactions. Future milestone anchoring requires a
 separate idempotent server worker, durable evidence, and an allowlisted operation;
-it is not implied by this deployment.
+it is not implied by the completed registration.
 
 ## Enabling sealed AgenticID later
 

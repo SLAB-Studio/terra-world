@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "kind": "rivergate-agentic-id-mainnet-registration",
+  "status": "registered",
+  "network": {
+    "name": "0G Mainnet",
+    "chainId": 16661,
+    "rpcUrl": "https://evmrpc.0g.ai",
+    "explorerUrl": "https://chainscan.0g.ai",
+    "storageIndexer": "https://indexer-storage-turbo.0g.ai",
+    "storageFlowContract": "0x62D4144dB0F0a6fBBaeb6296c785C71B3D57C526"
+  },
+  "source": {
+    "repository": "https://github.com/0gfoundation/0g-agentic-id.git",
+    "commit": "afc4d0e94af94ad5f2351215ed32c94e2fe7a54e",
+    "deploymentManifest": "deployment-mainnet.v1.json"
+  },
+  "identity": {
+    "agentId": 3531123,
+    "agentRegistry": "eip155:16661:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "agenticIdProxy": "0x0953a70D8c055799ef55404dE72d1d6c541046a9",
+    "canonicalERC8004IdentityRegistry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "localOwner": "0x402eA1d4e1335Cc6BdcB6b1AA1563AD93eb5392e",
+    "canonicalOwnerAndCustodian": "0x0953a70D8c055799ef55404dE72d1d6c541046a9",
+    "registrationMode": "non-seal",
+    "agentSeal": "0x0000000000000000000000000000000000000000"
+  },
+  "agentCard": {
+    "uriEncoding": "data:application/json;base64",
+    "uriHashAlgorithm": "keccak256-utf8",
+    "uriHash": "0xb2df1da1978f9b99783caac57d31428b7d7512a75c1a054a2a352f97fd7df05a",
+    "localAndCanonicalUriMatch": true,
+    "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+    "name": "Rivergate City Steward",
+    "description": "A non-seal Terra World city agent backed by encrypted data on 0G Storage.",
+    "active": true,
+    "services": [],
+    "x402Support": false,
+    "supportedTrust": [],
+    "registration": {
+      "agentId": 3531123,
+      "agentRegistry": "eip155:16661:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
+    },
+    "properties": {
+      "agenticIdProxy": "0x0953a70D8c055799ef55404dE72d1d6c541046a9",
+      "intelligentDataRoot": "0x6bec9714b20d3ac73545f3d383de14be75dd267ee5a93b2c31b4f3f48ac96abf",
+      "sealMode": "none"
+    }
+  },
+  "intelligentData": {
+    "description": "Rivergate encrypted city intelligence v1 on 0G Storage",
+    "rootHash": "0x6bec9714b20d3ac73545f3d383de14be75dd267ee5a93b2c31b4f3f48ac96abf",
+    "sealedKeyCount": 1,
+    "wrappedKeyCommitmentAlgorithm": "keccak256",
+    "wrappedKeyCommitment": "0xac434a395e98f4a82a8864044214d458763fb8fa728f2c66e434a853dfcb2f30",
+    "recipientFingerprint": "fd70aa7b6b5720db84c9462ccf374167b5b8bee051e712e2f3a40376e091a2f0"
+  },
+  "storage": {
+    "rootHash": "0x6bec9714b20d3ac73545f3d383de14be75dd267ee5a93b2c31b4f3f48ac96abf",
+    "transactionSequence": 211646,
+    "ciphertextSha256": "e8269a892bec02ba0fe28951254e0710f7b738ddf4d0b4535446ee4f2c97ef99",
+    "ciphertextBytes": 2923,
+    "finalized": true,
+    "proofDownloadVerified": true,
+    "keyRecoveryTested": true,
+    "transaction": {
+      "transactionHash": "0x939459398540b3e52bab569d23b22a2e239efc65a47578bcdfdb0580d26a398c",
+      "from": "0x402eA1d4e1335Cc6BdcB6b1AA1563AD93eb5392e",
+      "to": "0x62D4144dB0F0a6fBBaeb6296c785C71B3D57C526",
+      "nonce": 12,
+      "receiptStatus": 1,
+      "blockNumber": 43182066,
+      "blockHash": "0x2dc5ac3236a802976dcfe536328159ff761bda277907f994d55203e1271d70d0",
+      "timestamp": "2026-09-01T00:30:04.000Z",
+      "gasUsed": "302497"
+    }
+  },
+  "transactions": {
+    "register": {
+      "transactionHash": "0xab9d0f46348cd6c4cd6512639ede9ceeb106cec542b285ffdc1786abf56b099a",
+      "from": "0x402eA1d4e1335Cc6BdcB6b1AA1563AD93eb5392e",
+      "to": "0x0953a70D8c055799ef55404dE72d1d6c541046a9",
+      "nonce": 13,
+      "receiptStatus": 1,
+      "blockNumber": 43182149,
+      "blockHash": "0xbabaf8e5486a74f5510ddcf48ff26ea1c3917b538d3ab9e67f135c1214bb8972",
+      "timestamp": "2026-09-01T00:31:24.000Z",
+      "gasUsed": "1328010"
+    },
+    "setAgentUri": {
+      "transactionHash": "0x40f810ffeb83286b5e3e16ef09cd68da2d1d450048a751fda58e5ef1b4b1a941",
+      "from": "0x402eA1d4e1335Cc6BdcB6b1AA1563AD93eb5392e",
+      "to": "0x0953a70D8c055799ef55404dE72d1d6c541046a9",
+      "nonce": 14,
+      "receiptStatus": 1,
+      "blockNumber": 43182707,
+      "blockHash": "0x9846451b4f8690735c61876c900295151441d53dc6d9d63fb45d04ac47e54ead",
+      "timestamp": "2026-09-01T00:40:36.000Z",
+      "gasUsed": "290485"
+    }
+  },
+  "onChainVerification": {
+    "verifiedOn": "2026-09-01",
+    "registrationReceiptSucceeded": true,
+    "uriUpdateReceiptSucceeded": true,
+    "localOwnerMatches": true,
+    "canonicalCustodianMatches": true,
+    "localAndCanonicalUriMatch": true,
+    "agentUriHashMatches": true,
+    "intelligentDataRootMatches": true,
+    "wrappedKeyCommitmentMatches": true,
+    "agentSealIsZero": true
+  },
+  "capabilityBoundary": {
+    "teeOracleConfigured": false,
+    "teeAttested": false,
+    "sealedRuntime": false,
+    "serveProof": false,
+    "verifiedAgenticIdReputation": false,
+    "proofGatedSecureTransfer": false
+  },
+  "provenance": [
+    "https://docs.0g.ai/developer-hub/mainnet/mainnet-overview",
+    "https://docs.0g.ai/developer-hub/building-on-0g/agentic-id/integration",
+    "https://docs.0g.ai/developer-hub/building-on-0g/storage/sdk",
+    "https://eips.ethereum.org/EIPS/eip-8004",
+    "https://github.com/erc-8004/erc-8004-contracts/blob/master/README.md#0g-mainnet",
+    "https://github.com/0gfoundation/0g-agentic-id/blob/afc4d0e94af94ad5f2351215ed32c94e2fe7a54e/contracts/DEPLOYMENT.md"
+  ]
+}
