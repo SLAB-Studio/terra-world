@@ -5,6 +5,7 @@ import {
   type CheckpointRemoteStorage,
   type CheckpointUploadRequest,
 } from "../../../lib/checkpoints/backup";
+import { assertEncryptedCheckpointEnvelope } from "../../../lib/checkpoints/encryption";
 
 export const CHECKPOINT_API_LIMITS = {
   maximumBodyBytes: 7_100_000,
@@ -23,6 +24,7 @@ export type AdultSession = Readonly<{ sessionId: string }>;
 export type AdultCheckpointStorageReference = CheckpointRemoteReceipt &
   Readonly<{
     idempotencyKey: string;
+    checkpointSavedAt: number | null;
     attachedAt: number;
   }>;
 
@@ -202,6 +204,10 @@ async function uploadCheckpoint(
     byteLength: body.byteLength,
   };
   try {
+    const checkpointSavedAt = readCheckpointSavedAt(request.encryptedEnvelope);
+    if (checkpointSavedAt === null) {
+      return failure("checkpoint_rejected", false, 422);
+    }
     const existing = await options.sessions.findByIdempotency(
       session,
       request.idempotencyKey,
@@ -209,7 +215,8 @@ async function uploadCheckpoint(
     if (existing) {
       if (
         existing.contentHash !== request.contentHash ||
-        existing.byteLength !== request.byteLength
+        existing.byteLength !== request.byteLength ||
+        existing.checkpointSavedAt !== checkpointSavedAt
       ) {
         return failure("checkpoint_rejected", false, 409);
       }
@@ -226,11 +233,22 @@ async function uploadCheckpoint(
     await options.sessions.attach(session, {
       ...receipt,
       idempotencyKey: request.idempotencyKey,
+      checkpointSavedAt,
       attachedAt: validTimestamp(clock()),
     });
     return success({ receipt: toRemoteReceipt(receipt) });
   } catch (error) {
     return remoteFailure(error);
+  }
+}
+
+function readCheckpointSavedAt(encryptedEnvelope: string): number | null {
+  try {
+    const envelope = JSON.parse(encryptedEnvelope) as unknown;
+    assertEncryptedCheckpointEnvelope(envelope);
+    return validTimestamp(envelope.aad.createdAt);
+  } catch {
+    return null;
   }
 }
 

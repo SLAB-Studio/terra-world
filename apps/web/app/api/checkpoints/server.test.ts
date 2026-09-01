@@ -21,7 +21,21 @@ const OTHER_SESSION: AdultSession = { sessionId: "adult-session-2" };
 const ROOT = `0x${"11".repeat(32)}`;
 const CONTENT_HASH = `sha256:${"a".repeat(64)}`;
 const IDEMPOTENCY_KEY = `checkpoint-v1-${"a".repeat(64)}`;
-const ENVELOPE = '{"schemaVersion":1,"ciphertext":"opaque"}';
+const ENVELOPE = JSON.stringify({
+  schemaVersion: 1,
+  algorithm: "AES-GCM",
+  keyId: "adult-device-key",
+  iv: "AAAAAAAAAAAAAAAA",
+  aad: {
+    schemaVersion: 1,
+    checkpointSchemaVersion: 1,
+    cityId: "rivergate",
+    campaignId: "rivergate-restoration",
+    campaignVersion: 1,
+    createdAt: 1_000,
+  },
+  ciphertext: "AAAAAAAAAAAAAAAAAAAAAA",
+});
 const BYTE_LENGTH = new TextEncoder().encode(ENVELOPE).byteLength;
 
 describe("authenticated checkpoint API contract", () => {
@@ -54,7 +68,11 @@ describe("authenticated checkpoint API contract", () => {
     );
     await expect(
       sessions.findByIdempotency(SESSION, IDEMPOTENCY_KEY),
-    ).resolves.toMatchObject({ root: ROOT, attachedAt: 1_000 });
+    ).resolves.toMatchObject({
+      root: ROOT,
+      checkpointSavedAt: 1_000,
+      attachedAt: 1_000,
+    });
   });
 
   it("returns the adult session's existing root for an idempotent duplicate without spending again", async () => {

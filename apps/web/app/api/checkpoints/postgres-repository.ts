@@ -26,6 +26,7 @@ type ReferenceRow = Readonly<{
   transaction_hash: string | null;
   transaction_sequence: string | number | null;
   idempotency_key: string;
+  checkpoint_saved_at: string | number | null;
   attached_at: string | number;
 }>;
 
@@ -110,6 +111,7 @@ export function createPostgresAdultCheckpointRepository(
           reference.transaction_hash,
           reference.transaction_sequence,
           reference.idempotency_key,
+          reference.checkpoint_saved_at,
           reference.attached_at
         FROM terra_checkpoint_references AS reference
         INNER JOIN terra_checkpoint_sessions AS session
@@ -135,6 +137,7 @@ export function createPostgresAdultCheckpointRepository(
           byte_length,
           transaction_hash,
           transaction_sequence,
+          checkpoint_saved_at,
           attached_at
         )
         SELECT
@@ -145,6 +148,7 @@ export function createPostgresAdultCheckpointRepository(
           ${reference.byteLength},
           ${reference.transactionHash ?? null},
           ${reference.transactionSequence ?? null},
+          ${reference.checkpointSavedAt},
           ${reference.attachedAt}
         WHERE EXISTS (
           SELECT 1
@@ -165,6 +169,7 @@ export function createPostgresAdultCheckpointRepository(
           transaction_hash,
           transaction_sequence,
           idempotency_key,
+          checkpoint_saved_at,
           attached_at
         FROM terra_checkpoint_references
         WHERE session_id = ${session.sessionId}
@@ -187,6 +192,7 @@ export function createPostgresAdultCheckpointRepository(
           transaction_hash,
           transaction_sequence,
           idempotency_key,
+          checkpoint_saved_at,
           attached_at
         FROM terra_checkpoint_references
         WHERE root = ${root}
@@ -229,6 +235,8 @@ function referenceFromRow(row: ReferenceRow): AdultCheckpointStorageReference {
         ? null
         : Number(row.transaction_sequence),
     idempotencyKey: row.idempotency_key,
+    checkpointSavedAt:
+      row.checkpoint_saved_at === null ? null : Number(row.checkpoint_saved_at),
     attachedAt: Number(row.attached_at),
   };
   assertReference(reference);
@@ -247,6 +255,7 @@ function sameReference(
     (left.transactionSequence ?? null) ===
       (right.transactionSequence ?? null) &&
     left.idempotencyKey === right.idempotencyKey &&
+    left.checkpointSavedAt === right.checkpointSavedAt &&
     left.attachedAt === right.attachedAt
   );
 }
@@ -281,6 +290,9 @@ function assertReference(reference: AdultCheckpointStorageReference): void {
       reference.transactionSequence !== null &&
       (!Number.isSafeInteger(reference.transactionSequence) ||
         reference.transactionSequence < 0)) ||
+    (reference.checkpointSavedAt !== null &&
+      (!Number.isSafeInteger(reference.checkpointSavedAt) ||
+        reference.checkpointSavedAt < 0)) ||
     !Number.isSafeInteger(reference.attachedAt) ||
     reference.attachedAt < 0
   ) {

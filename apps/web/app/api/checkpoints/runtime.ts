@@ -28,6 +28,14 @@ import {
   createPostgresAdultCheckpointRepository,
   readCheckpointDatabaseConfig,
 } from "./postgres-repository";
+import {
+  CheckpointAnchorError,
+  createCheckpointAnchorGlobalRateLimiter,
+  createCheckpointAnchorPostHandler,
+  type CheckpointAnchorEvidence,
+  type CheckpointAnchorGlobalRateLimiter,
+  type CheckpointAnchorService,
+} from "./anchor-server";
 
 export type CheckpointRuntimeMode = "demo" | "disabled" | "zero-g";
 
@@ -35,6 +43,7 @@ export type CheckpointRouteRuntime = Readonly<{
   mode: CheckpointRuntimeMode;
   checkpointPost(request: Request): Promise<Response>;
   sessionPost(request: Request): Promise<Response>;
+  anchorPost(request: Request): Promise<Response>;
 }>;
 
 export type CheckpointRouteRuntimeOptions = Readonly<{
@@ -42,6 +51,8 @@ export type CheckpointRouteRuntimeOptions = Readonly<{
   allowedOrigins: readonly string[];
   repository?: AdultCheckpointRepository;
   remote?: CheckpointRemoteStorage;
+  anchorService?: CheckpointAnchorService;
+  anchorGlobalRateLimiter?: CheckpointAnchorGlobalRateLimiter;
   clock?: () => number;
 }>;
 
@@ -50,9 +61,11 @@ export function createCheckpointRouteRuntime(
   options: CheckpointRouteRuntimeOptions,
 ): CheckpointRouteRuntime {
   const repository =
-    options.repository ?? createMemoryAdultCheckpointRepository();
+    options.repository ?? repositoryForMode(options.mode, process.env);
   const clock = options.clock ?? Date.now;
   const remote = options.remote ?? remoteForMode(options.mode, process.env);
+  const anchorService =
+    options.anchorService ?? anchorServiceForMode(options.mode, process.env);
   const addModeHeader =
     (handler: (request: Request) => Promise<Response>) =>
     async (request: Request): Promise<Response> => {
@@ -87,13 +100,35 @@ export function createCheckpointRouteRuntime(
         clock,
       }),
     ),
+    anchorPost: addModeHeader(
+      createCheckpointAnchorPostHandler({
+        repository,
+        authorizeAdultSession: createAdultSessionAuthorizer({
+          repository,
+          clock,
+        }),
+        sessionRateLimiter: createAdultSessionRateLimiter({
+          capacity: 6,
+          windowMs: 60 * 60_000,
+          clock,
+        }),
+        globalRateLimiter:
+          options.anchorGlobalRateLimiter ?? getGlobalAnchorRateLimiter(),
+        service: anchorService,
+        allowedOrigins: options.allowedOrigins,
+      }),
+    ),
   });
 }
 
 const CHECKPOINT_RUNTIME_KEY = Symbol.for("terra-world.checkpoint-runtime.v1");
+const CHECKPOINT_ANCHOR_RATE_LIMITER_KEY = Symbol.for(
+  "terra-world.checkpoint-anchor-global-rate-limiter.v1",
+);
 
 type CheckpointRuntimeGlobal = typeof globalThis & {
   [CHECKPOINT_RUNTIME_KEY]?: CheckpointRouteRuntime;
+  [CHECKPOINT_ANCHOR_RATE_LIMITER_KEY]?: CheckpointAnchorGlobalRateLimiter;
 };
 
 export function getCheckpointRouteRuntime(): CheckpointRouteRuntime {
@@ -222,12 +257,194 @@ function repositoryForMode(
   mode: CheckpointRuntimeMode,
   env: NodeJS.ProcessEnv,
 ): AdultCheckpointRepository {
-  if (mode !== "zero-g") return createMemoryAdultCheckpointRepository();
+  if (readCheckpointRepositoryKind(mode, env) === "memory") {
+    return createMemoryAdultCheckpointRepository();
+  }
   const database = readCheckpointDatabaseConfig(env);
   return createPostgresAdultCheckpointRepository({
     databaseUrl: database.databaseUrl,
     maximumConnections: database.maximumConnections,
   });
+}
+
+export function readCheckpointRepositoryKind(
+  mode: CheckpointRuntimeMode,
+  env: Readonly<Record<string, string | undefined>>,
+): "memory" | "postgres" {
+  if (mode !== "zero-g") return "memory";
+  const configured = env.TERRA_CHECKPOINT_REPOSITORY?.trim();
+  if (
+    configured === undefined ||
+    configured === "" ||
+    configured === "postgres"
+  ) {
+    return "postgres";
+  }
+  if (configured !== "memory") {
+    throw new TypeError(
+      "TERRA_CHECKPOINT_REPOSITORY must be postgres or memory",
+    );
+  }
+  if (env.NODE_ENV === "production") {
+    throw new TypeError(
+      "Production zero-g mode requires the PostgreSQL checkpoint repository",
+    );
+  }
+  if (
+    readExactBoolean(
+      env.TERRA_ALLOW_MAINNET_MEMORY_REPOSITORY,
+      "TERRA_ALLOW_MAINNET_MEMORY_REPOSITORY",
+    ) !== true
+  ) {
+    throw new TypeError(
+      "Mainnet memory repository requires an explicit development opt-in",
+    );
+  }
+  return "memory";
+}
+
+export function isAgenticCheckpointSyncEnabled(
+  env: Readonly<Record<string, string | undefined>>,
+): boolean {
+  return (
+    readExactBoolean(
+      env.TERRA_AGENTIC_SYNC_ENABLED,
+      "TERRA_AGENTIC_SYNC_ENABLED",
+    ) ?? false
+  );
+}
+
+function anchorServiceForMode(
+  mode: CheckpointRuntimeMode,
+  env: NodeJS.ProcessEnv,
+): CheckpointAnchorService {
+  if (mode !== "zero-g" || !isAgenticCheckpointSyncEnabled(env)) {
+    return unavailableAnchorService();
+  }
+
+  // The core synchronizer is resolved on the first authorized, validated anchor
+  // request so disabled/demo routes never construct a signer or network client.
+  let servicePromise: Promise<CheckpointAnchorService> | undefined;
+  const inFlight = new Map<string, Promise<CheckpointAnchorEvidence>>();
+  return Object.freeze({
+    anchor: (request) => {
+      const existing = inFlight.get(request.idempotencyKey);
+      if (existing !== undefined) return existing;
+      servicePromise ??= createCoreAgenticAnchorService(env);
+      const operation = servicePromise
+        .then((service) => service.anchor(request))
+        .finally(() => {
+          if (inFlight.get(request.idempotencyKey) === operation) {
+            inFlight.delete(request.idempotencyKey);
+          }
+        });
+      inFlight.set(request.idempotencyKey, operation);
+      return operation;
+    },
+  });
+}
+
+async function createCoreAgenticAnchorService(
+  env: NodeJS.ProcessEnv,
+): Promise<CheckpointAnchorService> {
+  const ownerPrivateKey = requiredAgenticOwnerPrivateKey(env);
+  const storageConfig = loadZeroGStorageConfig(env);
+  const sponsorConfig = loadZeroGSponsorConfig(env);
+  const storage = createZeroGStorageAdapter(
+    { ...storageConfig, ...sponsorConfig },
+    {
+      driver: createOfficialZeroGStorageDriver(),
+      maximumUploadBytes: CHECKPOINT_API_LIMITS.maximumBodyBytes,
+      maximumDownloadBytes: CHECKPOINT_API_LIMITS.maximumBodyBytes,
+    },
+  );
+  const agentic = await import("../../../../../packages/zero-g/src/server");
+  const synchronizer = agentic.createAgenticMilestoneSynchronizer(
+    {
+      chainId: agentic.AGENTIC_MILESTONE_MAINNET_TARGET.chainId,
+      chainRpcUrl: storageConfig.chainRpcUrl,
+      agenticIdProxy: agentic.AGENTIC_MILESTONE_MAINNET_TARGET.agenticIdProxy,
+      canonicalRegistry:
+        agentic.AGENTIC_MILESTONE_MAINNET_TARGET.canonicalRegistry,
+      agentTokenId: agentic.AGENTIC_MILESTONE_MAINNET_TARGET.agentTokenId,
+      intelligentDataIndex:
+        agentic.AGENTIC_MILESTONE_MAINNET_TARGET.intelligentDataIndex,
+      ownerPrivateKey,
+    },
+    { storage },
+  );
+
+  return Object.freeze({
+    async anchor(request) {
+      const result = await synchronizer.sync({
+        idempotencyKey: request.idempotencyKey,
+        rootHash: request.checkpointRoot,
+        contentHash: request.contentHash,
+        byteLength: request.byteLength,
+        transactionHash: request.milestoneStorageTransactionHash,
+        transactionSequence: request.milestoneStorageTransactionSequence,
+        savedAt: request.checkpointSavedAt,
+      });
+      return Object.freeze({
+        status:
+          result.status === "already-current"
+            ? ("already-synced" as const)
+            : ("synced" as const),
+        checkpointRoot: request.checkpointRoot,
+        agenticRoot: result.milestoneRoot,
+        milestoneStorageTransactionHash:
+          result.milestoneStorage.transactionHash,
+        milestoneStorageTransactionSequence:
+          result.milestoneStorage.transactionSequence,
+        milestoneStorageBlockNumber: null,
+        updateAtTransactionHash: result.updateAt?.transactionHash ?? null,
+        updateAtBlockNumber: result.updateAt?.blockNumber ?? null,
+        agentCardTransactionHash: result.agentCard?.transactionHash ?? null,
+        agentCardBlockNumber: result.agentCard?.blockNumber ?? null,
+      });
+    },
+  });
+}
+
+function unavailableAnchorService(): CheckpointAnchorService {
+  return Object.freeze({
+    anchor: async () => {
+      throw new CheckpointAnchorError("not_configured", false);
+    },
+  });
+}
+
+function getGlobalAnchorRateLimiter(): CheckpointAnchorGlobalRateLimiter {
+  const runtimeGlobal = globalThis as CheckpointRuntimeGlobal;
+  runtimeGlobal[CHECKPOINT_ANCHOR_RATE_LIMITER_KEY] ??=
+    createCheckpointAnchorGlobalRateLimiter({
+      capacity: 30,
+      windowMs: 60 * 60_000,
+    });
+  return runtimeGlobal[CHECKPOINT_ANCHOR_RATE_LIMITER_KEY];
+}
+
+function readExactBoolean(
+  value: string | undefined,
+  field: string,
+): boolean | undefined {
+  const normalized = value?.trim().toLowerCase();
+  if (normalized === undefined || normalized === "") return undefined;
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+  throw new TypeError(`${field} must be true or false`);
+}
+
+function requiredAgenticOwnerPrivateKey(
+  env: Readonly<Record<string, string | undefined>>,
+): `0x${string}` {
+  const value = env.ZERO_G_AGENTIC_OWNER_PRIVATE_KEY?.trim();
+  if (!value || !/^0x[0-9a-fA-F]{64}$/u.test(value)) {
+    throw new TypeError(
+      "ZERO_G_AGENTIC_OWNER_PRIVATE_KEY must be a 32-byte private key",
+    );
+  }
+  return value as `0x${string}`;
 }
 
 function unavailableRemote(): CheckpointRemoteStorage {

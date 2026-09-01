@@ -16,10 +16,18 @@ CREATE TABLE IF NOT EXISTS terra_checkpoint_references (
   byte_length INTEGER NOT NULL CHECK (byte_length > 0),
   transaction_hash TEXT,
   transaction_sequence BIGINT CHECK (transaction_sequence >= 0),
+  checkpoint_saved_at BIGINT NOT NULL CHECK (checkpoint_saved_at >= 0),
   attached_at BIGINT NOT NULL CHECK (attached_at >= 0),
   PRIMARY KEY (session_id, idempotency_key),
   UNIQUE (session_id, root)
 );
+
+-- Existing pre-anchor installations gain a nullable column. New references
+-- always write the authenticated envelope timestamp; legacy rows remain
+-- ineligible for AgenticID anchoring rather than inventing a timestamp.
+ALTER TABLE terra_checkpoint_references
+  ADD COLUMN IF NOT EXISTS checkpoint_saved_at BIGINT
+  CHECK (checkpoint_saved_at >= 0);
 
 CREATE INDEX IF NOT EXISTS terra_checkpoint_references_root_idx
   ON terra_checkpoint_references (root, attached_at DESC);

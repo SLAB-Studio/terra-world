@@ -4,7 +4,11 @@ import type { CheckpointRemoteStorage } from "../../../lib/checkpoints/backup";
 import {
   createCheckpointRouteRuntime,
   createMemoryEncryptedCheckpointRemote,
+  isAgenticCheckpointSyncEnabled,
+  readCheckpointRepositoryKind,
 } from "./runtime";
+import type { CheckpointAnchorService } from "./anchor-server";
+import { createMemoryAdultCheckpointRepository } from "./session-server";
 
 const ORIGIN = "https://terra.world";
 const ENVELOPE = JSON.stringify({
@@ -90,6 +94,7 @@ describe("composable checkpoint Next route", () => {
       mode: "zero-g",
       allowedOrigins: [ORIGIN],
       remote,
+      repository: createMemoryAdultCheckpointRepository(),
     });
 
     const unauthorized = await runtime.checkpointPost(
@@ -177,6 +182,124 @@ describe("composable checkpoint Next route", () => {
         encryptedEnvelope: ENVELOPE,
       },
     });
+  });
+
+  it("composes authenticated stored checkpoints into the anchor bridge", async () => {
+    const prepared = await uploadValues();
+    const root = `0x${"1".repeat(64)}` as `0x${string}`;
+    const storageTransactionHash = `0x${"2".repeat(64)}` as `0x${string}`;
+    const remote = {
+      upload: vi.fn(async () => ({
+        root,
+        contentHash: prepared.contentHash,
+        byteLength: prepared.byteLength,
+        transactionHash: storageTransactionHash,
+        transactionSequence: 9,
+      })),
+      download: vi.fn(),
+    } satisfies CheckpointRemoteStorage;
+    const evidence = {
+      status: "synced" as const,
+      checkpointRoot: root,
+      agenticRoot: `0x${"3".repeat(64)}` as `0x${string}`,
+      milestoneStorageTransactionHash: `0x${"4".repeat(64)}` as `0x${string}`,
+      milestoneStorageTransactionSequence: 10,
+      milestoneStorageBlockNumber: null,
+      updateAtTransactionHash: `0x${"5".repeat(64)}` as `0x${string}`,
+      updateAtBlockNumber: 11,
+      agentCardTransactionHash: `0x${"6".repeat(64)}` as `0x${string}`,
+      agentCardBlockNumber: 12,
+    };
+    const anchorService = {
+      anchor: vi.fn(async () => evidence),
+    } satisfies CheckpointAnchorService;
+    const runtime = createCheckpointRouteRuntime({
+      mode: "zero-g",
+      allowedOrigins: [ORIGIN],
+      remote,
+      repository: createMemoryAdultCheckpointRepository(),
+      anchorService,
+      anchorGlobalRateLimiter: { tryAcquire: () => true },
+      clock: () => 20_000,
+    });
+    const cookie = await beginSession(runtime);
+    const uploaded = await runtime.checkpointPost(
+      apiRequest(
+        { schemaVersion: 1, operation: "upload", ...prepared },
+        cookie,
+        prepared.idempotencyKey,
+      ),
+    );
+    expect(uploaded.status).toBe(200);
+
+    const anchored = await runtime.anchorPost(
+      new Request(`${ORIGIN}/api/checkpoints/anchor`, {
+        method: "POST",
+        headers: {
+          origin: ORIGIN,
+          cookie,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          schemaVersion: 1,
+          operation: "anchor",
+          root,
+          contentHash: prepared.contentHash,
+          byteLength: prepared.byteLength,
+          checkpointSavedAt: 1_000,
+        }),
+      }),
+    );
+
+    expect(anchored.status).toBe(200);
+    expect(anchored.headers.get("x-terra-checkpoint-mode")).toBe("zero-g");
+    expect(await anchored.json()).toEqual({ ok: true, evidence });
+    expect(anchorService.anchor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        checkpointRoot: root,
+        contentHash: prepared.contentHash,
+        byteLength: prepared.byteLength,
+        checkpointSavedAt: 1_000,
+        milestoneStorageTransactionHash: storageTransactionHash,
+        milestoneStorageTransactionSequence: 9,
+      }),
+    );
+  });
+
+  it("allows the zero-g memory repository only behind both development opt-ins", () => {
+    expect(
+      readCheckpointRepositoryKind("zero-g", {
+        NODE_ENV: "development",
+        TERRA_CHECKPOINT_REPOSITORY: "memory",
+        TERRA_ALLOW_MAINNET_MEMORY_REPOSITORY: "true",
+      }),
+    ).toBe("memory");
+    expect(() =>
+      readCheckpointRepositoryKind("zero-g", {
+        NODE_ENV: "development",
+        TERRA_CHECKPOINT_REPOSITORY: "memory",
+      }),
+    ).toThrow("explicit development opt-in");
+    expect(() =>
+      readCheckpointRepositoryKind("zero-g", {
+        NODE_ENV: "production",
+        TERRA_CHECKPOINT_REPOSITORY: "memory",
+        TERRA_ALLOW_MAINNET_MEMORY_REPOSITORY: "true",
+      }),
+    ).toThrow("requires the PostgreSQL checkpoint repository");
+    expect(readCheckpointRepositoryKind("zero-g", {})).toBe("postgres");
+  });
+
+  it("requires an exact Agentic sync enablement flag", () => {
+    expect(isAgenticCheckpointSyncEnabled({})).toBe(false);
+    expect(
+      isAgenticCheckpointSyncEnabled({ TERRA_AGENTIC_SYNC_ENABLED: "true" }),
+    ).toBe(true);
+    expect(() =>
+      isAgenticCheckpointSyncEnabled({
+        TERRA_AGENTIC_SYNC_ENABLED: "yes",
+      }),
+    ).toThrow("TERRA_AGENTIC_SYNC_ENABLED must be true or false");
   });
 });
 

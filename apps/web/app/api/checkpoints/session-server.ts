@@ -325,6 +325,9 @@ function assertReference(value: AdultCheckpointStorageReference): void {
     !SAFE_ROOT.test(value.root) ||
     !CONTENT_HASH.test(value.contentHash) ||
     !IDEMPOTENCY_KEY.test(value.idempotencyKey) ||
+    (value.checkpointSavedAt !== null &&
+      (!Number.isSafeInteger(value.checkpointSavedAt) ||
+        value.checkpointSavedAt < 0)) ||
     !Number.isSafeInteger(value.byteLength) ||
     value.byteLength < 1 ||
     !Number.isSafeInteger(value.attachedAt) ||

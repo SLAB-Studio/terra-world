@@ -45,6 +45,7 @@ function reference(
     transactionHash: TRANSACTION_HASH,
     transactionSequence: 7,
     idempotencyKey: IDEMPOTENCY_KEY,
+    checkpointSavedAt: 1_724_999_999_900,
     attachedAt: 1_725_000_000_000,
     ...overrides,
   };
@@ -58,6 +59,8 @@ function row(value: AdultCheckpointStorageReference) {
     transaction_hash: value.transactionHash ?? null,
     transaction_sequence: String(value.transactionSequence ?? ""),
     idempotency_key: value.idempotencyKey,
+    checkpoint_saved_at:
+      value.checkpointSavedAt === null ? null : String(value.checkpointSavedAt),
     attached_at: String(value.attachedAt),
   };
 }
@@ -153,9 +156,13 @@ describe("PostgreSQL checkpoint evidence", () => {
     );
     expect(fake.invocations[0]?.values[5]).toBe(TRANSACTION_HASH);
     expect(fake.invocations[0]?.values[6]).toBe(7);
+    expect(fake.invocations[0]?.values[7]).toBe(1_724_999_999_900);
     expect(fake.invocations[1]?.text).toContain("reference.transaction_hash");
     expect(fake.invocations[1]?.text).toContain(
       "reference.transaction_sequence",
+    );
+    expect(fake.invocations[1]?.text).toContain(
+      "reference.checkpoint_saved_at",
     );
   });
 

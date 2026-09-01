@@ -71,6 +71,7 @@ describe("privacy-safe adult checkpoint sessions", () => {
       contentHash: `sha256:${"a".repeat(64)}`,
       byteLength: 10,
       idempotencyKey: `checkpoint-v1-${"a".repeat(64)}`,
+      checkpointSavedAt: now,
       attachedAt: now,
     });
     now = 65_000;
