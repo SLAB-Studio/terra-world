@@ -173,6 +173,7 @@ test("broadcast pins mainnet, finality options, proof download, and public manif
       chainId: 16661,
       rootHash: ROOT,
       transactionHash: TX_HASH,
+      transactionSequence: 7,
       finalized: true,
       downloadVerified: true,
       ciphertextOnlyUploaded: true,

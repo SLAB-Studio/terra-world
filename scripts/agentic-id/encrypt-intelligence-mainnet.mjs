@@ -297,6 +297,7 @@ export function buildStorageManifest(
     chainId: MAINNET.chainId,
     rootHash: storage.rootHash,
     transactionHash: storage.transactionHash,
+    transactionSequence: storage.transactionSequence,
     finalized: true,
     downloadVerified: true,
     ciphertextOnlyUploaded: true,
