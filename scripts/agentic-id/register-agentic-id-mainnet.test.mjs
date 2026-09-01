@@ -65,11 +65,19 @@ function registeredLog(agentId = AGENT_ID) {
 }
 
 function receipt(hash, logs = []) {
-  return { status: 1, hash, blockNumber: 100, gasUsed: 120_000n, logs };
+  return {
+    status: 1,
+    hash,
+    to: AGENTIC_ID_PROXY,
+    blockNumber: 100,
+    gasUsed: 120_000n,
+    logs,
+  };
 }
 
 function fakeClient(overrides = {}) {
-  let currentUri = null;
+  const { initialUri = null, ...clientOverrides } = overrides;
+  let currentUri = initialUri;
   const calls = [];
   const client = {
     address: DEPLOYER,
@@ -84,16 +92,26 @@ function fakeClient(overrides = {}) {
       currentUri = input.agentURI;
       return AGENT_ID;
     },
-    estimateRegisterGas: async () => 200_000n,
+    estimateRegisterGas: async (input) => {
+      calls.push(["estimate-register", input]);
+      return 200_000n;
+    },
     getNonces: async () => ({ latest: 5, pending: 5 }),
     getGasPrice: async () => 1_000_000_000n,
     getBalance: async () => 10n ** 20n,
+    getTransactionReceipt: async (transactionHash) =>
+      transactionHash === REGISTER_HASH
+        ? receipt(REGISTER_HASH, [registeredLog()])
+        : null,
     broadcastRegister: async (input, gasLimit, gasPrice, nonce) => {
       calls.push(["broadcast-register", input, gasLimit, gasPrice, nonce]);
       currentUri = input.agentURI;
       return { receipt: receipt(REGISTER_HASH, [registeredLog()]) };
     },
-    estimateSetAgentUriGas: async () => 80_000n,
+    estimateSetAgentUriGas: async (agentId, uri) => {
+      calls.push(["estimate-uri", agentId, uri]);
+      return 80_000n;
+    },
     broadcastSetAgentUri: async (agentId, uri) => {
       calls.push(["broadcast-uri", agentId, uri]);
       currentUri = uri;
@@ -111,7 +129,7 @@ function fakeClient(overrides = {}) {
       },
     ],
     getSealedKeys: async () => [WRAPPED_KEY],
-    ...overrides,
+    ...clientOverrides,
   };
   return { calls, client };
 }
@@ -142,6 +160,37 @@ test("accepts only the guarded manifest, wrapped-key file interface and explicit
   );
   assert.throws(
     () => parseRegistrationArgs(["--broadcast"]),
+    errorCode("INVALID_ARGUMENTS"),
+  );
+  assert.deepEqual(
+    parseRegistrationArgs([
+      "--manifest",
+      "storage.json",
+      "--wrapped-key-file",
+      "wrapped-key.hex",
+      "--resume-agent-id",
+      "3531123",
+      "--register-tx",
+      REGISTER_HASH,
+    ]),
+    {
+      manifest: "storage.json",
+      wrappedKeyFile: "wrapped-key.hex",
+      broadcast: false,
+      resumeAgentId: 3531123n,
+      registerTransactionHash: REGISTER_HASH,
+    },
+  );
+  assert.throws(
+    () =>
+      parseRegistrationArgs([
+        "--manifest",
+        "storage.json",
+        "--wrapped-key-file",
+        "wrapped-key.hex",
+        "--resume-agent-id",
+        "42",
+      ]),
     errorCode("INVALID_ARGUMENTS"),
   );
 });
@@ -301,6 +350,167 @@ test("broadcast parses the canonical id then verifies and canonicalizes the URI"
   assert.equal(JSON.stringify(result).includes(PRIVATE_KEY), false);
 });
 
+test("resume dry-run proves the receipt and preliminary state without reminting", async () => {
+  const storage = validateStorageRegistrationManifest(manifest());
+  const fake = fakeClient({ initialUri: buildRivergateAgentUri(storage) });
+  const result = await runAgenticIdRegistration(
+    {
+      manifest: manifest(),
+      wrappedKey: WRAPPED_KEY,
+      broadcast: false,
+      environment: { AGENTIC_ID_DEPLOYER_PRIVATE_KEY: PRIVATE_KEY },
+      resume: {
+        agentId: AGENT_ID,
+        registerTransactionHash: REGISTER_HASH,
+      },
+    },
+    { createClient: async () => fake.client },
+  );
+
+  assert.equal(result.resume, true);
+  assert.equal(result.broadcast, false);
+  assert.equal(result.status, "ready-to-update");
+  assert.equal(result.agentId, "42");
+  assert.equal(result.registerTransactionHash, REGISTER_HASH);
+  assert.equal(
+    fake.calls.some(([name]) =>
+      ["simulate", "estimate-register", "broadcast-register"].includes(name),
+    ),
+    false,
+  );
+  assert.equal(
+    fake.calls.filter(([name]) => name === "estimate-uri").length,
+    1,
+  );
+  assert.equal(
+    fake.calls.filter(([name]) => name === "broadcast-uri").length,
+    0,
+  );
+});
+
+test("resume broadcast only canonicalizes the proven existing token", async () => {
+  const storage = validateStorageRegistrationManifest(manifest());
+  const fake = fakeClient({ initialUri: buildRivergateAgentUri(storage) });
+  const result = await runAgenticIdRegistration(
+    {
+      manifest: manifest(),
+      wrappedKey: WRAPPED_KEY,
+      broadcast: true,
+      environment: { AGENTIC_ID_DEPLOYER_PRIVATE_KEY: PRIVATE_KEY },
+      resume: {
+        agentId: AGENT_ID,
+        registerTransactionHash: REGISTER_HASH,
+      },
+    },
+    { createClient: async () => fake.client },
+  );
+
+  assert.equal(result.status, "canonicalized");
+  assert.equal(result.setAgentUriTransactionHash, UPDATE_HASH);
+  assert.equal(
+    fake.calls.some(([name]) =>
+      ["simulate", "estimate-register", "broadcast-register"].includes(name),
+    ),
+    false,
+  );
+  assert.equal(
+    fake.calls.filter(([name]) => name === "broadcast-uri").length,
+    1,
+  );
+});
+
+test("resume is idempotent when the canonical URI is already stored", async () => {
+  const storage = validateStorageRegistrationManifest(manifest());
+  const fake = fakeClient({
+    initialUri: buildRivergateAgentUri(storage, AGENT_ID),
+  });
+  const result = await runAgenticIdRegistration(
+    {
+      manifest: manifest(),
+      wrappedKey: WRAPPED_KEY,
+      broadcast: true,
+      environment: { AGENTIC_ID_DEPLOYER_PRIVATE_KEY: PRIVATE_KEY },
+      resume: {
+        agentId: AGENT_ID,
+        registerTransactionHash: REGISTER_HASH,
+      },
+    },
+    { createClient: async () => fake.client },
+  );
+
+  assert.equal(result.status, "already-canonical");
+  assert.equal(result.broadcast, false);
+  assert.equal(
+    fake.calls.some(([name]) =>
+      [
+        "simulate",
+        "estimate-register",
+        "estimate-uri",
+        "broadcast-uri",
+      ].includes(name),
+    ),
+    false,
+  );
+});
+
+test("resume rejects a receipt whose Registered token differs", async () => {
+  const storage = validateStorageRegistrationManifest(manifest());
+  const fake = fakeClient({
+    initialUri: buildRivergateAgentUri(storage),
+    getTransactionReceipt: async () =>
+      receipt(REGISTER_HASH, [registeredLog(43n)]),
+  });
+  await assert.rejects(
+    runAgenticIdRegistration(
+      {
+        manifest: manifest(),
+        wrappedKey: WRAPPED_KEY,
+        broadcast: false,
+        environment: { AGENTIC_ID_DEPLOYER_PRIVATE_KEY: PRIVATE_KEY },
+        resume: {
+          agentId: AGENT_ID,
+          registerTransactionHash: REGISTER_HASH,
+        },
+      },
+      { createClient: async () => fake.client },
+    ),
+    errorCode("REGISTER_TRANSACTION_MISMATCH"),
+  );
+  assert.equal(
+    fake.calls.some(([name]) => name.startsWith("broadcast")),
+    false,
+  );
+});
+
+test("post-transaction verification retries bounded RPC propagation lag", async () => {
+  let ownerReads = 0;
+  const delays = [];
+  const fake = fakeClient({
+    getLocalOwner: async () => {
+      ownerReads += 1;
+      if (ownerReads < 3) throw new Error("stale RPC");
+      return DEPLOYER;
+    },
+  });
+  const result = await runAgenticIdRegistration(
+    {
+      manifest: manifest(),
+      wrappedKey: WRAPPED_KEY,
+      broadcast: true,
+      environment: { AGENTIC_ID_DEPLOYER_PRIVATE_KEY: PRIVATE_KEY },
+    },
+    {
+      createClient: async () => fake.client,
+      verificationAttempts: 4,
+      verificationDelayMs: 7,
+      delay: async (milliseconds) => delays.push(milliseconds),
+    },
+  );
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(delays, [7, 7]);
+});
+
 test("requires exactly one canonical Registered event owned by the proxy", () => {
   assert.equal(
     parseCanonicalRegisteredAgentId(receipt(REGISTER_HASH, [registeredLog()])),
@@ -340,7 +550,12 @@ test("refuses a post-mint ownership or non-seal verification mismatch", async ()
         broadcast: true,
         environment: { AGENTIC_ID_DEPLOYER_PRIVATE_KEY: PRIVATE_KEY },
       },
-      { createClient: async () => fake.client },
+      {
+        createClient: async () => fake.client,
+        verificationAttempts: 2,
+        verificationDelayMs: 0,
+        delay: async () => {},
+      },
     ),
     errorCode("POST_REGISTRATION_VERIFICATION_FAILED"),
   );

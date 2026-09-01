@@ -30,6 +30,7 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const BYTES32 = /^0x[0-9a-fA-F]{64}$/u;
 const BYTES = /^0x(?:[0-9a-fA-F]{2})+$/u;
 const PRIVATE_KEY = /^0x[0-9a-fA-F]{64}$/u;
+const DECIMAL_AGENT_ID = /^(?:0|[1-9][0-9]*)$/u;
 const SAFE_MANIFEST_TEXT = /^[A-Za-z0-9][A-Za-z0-9 ._:/()#,+-]{0,255}$/u;
 const FORBIDDEN_MANIFEST_FIELD =
   /(?:private.?key|mnemonic|seed.?phrase|secret|wrapped.?key|sealed.?key)/iu;
@@ -38,6 +39,8 @@ const MAX_WRAPPED_KEY_BYTES = 64 * 1024;
 const REGISTER_GAS_MARGIN_PERCENT = 125n;
 const UPDATE_GAS_MARGIN_PERCENT = 120n;
 const URI_UPDATE_GAS_RESERVE = 250_000n;
+const POST_TRANSACTION_VERIFICATION_ATTEMPTS = 8;
+const POST_TRANSACTION_VERIFICATION_DELAY_MS = 1_500;
 
 const AGENTIC_ID_ABI = Object.freeze([
   "function VERSION() view returns (string)",
@@ -75,11 +78,18 @@ function fail(code, context) {
 
 export function parseRegistrationArgs(argv) {
   const parsed = { broadcast: false };
+  const seen = new Set();
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
+    if (seen.has(argument)) fail("INVALID_ARGUMENTS");
+    seen.add(argument);
     if (argument === "--manifest") parsed.manifest = argv[++index];
     else if (argument === "--wrapped-key-file") {
       parsed.wrappedKeyFile = argv[++index];
+    } else if (argument === "--resume-agent-id") {
+      parsed.resumeAgentId = argv[++index];
+    } else if (argument === "--register-tx") {
+      parsed.registerTransactionHash = argv[++index];
     } else if (argument === "--broadcast") parsed.broadcast = true;
     else fail("INVALID_ARGUMENTS");
   }
@@ -90,6 +100,26 @@ export function parseRegistrationArgs(argv) {
     parsed.wrappedKeyFile.length === 0
   ) {
     fail("INVALID_ARGUMENTS");
+  }
+  const hasResumeAgentId = parsed.resumeAgentId !== undefined;
+  const hasRegisterTransactionHash =
+    parsed.registerTransactionHash !== undefined;
+  if (hasResumeAgentId !== hasRegisterTransactionHash) {
+    fail("INVALID_ARGUMENTS");
+  }
+  if (hasResumeAgentId) {
+    if (
+      typeof parsed.resumeAgentId !== "string" ||
+      !DECIMAL_AGENT_ID.test(parsed.resumeAgentId) ||
+      !BYTES32.test(parsed.registerTransactionHash)
+    ) {
+      fail("INVALID_ARGUMENTS");
+    }
+    const agentId = BigInt(parsed.resumeAgentId);
+    if (agentId > BigInt(Number.MAX_SAFE_INTEGER)) fail("INVALID_ARGUMENTS");
+    parsed.resumeAgentId = agentId;
+    parsed.registerTransactionHash =
+      parsed.registerTransactionHash.toLowerCase();
   }
   return Object.freeze(parsed);
 }
@@ -226,6 +256,7 @@ export function parseCanonicalRegisteredAgentId(receipt) {
 export async function runAgenticIdRegistration(input, dependencies = {}) {
   const storage = validateStorageRegistrationManifest(input.manifest);
   const wrappedKey = validateWrappedKey(input.wrappedKey);
+  const resume = validateResumeInput(input.resume);
   const privateKey = selectRegistrationPrivateKey(input.environment);
   const createClient = dependencies.createClient ?? createEthersClient;
   const client = await createClient(privateKey);
@@ -243,16 +274,6 @@ export async function runAgenticIdRegistration(input, dependencies = {}) {
     ]),
     sealedKeys: Object.freeze([wrappedKey]),
   });
-  const simulatedAgentId = BigInt(await client.simulateRegister(registerInput));
-  const registerGasEstimate = BigInt(
-    await client.estimateRegisterGas(registerInput),
-  );
-  if (registerGasEstimate <= 0n) fail("INVALID_GAS_ESTIMATE");
-  const registerGasLimit = gasWithMargin(
-    registerGasEstimate,
-    REGISTER_GAS_MARGIN_PERCENT,
-  );
-  const finalAgentUri = buildRivergateAgentUri(storage, simulatedAgentId);
   const publicBase = {
     kind: "rivergate-agentic-id-mainnet-registration",
     chainId: MAINNET_CHAIN_ID,
@@ -267,13 +288,40 @@ export async function runAgenticIdRegistration(input, dependencies = {}) {
     storageTransactionSequence: storage.transactionSequence,
     recipientFingerprint: storage.recipientFingerprint,
     preliminaryAgentUriHash: keccak256(toUtf8Bytes(preliminaryAgentUri)),
+  };
+
+  if (resume) {
+    return resumeAgenticIdRegistration({
+      client,
+      storage,
+      wrappedKey,
+      preliminaryAgentUri,
+      resume,
+      broadcast: input.broadcast === true,
+      dependencies,
+      publicBase,
+    });
+  }
+
+  const simulatedAgentId = BigInt(await client.simulateRegister(registerInput));
+  const registerGasEstimate = BigInt(
+    await client.estimateRegisterGas(registerInput),
+  );
+  if (registerGasEstimate <= 0n) fail("INVALID_GAS_ESTIMATE");
+  const registerGasLimit = gasWithMargin(
+    registerGasEstimate,
+    REGISTER_GAS_MARGIN_PERCENT,
+  );
+  const finalAgentUri = buildRivergateAgentUri(storage, simulatedAgentId);
+  const registrationPublicBase = {
+    ...publicBase,
     registerGasEstimate: registerGasEstimate.toString(),
     registerGasLimit: registerGasLimit.toString(),
   };
 
   if (!input.broadcast) {
     return Object.freeze({
-      ...publicBase,
+      ...registrationPublicBase,
       ok: true,
       broadcast: false,
       simulatedAgentId: simulatedAgentId.toString(),
@@ -298,13 +346,17 @@ export async function runAgenticIdRegistration(input, dependencies = {}) {
   );
   assertSuccessfulReceipt(registration.receipt, "REGISTER_TRANSACTION_FAILED");
   const agentId = parseCanonicalRegisteredAgentId(registration.receipt);
-  await verifyMintedAgent(client, {
-    agentId,
-    expectedOwner: client.address,
-    expectedAgentUri: preliminaryAgentUri,
-    storage,
-    wrappedKey,
-  });
+  await verifyMintedAgentWithRetry(
+    client,
+    {
+      agentId,
+      expectedOwner: client.address,
+      expectedAgentUri: preliminaryAgentUri,
+      storage,
+      wrappedKey,
+    },
+    dependencies,
+  );
 
   const canonicalAgentUri = buildRivergateAgentUri(storage, agentId);
   const updateGasEstimate = BigInt(
@@ -333,16 +385,20 @@ export async function runAgenticIdRegistration(input, dependencies = {}) {
     agentId: agentId.toString(),
     registerTransactionHash: registration.receipt.hash,
   });
-  await verifyMintedAgent(client, {
-    agentId,
-    expectedOwner: client.address,
-    expectedAgentUri: canonicalAgentUri,
-    storage,
-    wrappedKey,
-  });
+  await verifyMintedAgentWithRetry(
+    client,
+    {
+      agentId,
+      expectedOwner: client.address,
+      expectedAgentUri: canonicalAgentUri,
+      storage,
+      wrappedKey,
+    },
+    dependencies,
+  );
 
   return Object.freeze({
-    ...publicBase,
+    ...registrationPublicBase,
     ok: true,
     broadcast: true,
     agentId: agentId.toString(),
@@ -351,6 +407,144 @@ export async function runAgenticIdRegistration(input, dependencies = {}) {
     registerTransactionHash: registration.receipt.hash,
     registerBlockNumber: registration.receipt.blockNumber,
     registerGasUsed: registration.receipt.gasUsed.toString(),
+    setAgentUriTransactionHash: update.receipt.hash,
+    setAgentUriBlockNumber: update.receipt.blockNumber,
+    setAgentUriGasUsed: update.receipt.gasUsed.toString(),
+    updateGasEstimate: updateGasEstimate.toString(),
+    updateGasLimit: updateGasLimit.toString(),
+  });
+}
+
+async function resumeAgenticIdRegistration({
+  client,
+  storage,
+  wrappedKey,
+  preliminaryAgentUri,
+  resume,
+  broadcast,
+  dependencies,
+  publicBase,
+}) {
+  const receipt = await retryPostTransactionRead(
+    async () => {
+      const candidate = await client.getTransactionReceipt(
+        resume.registerTransactionHash,
+      );
+      assertSuccessfulReceipt(candidate, "REGISTER_TRANSACTION_NOT_CONFIRMED");
+      return candidate;
+    },
+    dependencies,
+    "REGISTER_TRANSACTION_NOT_CONFIRMED",
+    { registerTransactionHash: resume.registerTransactionHash },
+  );
+  if (
+    receipt.hash.toLowerCase() !== resume.registerTransactionHash ||
+    typeof receipt.to !== "string" ||
+    getAddress(receipt.to) !== getAddress(AGENTIC_ID_PROXY)
+  ) {
+    fail("REGISTER_TRANSACTION_MISMATCH", {
+      agentId: resume.agentId.toString(),
+      registerTransactionHash: resume.registerTransactionHash,
+    });
+  }
+  const registeredAgentId = parseCanonicalRegisteredAgentId(receipt);
+  if (registeredAgentId !== resume.agentId) {
+    fail("REGISTER_TRANSACTION_MISMATCH", {
+      agentId: resume.agentId.toString(),
+      registerTransactionHash: resume.registerTransactionHash,
+    });
+  }
+
+  const canonicalAgentUri = buildRivergateAgentUri(storage, resume.agentId);
+  const state = await verifyResumableAgentWithRetry(
+    client,
+    {
+      agentId: resume.agentId,
+      expectedOwner: client.address,
+      preliminaryAgentUri,
+      canonicalAgentUri,
+      storage,
+      wrappedKey,
+    },
+    dependencies,
+  );
+  const resumePublicBase = {
+    ...publicBase,
+    resume: true,
+    agentId: resume.agentId.toString(),
+    canonicalAgentUri,
+    canonicalAgentUriHash: keccak256(toUtf8Bytes(canonicalAgentUri)),
+    registerTransactionHash: receipt.hash,
+    registerBlockNumber: receipt.blockNumber,
+    registerGasUsed: receipt.gasUsed.toString(),
+  };
+  if (state === "canonical") {
+    return Object.freeze({
+      ...resumePublicBase,
+      ok: true,
+      broadcast: false,
+      status: "already-canonical",
+    });
+  }
+
+  const updateGasEstimate = BigInt(
+    await client.estimateSetAgentUriGas(resume.agentId, canonicalAgentUri),
+  );
+  if (updateGasEstimate <= 0n) {
+    fail("INVALID_GAS_ESTIMATE", { agentId: resume.agentId.toString() });
+  }
+  const updateGasLimit = gasWithMargin(
+    updateGasEstimate,
+    UPDATE_GAS_MARGIN_PERCENT,
+  );
+  if (!broadcast) {
+    return Object.freeze({
+      ...resumePublicBase,
+      ok: true,
+      broadcast: false,
+      status: "ready-to-update",
+      updateGasEstimate: updateGasEstimate.toString(),
+      updateGasLimit: updateGasLimit.toString(),
+    });
+  }
+
+  const nonces = await client.getNonces();
+  if (nonces.latest !== nonces.pending) fail("PENDING_TRANSACTION_EXISTS");
+  const gasPrice = BigInt(await client.getGasPrice());
+  if (gasPrice <= 0n) fail("INVALID_GAS_PRICE");
+  const balance = BigInt(await client.getBalance());
+  if (balance < updateGasLimit * gasPrice) {
+    fail("INSUFFICIENT_BALANCE_FOR_URI_UPDATE", {
+      agentId: resume.agentId.toString(),
+      registerTransactionHash: receipt.hash,
+    });
+  }
+  const update = await client.broadcastSetAgentUri(
+    resume.agentId,
+    canonicalAgentUri,
+    updateGasLimit,
+    gasPrice,
+  );
+  assertSuccessfulReceipt(update.receipt, "URI_UPDATE_TRANSACTION_FAILED", {
+    agentId: resume.agentId.toString(),
+    registerTransactionHash: receipt.hash,
+  });
+  await verifyMintedAgentWithRetry(
+    client,
+    {
+      agentId: resume.agentId,
+      expectedOwner: client.address,
+      expectedAgentUri: canonicalAgentUri,
+      storage,
+      wrappedKey,
+    },
+    dependencies,
+  );
+  return Object.freeze({
+    ...resumePublicBase,
+    ok: true,
+    broadcast: true,
+    status: "canonicalized",
     setAgentUriTransactionHash: update.receipt.hash,
     setAgentUriBlockNumber: update.receipt.blockNumber,
     setAgentUriGasUsed: update.receipt.gasUsed.toString(),
@@ -380,32 +574,135 @@ async function validateLiveDeployment(client) {
   if (await client.isPaused()) fail("PROXY_PAUSED");
 }
 
-async function verifyMintedAgent(client, expected) {
-  const localOwner = getAddress(await client.getLocalOwner(expected.agentId));
-  const canonicalOwner = getAddress(
-    await client.getCanonicalOwner(expected.agentId),
-  );
-  const localUri = await client.getLocalTokenUri(expected.agentId);
-  const canonicalUri = await client.getCanonicalTokenUri(expected.agentId);
-  const seal = getAddress(await client.getAgentSeal(expected.agentId));
-  const datas = await client.getIntelligentDatas(expected.agentId);
-  const sealedKeys = await client.getSealedKeys(expected.agentId);
+function validateResumeInput(value) {
+  if (value === undefined || value === null) return null;
   if (
-    localOwner !== getAddress(expected.expectedOwner) ||
-    canonicalOwner !== getAddress(AGENTIC_ID_PROXY) ||
-    localUri !== expected.expectedAgentUri ||
-    canonicalUri !== expected.expectedAgentUri ||
-    seal !== ZERO_ADDRESS ||
-    datas.length !== 1 ||
-    datas[0].dataDescription !== expected.storage.dataDescription ||
-    datas[0].dataHash.toLowerCase() !== expected.storage.rootHash ||
-    sealedKeys.length !== 1 ||
-    sealedKeys[0].toLowerCase() !== expected.wrappedKey
+    !isPlainRecord(value) ||
+    typeof value.agentId !== "bigint" ||
+    value.agentId < 0n ||
+    value.agentId > BigInt(Number.MAX_SAFE_INTEGER) ||
+    !BYTES32.test(value.registerTransactionHash ?? "")
+  ) {
+    fail("INVALID_RESUME_CONFIGURATION");
+  }
+  return Object.freeze({
+    agentId: value.agentId,
+    registerTransactionHash: value.registerTransactionHash.toLowerCase(),
+  });
+}
+
+async function verifyMintedAgent(client, expected) {
+  const state = await readMintedAgent(client, expected.agentId);
+  assertCommonMintedAgentState(state, expected);
+  if (
+    state.localUri !== expected.expectedAgentUri ||
+    state.canonicalUri !== expected.expectedAgentUri
   ) {
     fail("POST_REGISTRATION_VERIFICATION_FAILED", {
       agentId: expected.agentId.toString(),
     });
   }
+}
+
+async function verifyMintedAgentWithRetry(client, expected, dependencies) {
+  return retryPostTransactionRead(
+    () => verifyMintedAgent(client, expected),
+    dependencies,
+    "POST_REGISTRATION_VERIFICATION_FAILED",
+    { agentId: expected.agentId.toString() },
+  );
+}
+
+async function verifyResumableAgentWithRetry(client, expected, dependencies) {
+  return retryPostTransactionRead(
+    async () => {
+      const state = await readMintedAgent(client, expected.agentId);
+      assertCommonMintedAgentState(state, expected);
+      if (
+        state.localUri === expected.canonicalAgentUri &&
+        state.canonicalUri === expected.canonicalAgentUri
+      ) {
+        return "canonical";
+      }
+      if (
+        state.localUri === expected.preliminaryAgentUri &&
+        state.canonicalUri === expected.preliminaryAgentUri
+      ) {
+        return "preliminary";
+      }
+      fail("POST_REGISTRATION_VERIFICATION_FAILED", {
+        agentId: expected.agentId.toString(),
+      });
+    },
+    dependencies,
+    "POST_REGISTRATION_VERIFICATION_FAILED",
+    { agentId: expected.agentId.toString() },
+  );
+}
+
+async function readMintedAgent(client, agentId) {
+  return {
+    localOwner: getAddress(await client.getLocalOwner(agentId)),
+    canonicalOwner: getAddress(await client.getCanonicalOwner(agentId)),
+    localUri: await client.getLocalTokenUri(agentId),
+    canonicalUri: await client.getCanonicalTokenUri(agentId),
+    seal: getAddress(await client.getAgentSeal(agentId)),
+    datas: await client.getIntelligentDatas(agentId),
+    sealedKeys: await client.getSealedKeys(agentId),
+  };
+}
+
+function assertCommonMintedAgentState(state, expected) {
+  if (
+    state.localOwner !== getAddress(expected.expectedOwner) ||
+    state.canonicalOwner !== getAddress(AGENTIC_ID_PROXY) ||
+    state.seal !== ZERO_ADDRESS ||
+    state.datas.length !== 1 ||
+    state.datas[0].dataDescription !== expected.storage.dataDescription ||
+    state.datas[0].dataHash.toLowerCase() !== expected.storage.rootHash ||
+    state.sealedKeys.length !== 1 ||
+    state.sealedKeys[0].toLowerCase() !== expected.wrappedKey
+  ) {
+    fail("POST_REGISTRATION_VERIFICATION_FAILED", {
+      agentId: expected.agentId.toString(),
+    });
+  }
+}
+
+async function retryPostTransactionRead(
+  operation,
+  dependencies,
+  failureCode,
+  context,
+) {
+  const attempts =
+    dependencies.verificationAttempts ?? POST_TRANSACTION_VERIFICATION_ATTEMPTS;
+  const delayMs =
+    dependencies.verificationDelayMs ?? POST_TRANSACTION_VERIFICATION_DELAY_MS;
+  const wait =
+    dependencies.delay ??
+    ((milliseconds) =>
+      new Promise((resolve) => globalThis.setTimeout(resolve, milliseconds)));
+  if (
+    !Number.isSafeInteger(attempts) ||
+    attempts < 1 ||
+    attempts > 20 ||
+    !Number.isSafeInteger(delayMs) ||
+    delayMs < 0 ||
+    delayMs > 5_000 ||
+    typeof wait !== "function"
+  ) {
+    fail("INVALID_RETRY_CONFIGURATION");
+  }
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch {
+      if (attempt === attempts) fail(failureCode, context);
+      await wait(delayMs);
+    }
+  }
+  fail(failureCode, context);
 }
 
 function gasWithMargin(estimate, percentage) {
@@ -468,6 +765,8 @@ async function createEthersClient(privateKey) {
       return feeData.gasPrice ?? 0n;
     },
     getBalance: async () => provider.getBalance(wallet.address),
+    getTransactionReceipt: async (transactionHash) =>
+      provider.getTransactionReceipt(transactionHash),
     broadcastRegister: async (input, gasLimit, gasPrice, nonce) => {
       const transaction = await register.send(
         input.agentURI,
@@ -554,8 +853,25 @@ export async function runRegistrationCli(options = {}) {
       "INVALID_WRAPPED_KEY_FILE",
     );
     const result = await runAgenticIdRegistration(
-      { manifest, wrappedKey, broadcast: args.broadcast, environment },
-      { createClient: options.createClient },
+      {
+        manifest,
+        wrappedKey,
+        broadcast: args.broadcast,
+        environment,
+        resume:
+          args.resumeAgentId === undefined
+            ? null
+            : {
+                agentId: args.resumeAgentId,
+                registerTransactionHash: args.registerTransactionHash,
+              },
+      },
+      {
+        createClient: options.createClient,
+        verificationAttempts: options.verificationAttempts,
+        verificationDelayMs: options.verificationDelayMs,
+        delay: options.delay,
+      },
     );
     write(`${JSON.stringify(result, null, 2)}\n`);
     return 0;
