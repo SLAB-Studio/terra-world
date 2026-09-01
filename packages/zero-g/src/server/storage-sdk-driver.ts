@@ -6,6 +6,8 @@ import {
   type ZeroGStorageDriverUploadResult,
 } from "./storage";
 
+const HASH_32_BYTES = /^0x[0-9a-fA-F]{64}$/u;
+
 type MerkleTreeLike = Readonly<{ rootHash(): unknown }>;
 type MemDataLike = Readonly<{
   merkleTree(): Promise<readonly [MerkleTreeLike | null, unknown]>;
@@ -216,7 +218,7 @@ export function createOfficialZeroGStorageDriver(
         if (downloadError !== null) {
           throw safeError(
             "PROOF_VERIFICATION_FAILED",
-            "0G Storage proof-verified download failed",
+            "0G Storage download could not be verified",
             "download",
             false,
           );
@@ -230,6 +232,7 @@ export function createOfficialZeroGStorageDriver(
             false,
           );
         }
+        await verifyDownloadedRoot(storageSdk, bytes, rootHash);
         return Object.freeze({
           bytes,
           rootHash,
@@ -246,6 +249,48 @@ export function createOfficialZeroGStorageDriver(
       }
     },
   });
+}
+
+async function verifyDownloadedRoot(
+  storageSdk: StorageSdkRuntime,
+  bytes: Uint8Array,
+  requestedRoot: string,
+): Promise<void> {
+  let data: MemDataLike | undefined;
+  try {
+    if (bytes.byteLength === 0 || !HASH_32_BYTES.test(requestedRoot)) {
+      throw proofVerificationError();
+    }
+    data = new storageSdk.MemData(Uint8Array.from(bytes));
+    const [tree, treeError] = await data.merkleTree();
+    const calculatedRoot = tree?.rootHash();
+    if (
+      treeError !== null ||
+      typeof calculatedRoot !== "string" ||
+      !HASH_32_BYTES.test(calculatedRoot) ||
+      calculatedRoot.toLowerCase() !== requestedRoot.toLowerCase()
+    ) {
+      throw proofVerificationError();
+    }
+  } catch (error) {
+    if (error instanceof ZeroGStorageError) throw error;
+    throw proofVerificationError();
+  } finally {
+    try {
+      await data?.close?.();
+    } catch {
+      // Verification is complete and no persistent resource is returned.
+    }
+  }
+}
+
+function proofVerificationError(): ZeroGStorageError {
+  return safeError(
+    "PROOF_VERIFICATION_FAILED",
+    "0G Storage downloaded bytes do not match the requested Merkle root",
+    "download",
+    false,
+  );
 }
 
 function singleUploadResponse(response: unknown): unknown {

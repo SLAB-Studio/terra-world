@@ -244,27 +244,95 @@ describe("official 0G Storage SDK driver", () => {
     expect(splitableUpload).toHaveBeenCalledTimes(1);
   });
 
-  it("requests SDK proof verification for in-memory retrieval", async () => {
+  it("requests SDK proof verification and independently reconstructs the downloaded root", async () => {
     const payload = new TextEncoder().encode("verified bytes");
+    const uppercaseRoot = `0x${ROOT.slice(2).toUpperCase()}`;
+    const close = vi.fn();
     const downloadToBlob = vi.fn(async (rootHash, options) => {
-      expect(rootHash).toBe(ROOT);
+      expect(rootHash).toBe(uppercaseRoot);
       expect(options).toEqual({ proof: true });
       return [new Blob([payload]), null] as const;
     });
+    class MemData {
+      constructor(readonly value: Uint8Array) {
+        expect(value).toEqual(payload);
+      }
+      async merkleTree() {
+        return [{ rootHash: () => ROOT }, null] as const;
+      }
+      close = close;
+    }
     class Indexer {
       downloadToBlob = downloadToBlob;
     }
     const driver = createOfficialZeroGStorageDriver({
-      loadStorageSdk: async () => ({ MemData: class {}, Indexer }),
+      loadStorageSdk: async () => ({ MemData, Indexer }),
       loadEthers: async () => runtimeEthers(),
     });
 
-    await expect(driver.downloadBytes(ROOT, CONTEXT, 100)).resolves.toEqual({
+    await expect(
+      driver.downloadBytes(uppercaseRoot, CONTEXT, payload.byteLength),
+    ).resolves.toEqual({
       bytes: payload,
-      rootHash: ROOT,
+      rootHash: uppercaseRoot,
       proofVerified: true,
     });
     expect(downloadToBlob).toHaveBeenCalledTimes(1);
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects wrong bytes when the SDK ignores proof:true", async () => {
+    const payload = new TextEncoder().encode("tampered bytes");
+    const close = vi.fn();
+    class MemData {
+      async merkleTree() {
+        return [{ rootHash: () => `0x${"99".repeat(32)}` }, null] as const;
+      }
+      close = close;
+    }
+    class Indexer {
+      downloadToBlob = vi.fn(async (_rootHash, options) => {
+        expect(options).toEqual({ proof: true });
+        return [new Blob([payload]), null] as const;
+      });
+    }
+    const driver = createOfficialZeroGStorageDriver({
+      loadStorageSdk: async () => ({ MemData, Indexer }),
+      loadEthers: async () => runtimeEthers(),
+    });
+
+    await expect(
+      driver.downloadBytes(ROOT, CONTEXT, payload.byteLength),
+    ).rejects.toMatchObject({
+      code: "PROOF_VERIFICATION_FAILED",
+      operation: "download",
+      retryable: false,
+    });
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects an empty SDK download before claiming proof verification", async () => {
+    const construct = vi.fn();
+    class MemData {
+      constructor() {
+        construct();
+      }
+    }
+    class Indexer {
+      downloadToBlob = vi.fn(
+        async () => [new Blob([new Uint8Array()]), null] as const,
+      );
+    }
+    const driver = createOfficialZeroGStorageDriver({
+      loadStorageSdk: async () => ({ MemData, Indexer }),
+      loadEthers: async () => runtimeEthers(),
+    });
+
+    await expect(driver.downloadBytes(ROOT, CONTEXT, 1)).rejects.toMatchObject({
+      code: "PROOF_VERIFICATION_FAILED",
+      retryable: false,
+    });
+    expect(construct).not.toHaveBeenCalled();
   });
 
   it("closes MemData and returns a safe error when Merkle preparation fails", async () => {
@@ -353,7 +421,13 @@ describe("official 0G Storage SDK driver", () => {
     await expect(rejection).rejects.not.toThrow(secret);
   });
 
-  it("enforces the download size boundary after proof verification", async () => {
+  it("enforces the download size boundary before Merkle reconstruction", async () => {
+    const construct = vi.fn();
+    class MemData {
+      constructor() {
+        construct();
+      }
+    }
     class Indexer {
       upload = vi.fn();
       downloadToBlob = vi.fn(
@@ -361,7 +435,7 @@ describe("official 0G Storage SDK driver", () => {
       );
     }
     const driver = createOfficialZeroGStorageDriver({
-      loadStorageSdk: async () => ({ MemData: class {}, Indexer }),
+      loadStorageSdk: async () => ({ MemData, Indexer }),
       loadEthers: async () => runtimeEthers(),
     });
 
@@ -369,7 +443,44 @@ describe("official 0G Storage SDK driver", () => {
       code: "DATA_TOO_LARGE",
       operation: "download",
     });
+    expect(construct).not.toHaveBeenCalled();
   });
+
+  it.each([1, 256, 257])(
+    "matches the pinned SDK Merkle algorithm at the %i-byte boundary",
+    async (length) => {
+      const sdk = await import("@0gfoundation/0g-storage-ts-sdk");
+      const payload = Uint8Array.from({ length }, (_value, index) => index);
+      const data = new sdk.MemData(payload);
+      const [tree, treeError] = await data.merkleTree();
+      await (
+        data as unknown as { close?: () => void | Promise<void> }
+      ).close?.();
+      expect(treeError).toBeNull();
+      expect(tree).not.toBeNull();
+      const expectedRoot = tree?.rootHash();
+      if (typeof expectedRoot !== "string") {
+        throw new TypeError("Pinned SDK returned an invalid Merkle root");
+      }
+      class Indexer {
+        downloadToBlob = vi.fn(
+          async () => [new Blob([payload]), null] as const,
+        );
+      }
+      const driver = createOfficialZeroGStorageDriver({
+        loadStorageSdk: async () => ({ MemData: sdk.MemData, Indexer }),
+        loadEthers: async () => runtimeEthers(),
+      });
+
+      await expect(
+        driver.downloadBytes(expectedRoot, CONTEXT, length),
+      ).resolves.toMatchObject({
+        bytes: payload,
+        rootHash: expectedRoot,
+        proofVerified: true,
+      });
+    },
+  );
 
   it("maps missing or incompatible SDK modules without exposing loader details", async () => {
     const secret = "module-path-with-server-secret";
