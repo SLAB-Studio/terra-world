@@ -20,9 +20,11 @@ export const POST = createRunVerificationPostHandler({
 
 function readAllowedOrigins(env: NodeJS.ProcessEnv): readonly string[] {
   if (env.TERRA_APP_ORIGIN) {
-    const parsed = new URL(env.TERRA_APP_ORIGIN);
+    const parsed = new URL(env.TERRA_APP_ORIGIN.trim());
     if (
-      parsed.origin !== env.TERRA_APP_ORIGIN ||
+      parsed.pathname !== "/" ||
+      parsed.search !== "" ||
+      parsed.hash !== "" ||
       (env.NODE_ENV === "production" && parsed.protocol !== "https:") ||
       !["http:", "https:"].includes(parsed.protocol)
     ) {
