@@ -80,16 +80,17 @@ the local AgenticID token is owned by
 - Registration transaction:
   [`0xab9d0f46348cd6c4cd6512639ede9ceeb106cec542b285ffdc1786abf56b099a`](https://chainscan.0g.ai/tx/0xab9d0f46348cd6c4cd6512639ede9ceeb106cec542b285ffdc1786abf56b099a),
   block `43182149`, receipt status `1`.
-- Final Agent Card URI update:
+- Registration-time Agent Card URI update:
   [`0x40f810ffeb83286b5e3e16ef09cd68da2d1d450048a751fda58e5ef1b4b1a941`](https://chainscan.0g.ai/tx/0x40f810ffeb83286b5e3e16ef09cd68da2d1d450048a751fda58e5ef1b4b1a941),
   block `43182707`, receipt status `1`.
-- Final Agent URI hash: `0xb2df1da1978f9b99783caac57d31428b7d7512a75c1a054a2a352f97fd7df05a`.
+- Registration-time Agent URI hash:
+  `0xb2df1da1978f9b99783caac57d31428b7d7512a75c1a054a2a352f97fd7df05a`.
 - Local owner: `0x402eA1d4e1335Cc6BdcB6b1AA1563AD93eb5392e`.
 - Canonical owner/custodian: AgenticID proxy
   `0x0953a70D8c055799ef55404dE72d1d6c541046a9`.
 - Registration mode: non-seal; `getAgentSeal(3531123)` is the zero address.
 
-The final ERC-8004 registration document is named **Rivergate City Steward**,
+The initial ERC-8004 registration document is named **Rivergate City Steward**,
 has `active: true`, identifies registry
 `eip155:16661:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`,
 commits to the intelligent-data root below, and declares `sealMode: none`. Local
@@ -115,16 +116,21 @@ intelligence v1 on 0G Storage.” Its public evidence is:
   `fd70aa7b6b5720db84c9462ccf374167b5b8bee051e712e2f3a40376e091a2f0`.
 - Wrapped-key commitment:
   `0xac434a395e98f4a82a8864044214d458763fb8fa728f2c66e434a853dfcb2f30`.
-- Proof-checked download and key-recovery test: both complete.
+- Matching ciphertext hash and key-recovery test: both complete for this
+  registration snapshot.
 
 Only the commitment is public; the wrapped key and signing material are not in
-the repository. Live reads confirm the registered intelligent-data root and the
-commitment of the single on-chain sealed-key entry.
+the repository. The registration manifest captures the snapshot-era root and
+the commitment of the single on-chain sealed-key entry. The current live root
+is the later milestone root recorded below.
 
 Routine city simulation, saves, movement, dialogue, and repairs remain local.
-They do not create identity transactions. Future milestone anchoring requires a
-separate idempotent server worker, durable evidence, and an allowlisted operation;
-it is not implied by the completed registration.
+They do not create identity transactions. Meaningful **Sync City** milestones
+use the allowlisted server worker to create an encrypted artifact, verify its 0G
+Storage root, update index `0`, and reconcile the Agent Card. The first complete
+mainnet milestone is recorded in
+[`rivergate-milestone-mainnet-2026-09-01T053000Z.v1.json`](../contracts/agentic-id-mainnet/rivergate-milestone-mainnet-2026-09-01T053000Z.v1.json).
+Unattended production still requires a durable outbox and managed signer policy.
 
 ## Enabling sealed AgenticID later
 

@@ -1,4 +1,9 @@
-# Terra World MVP playtest
+# Archived Terra World pre-pivot MVP playtest
+
+> Historical record from August 29, 2026. This child-focused planning-table
+> build predates the current adult Rivergate experience and is not the current
+> product acceptance plan. Its results and test counts are retained as a
+> point-in-time record.
 
 ## Test profile
 
@@ -46,8 +51,9 @@ horizontal page overflow was detected at 390 px.
    pack, reload, import the pack, and restore the same verified city. Escape
    closes the dialog and returns keyboard focus to **Adults & judges**.
 
-Result: passed in local demo mode. Live links remain intentionally unavailable until Galileo,
-Storage, Compute, and sponsor credentials are configured.
+Result at the time: passed in local demo mode. Live links were intentionally
+unavailable because Galileo, Storage, Compute, and sponsor credentials were not
+configured for that archived build.
 
 ## Automated evidence
 
@@ -81,7 +87,11 @@ Use this repeatable seven-step path:
    readiness states, then explain that 0G is adult-sponsored and never requires
    a child wallet.
 
-## Remaining environment rehearsal
+## Historical follow-up checklist
+
+This list is superseded by the current
+[0G mainnet go-live checklist](zero-g-mainnet-go-live.md). It is retained only
+to explain what was still outstanding at the time of this archived playtest.
 
 Before the hackathon recording, repeat the same path with the production
 variables configured and capture:
@@ -89,7 +99,8 @@ variables configured and capture:
 - the verified Rivergate 0G Storage root;
 - one private 0G Compute guide response plus fallback proof;
 - the deployed campaign registry and Terra City Agent addresses;
-- one sponsored city milestone transaction;
+- one sponsored city milestone transaction — completed and recorded in the
+  September 1, 2026 mainnet milestone manifest;
 - one encrypted backup restored in a fresh browser.
 
 Do not replace missing evidence with mock transaction hashes or simulated

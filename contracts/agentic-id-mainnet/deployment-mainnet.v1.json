@@ -201,7 +201,16 @@
     "manifest": "rivergate-registration-mainnet.v1.json",
     "registerTransactionHash": "0xab9d0f46348cd6c4cd6512639ede9ceeb106cec542b285ffdc1786abf56b099a",
     "agentUriUpdateTransactionHash": "0x40f810ffeb83286b5e3e16ef09cd68da2d1d450048a751fda58e5ef1b4b1a941",
-    "completedAt": "2026-09-01T00:40:36.000Z"
+    "completedAt": "2026-09-01T00:40:36.000Z",
+    "latestMilestone": {
+      "status": "confirmed",
+      "manifest": "rivergate-milestone-mainnet-2026-09-01T053000Z.v1.json",
+      "checkpointRoot": "0x15aa3daaf2d5db2b086082ce20927799ebccc488e89f03e947b870e2f7969d56",
+      "intelligentDataRoot": "0x114f7cef7be6a5290428c0ef5e2d9996a5cdd3911d5fb5bba2eb4f1b23e3e569",
+      "updateAtTransactionHash": "0xdfaba3be4a96f92e9818f4da858ee92c3c2bf35a976d2315c061b07b035dda39",
+      "agentUriUpdateTransactionHash": "0x4165ee73ac2a45f1ee0680f0e0e907aed3c1e802eb6c5900669e890c6177ee03",
+      "completedAt": "2026-09-01T05:30:55.000Z"
+    }
   },
   "provenance": [
     "https://docs.0g.ai/developer-hub/mainnet/mainnet-overview",

@@ -261,8 +261,8 @@ Complete the real Agentic NFT adapter/contract path, sponsored operation driver,
 encrypted city memory, Storage upload/retrieval and restore-linked recall.
 Demonstrate a real city token and updated memory commitment from verified events.
 
-Accept only with actual transaction receipts, token state, proof-checked Storage
-retrieval and a successful grounded recall after restore. Keep “configured,”
+Accept only with actual transaction receipts, token state, independently
+root-verified Storage retrieval and a successful grounded recall after restore. Keep “configured,”
 “queued,” “verified,” “local only” and “failed” distinct in proof mode. Missing
 credentials, funding or compliant identity infrastructure are explicit blockers
 to this gate, not reasons to label a local mock as integrated.

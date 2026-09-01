@@ -116,24 +116,27 @@ The rendering engine handles movement, traffic, doors and immediate game feedbac
 locally. The 0G integration is intended for intelligence, encrypted persistence
 and the identity of an evolving city—not a transaction for every footstep.
 
-| Component                   | Role                                                                | Current implementation                                                                                                                                                                                                                                                                                                                                           |
-| --------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **0G Compute**              | Grounded LEO guidance and contextual explanations                   | Mainnet-first server Router client, bounded prompts, guide/hint/chapter routes, cancellation, caching, and strict verification of the returned `x_0g_trace`. A private result is accepted only when `tee_verified` is actually true.                                                                                                                             |
-| **0G Storage**              | Encrypted city checkpoints and recoverable history                  | Browser AES-GCM encryption, IndexedDB retry queue, authenticated API, official 0G SDK upload/proof-checked download, and a PostgreSQL root index. The **Sync City** control exposes queued, syncing, retry, and confirmed-storage states.                                                                                                                        |
-| **Agentic NFT on 0G Chain** | One city intelligence whose memory evolves with verified milestones | Rivergate AgenticID `3531123` is registered through the application-managed mainnet proxy and custody-bound to the canonical ERC-8004 registry. Its encrypted intelligence root is finalized on 0G Storage. The token is non-seal and the verifier oracle is zero, so no TEE, ServeProof, sealed-runtime, verified-reputation, or secure-transfer claim is made. |
-| **Campaign verification**   | Validate action history and associate progress with its ruleset     | Deterministic replay and contract source exist; local verification is not presented as an on-chain receipt.                                                                                                                                                                                                                                                      |
+| Component                   | Role                                                                | Current implementation                                                                                                                                                                                                                                                                                                                                                    |
+| --------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **0G Compute**              | Grounded LEO guidance and contextual explanations                   | Mainnet-first server Router client, bounded prompts, guide/hint/chapter routes, cancellation, caching, and strict verification of the returned `x_0g_trace`. A private result is accepted only when `tee_verified` is actually true.                                                                                                                                      |
+| **0G Storage**              | Encrypted city checkpoints and recoverable history                  | Browser AES-GCM encryption, IndexedDB retry queue, authenticated API, official 0G SDK upload, independently recomputed download Merkle roots, and a PostgreSQL root index. The **Sync City** control exposes queued, syncing, retry, and confirmed states.                                                                                                                |
+| **Agentic NFT on 0G Chain** | One city intelligence whose memory evolves with verified milestones | Rivergate AgenticID `3531123` is registered through the application-managed mainnet proxy and custody-bound to the canonical ERC-8004 registry. **Sync City** now stores a minimal encrypted milestone, calls `updateAt`, reconciles the Agent Card, and verifies both receipts and final state. The token remains non-seal; no TEE or verified-reputation claim is made. |
+| **Campaign verification**   | Validate action history and associate progress with its ruleset     | Deterministic replay and contract source exist; local verification is not presented as an on-chain receipt.                                                                                                                                                                                                                                                               |
 
 **Integration status:** real Compute and Storage adapters are implemented; local
 development deliberately keeps a clearly labelled in-memory demo mode. The
-AgenticID stack, Rivergate registration, and its encrypted 0G Storage artifact
-are recorded in public versioned manifests. A production service still needs
-real server credentials, a migrated database, a paid live inference check, and
-a checkpoint upload/download check. Configuration values alone do not establish
-successful inference or checkpoint persistence.
+AgenticID stack, Rivergate registration, and its encrypted 0G Storage artifacts
+are recorded in public versioned manifests. A controlled browser-to-mainnet
+checkpoint and AgenticID milestone completed on September 1, 2026. A public
+production service still needs separated signer roles, a migrated database,
+strong player authorization, durable quotas/outbox processing, and a paid live
+inference check.
 
 Public chain evidence is captured in the versioned
 [AgenticID deployment manifest](contracts/agentic-id-mainnet/deployment-mainnet.v1.json)
 and [Rivergate registration manifest](contracts/agentic-id-mainnet/rivergate-registration-mainnet.v1.json).
+The first end-to-end sync is recorded separately in the append-only
+[milestone manifest](contracts/agentic-id-mainnet/rivergate-milestone-mainnet-2026-09-01T053000Z.v1.json).
 
 The public [`/api/proof`](http://localhost:3000/api/proof) endpoint reports
 configuration readiness without exposing credentials. It currently checks
@@ -161,19 +164,18 @@ guidance is labelled; no live paid 0G test is claimed. See the
 
 ### Background synchronization
 
-Local saves, encrypted checkpoint queueing, real 0G Storage upload, proof-checked
-download, and durable server-side root metadata are implemented. **Sync City**
-deduplicates an unchanged city, keeps gameplay responsive, retries after an
-offline attempt, and says **Stored on 0G** only after the upload receipt passes
-integrity checks. Demo mode says **Local preview — not stored on 0G**. An
-ambiguous sponsored-upload timeout is not automatically retried, because the
-first transaction may still settle.
+Local saves, encrypted checkpoint queueing, real 0G Storage upload, independently
+verified downloads, and durable server-side root metadata are implemented.
+**Sync City** keeps gameplay responsive, retains a prepared checkpoint across an
+anchor retry, and says **All synced** only after Storage, `updateAt`, Agent Card,
+receipt, event, and final-state checks succeed. Demo mode remains explicitly
+labelled. The first controlled mainnet run completed all four transactions with
+status `1`; its public evidence is in the milestone manifest.
 
-Checkpoint Storage confirmation and AgenticID milestone anchoring remain separate
-states. Rivergate AgenticID `3531123` is registered, but the UI does not fabricate
-milestone update receipts. A durable milestone outbox, allowlisted transaction
-worker, key-management policy, and confirmed AgenticID update receipt remain
-required before city progress is described as AgenticID-anchored.
+Production still requires a durable milestone outbox, managed signer isolation,
+strong player authorization, and distributed rate/spend controls. An ambiguous
+sponsored-upload timeout must be reconciled by its deterministic root before a
+new checkpoint is created.
 
 ## Configure 0G services
 
@@ -194,8 +196,11 @@ the host. Never commit credentials or prefix secrets with `NEXT_PUBLIC_`.
 | `ZERO_G_COMPUTE_API_KEY`           | Server-only Router inference key beginning with `sk-` or `app-sk-`.                                                                                               |
 | `ZERO_G_COMPUTE_MODEL`             | A currently available TeeML model from the selected Router catalog.                                                                                               |
 | `ZERO_G_SPONSOR_PRIVATE_KEY`       | Dedicated, limited-balance signer for authorized Storage operations. Never expose it to the browser.                                                              |
+| `ZERO_G_AGENTIC_OWNER_PRIVATE_KEY` | Separate server-only owner authorized to update Rivergate AgenticID. Never expose it to the browser or reuse it as a public sponsor.                              |
 | `ZERO_G_STORAGE_UPLOAD_TIMEOUT_MS` | Finality-aware Storage upload deadline; defaults to five minutes. A timeout is an unknown, non-retryable paid outcome until an operator reconciles it.            |
 | `TERRA_CHECKPOINT_MODE`            | `demo`, `disabled`, or `zero-g`. `zero-g` selects the real official SDK path and requires the sponsor key plus database.                                          |
+| `TERRA_AGENTIC_SYNC_ENABLED`       | Explicitly enables the allowlisted AgenticID milestone worker in `zero-g` mode.                                                                                   |
+| `TERRA_CHECKPOINT_REPOSITORY`      | `postgres` in production. `memory` is rejected in production and requires a separate opt-in for controlled local mainnet testing.                                 |
 | `TERRA_APP_ORIGIN`                 | Exact application origin, such as `https://play.example.com`. Production requires HTTPS.                                                                          |
 | `DATABASE_URL`                     | PostgreSQL connection used only for opaque checkpoint session/root metadata when real Storage mode is enabled. Production requires `sslmode=require` or stronger. |
 | `ZERO_G_RIVERGATE_STORAGE_ROOT`    | Public finalized 0G Storage root committed by Rivergate AgenticID `3531123`.                                                                                      |
@@ -215,8 +220,9 @@ Apply the checkpoint schema before enabling real Storage:
 DATABASE_URL='postgresql://USER:PASSWORD@HOST:5432/terra_world?sslmode=require' pnpm zero-g:db:migrate
 ```
 
-The public Rivergate AgenticID address, agent ID, Storage root, and Storage
-transaction are pre-populated from the verified registration manifest.
+The public Rivergate AgenticID address and agent ID come from the deployment and
+registration records; the Storage root and transaction are pre-populated from
+the latest verified milestone manifest.
 `ZERO_G_CAMPAIGN_REGISTRY_ADDRESS` remains optional and blank. Optional endpoint,
 timeout and retry overrides are documented in [`.env.example`](.env.example).
 

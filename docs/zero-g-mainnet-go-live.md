@@ -28,8 +28,9 @@ funded, irreversible blockchain operations.
 - The server uses the official 0G TypeScript Storage SDK, calculates the Merkle
   root, sends the funded transaction from a server-only sponsor, validates the
   returned root, transaction sequence and optional new transaction hash, and
-  proof-checks downloaded bytes. An empty hash is accepted only for an exact
-  root the SDK reports as already finalized.
+  independently reconstructs the official SDK Merkle root from the downloaded
+  bytes. An empty hash is accepted only for an exact root the SDK reports as
+  already finalized.
 - PostgreSQL stores only opaque session IDs, roots, content hashes, byte sizes,
   transaction evidence, and timestamps. It never stores plaintext game state
   or recovery keys.
@@ -100,14 +101,17 @@ ZERO_G_REQUIRED=false
 ZERO_G_COMPUTE_API_KEY=sk-REPLACE_LOCALLY
 ZERO_G_COMPUTE_MODEL=REPLACE_WITH_CURRENT_TEEML_MODEL
 ZERO_G_SPONSOR_PRIVATE_KEY=0xREPLACE_LOCALLY
+ZERO_G_AGENTIC_OWNER_PRIVATE_KEY=0xREPLACE_WITH_SEPARATE_OWNER_KEY
 ZERO_G_STORAGE_UPLOAD_TIMEOUT_MS=300000
 
-ZERO_G_RIVERGATE_STORAGE_ROOT=0x6bec9714b20d3ac73545f3d383de14be75dd267ee5a93b2c31b4f3f48ac96abf
-ZERO_G_RIVERGATE_STORAGE_TX_HASH=0x939459398540b3e52bab569d23b22a2e239efc65a47578bcdfdb0580d26a398c
+ZERO_G_RIVERGATE_STORAGE_ROOT=0x114f7cef7be6a5290428c0ef5e2d9996a5cdd3911d5fb5bba2eb4f1b23e3e569
+ZERO_G_RIVERGATE_STORAGE_TX_HASH=0x43812daabc05f33349c6ea0cde06e077db7067d1aa3dbf37863fa4bc6dd6e237
 ZERO_G_CITY_AGENT_ADDRESS=0x0953a70D8c055799ef55404dE72d1d6c541046a9
 ZERO_G_CITY_AGENT_TOKEN_ID=3531123
 
 TERRA_CHECKPOINT_MODE=zero-g
+TERRA_AGENTIC_SYNC_ENABLED=true
+TERRA_CHECKPOINT_REPOSITORY=postgres
 TERRA_APP_ORIGIN=https://REPLACE_WITH_DEPLOYED_ORIGIN
 DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/terra_world?sslmode=require
 TERRA_DATABASE_MAX_CONNECTIONS=4
@@ -139,8 +143,8 @@ Compute requests.
    0G root, transaction sequence, and transaction hash (when a new transaction
    was needed) from the durable reference index—not from a fabricated UI value.
 5. From a clean browser session, download the encrypted bytes through the 0G
-   indexer, verify the Merkle proof/root and content hash, then complete a
-   recovery test with the saved recovery pack.
+   indexer, independently reproduce the Merkle root and content hash, then
+   complete a recovery test with the saved recovery pack.
 6. Stop and restart the application and repeat the restore check to prove the
    PostgreSQL reference index is durable.
 
@@ -170,19 +174,19 @@ away from the frame loop.
 
 Follow [`agentic-id-mainnet-runbook.md`](agentic-id-mainnet-runbook.md). Contract
 deployment and Rivergate registration are complete and recorded in separate
-versioned public manifests. Current evidence includes:
+versioned public manifests. The initial registration baseline includes:
 
 1. Canonical agent ID `3531123` in registry
    `eip155:16661:0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`.
 2. Local owner `0x402eA1d4e1335Cc6BdcB6b1AA1563AD93eb5392e`
    and canonical proxy custody at
    `0x0953a70D8c055799ef55404dE72d1d6c541046a9`.
-3. Final Agent URI hash
+3. Registration-time Agent URI hash
    `0xb2df1da1978f9b99783caac57d31428b7d7512a75c1a054a2a352f97fd7df05a`,
    with identical local and canonical URI reads.
-4. Finalized encrypted 0G Storage root
+4. Initial encrypted 0G Storage root
    `0x6bec9714b20d3ac73545f3d383de14be75dd267ee5a93b2c31b4f3f48ac96abf`,
-   sequence `211646`, proof-checked download, and successful key recovery.
+   sequence `211646`, matching ciphertext hash, and successful key recovery.
 5. Non-seal mode, zero `agentSeal`, zero verifier oracle, and no advertised TEE
    trust.
 
@@ -192,17 +196,34 @@ move ownership/proposal authority to reviewed governance and separate the
 emergency pauser through an independently reviewed timelock operation.
 
 Routine repairs remain local and inexpensive. At a meaningful milestone, the
-server should create a minimal encrypted city-memory artifact, upload it to 0G
-Storage, and enqueue one idempotent `updateAt` operation for the Rivergate token.
-That milestone worker is not implemented yet. A checkpoint Storage sync is
-therefore not labelled as a new AgenticID milestone today, even though the base
-Rivergate identity and initial encrypted intelligence registration are complete.
+server creates a minimal encrypted city-memory artifact, uploads and verifies it
+on 0G Storage, performs one allowlisted `updateAt`, reconciles the Agent Card,
+and verifies both receipts, exact events, and final state. The worker is enabled
+only when `TERRA_AGENTIC_SYNC_ENABLED=true`.
+
+### First controlled browser-to-mainnet milestone
+
+The first complete **Sync City** run finished on September 1, 2026. Its four
+receipts all have status `1`:
+
+- checkpoint Storage: [`0xa1ee1323…b675`](https://chainscan.0g.ai/tx/0xa1ee1323655e3267052d97a9578a430c40dc20857ed94f369b873fda6ad3b675), sequence `211705`;
+- milestone Storage: [`0x43812daa…e237`](https://chainscan.0g.ai/tx/0x43812daabc05f33349c6ea0cde06e077db7067d1aa3dbf37863fa4bc6dd6e237), sequence `211706`;
+- AgenticID `updateAt`: [`0xdfaba3be…da39`](https://chainscan.0g.ai/tx/0xdfaba3be4a96f92e9818f4da858ee92c3c2bf35a976d2315c061b07b035dda39);
+- Agent Card update: [`0x4165ee73…ee03`](https://chainscan.0g.ai/tx/0x4165ee73ac2a45f1ee0680f0e0e907aed3c1e802eb6c5900669e890c6177ee03).
+
+The final AgenticID and Agent Card root is
+`0x114f7cef7be6a5290428c0ef5e2d9996a5cdd3911d5fb5bba2eb4f1b23e3e569`.
+Both downloaded ciphertexts independently reproduced their official Merkle
+roots. Full byte, hash, block, cost, event, and privacy evidence is recorded in
+[`rivergate-milestone-mainnet-2026-09-01T053000Z.v1.json`](../contracts/agentic-id-mainnet/rivergate-milestone-mainnet-2026-09-01T053000Z.v1.json).
 
 ## Remaining release gates
 
 - Real mainnet Router key, current TeeML model, funded Router account, and one
   receipt-verified live request.
-- Dedicated sponsor wallet and a finalized encrypted Storage round trip.
+- A separate, dedicated, limited-balance sponsor wallet for production.
+- A production PostgreSQL-backed Storage sync, restart, and recovery round trip;
+  the controlled memory-backed mainnet round trip is already complete.
 - Production PostgreSQL, migration, backup, restart, and recovery test.
 - Distributed Compute spend/rate limiting for public traffic.
 - Server-verified player/account authorization, distributed sponsor quotas,
@@ -211,8 +232,9 @@ Rivergate identity and initial encrypted intelligence registration are complete.
   demo and must not guard a funded public sponsor.
 - A sanitized durable Compute trace/audit sink.
 - Governance migration and a separate emergency pauser before unattended use.
-- Durable milestone outbox/allowlisted worker and independently verified update
-  receipts before later progress is presented as AgenticID-anchored.
+- Durable milestone outbox and managed signer/nonce processing before enabling
+  unattended public AgenticID updates. The controlled worker and first verified
+  receipts are complete.
 - Monitoring and alerts for Router failures, Storage retries, database errors,
   sponsor balance, stuck transactions, and unexpected contract events.
 
