@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* global console, process */
+/* global console, process, URL */
 
 import { readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
