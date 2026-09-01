@@ -4,6 +4,8 @@ import { createProofGetHandler, createTerraProofSnapshot } from "./server";
 
 const HASH = `0x${"a".repeat(64)}`;
 const ADDRESS = `0x${"b".repeat(40)}`;
+const LIVE_AGENTIC_ID = "0x0953a70D8c055799ef55404dE72d1d6c541046a9";
+const LIVE_AGENT_TOKEN_ID = "3531123";
 
 describe("public Terra World proof snapshot", () => {
   it("accepts current app-scoped Router inference keys", () => {
@@ -22,6 +24,12 @@ describe("public Terra World proof snapshot", () => {
     expect(snapshot.campaign.storageState).toBe("unconfigured");
     expect(snapshot.compute.state).toBe("unconfigured");
     expect(snapshot.chain.state).toBe("unconfigured");
+    expect(snapshot.chain).toMatchObject({
+      agenticIdState: "unconfigured",
+      campaignRegistryState: "unconfigured",
+      campaignRegistryRequired: false,
+      cityAgentTokenId: null,
+    });
     expect(snapshot.sponsor).toEqual({
       state: "unconfigured",
       childWalletRequired: false,
@@ -39,6 +47,7 @@ describe("public Terra World proof snapshot", () => {
       ZERO_G_RIVERGATE_STORAGE_TX_HASH: HASH,
       ZERO_G_CAMPAIGN_REGISTRY_ADDRESS: ADDRESS,
       ZERO_G_CITY_AGENT_ADDRESS: ADDRESS,
+      ZERO_G_CITY_AGENT_TOKEN_ID: "0",
     });
 
     expect(snapshot.campaign).toMatchObject({
@@ -49,9 +58,13 @@ describe("public Terra World proof snapshot", () => {
     expect(snapshot.compute.state).toBe("configured");
     expect(snapshot.chain).toEqual({
       state: "configured",
+      agenticIdState: "configured",
+      campaignRegistryState: "configured",
+      campaignRegistryRequired: false,
       network: "testnet",
       campaignRegistryAddress: ADDRESS,
       cityAgentAddress: ADDRESS,
+      cityAgentTokenId: "0",
     });
     expect(snapshot.sponsor.state).toBe("configured");
     expect(JSON.stringify(snapshot)).not.toContain("sk-private-test-key");
@@ -74,10 +87,46 @@ describe("public Terra World proof snapshot", () => {
     expect(snapshot.compute.state).toBe("misconfigured");
     expect(snapshot.chain).toMatchObject({
       state: "misconfigured",
+      agenticIdState: "misconfigured",
+      campaignRegistryState: "misconfigured",
       campaignRegistryAddress: null,
       cityAgentAddress: null,
+      cityAgentTokenId: null,
     });
   });
+
+  it("reports a live AgenticID as configured without an optional campaign registry", () => {
+    const snapshot = createTerraProofSnapshot({
+      ZERO_G_NETWORK: "mainnet",
+      ZERO_G_CITY_AGENT_ADDRESS: LIVE_AGENTIC_ID,
+      ZERO_G_CITY_AGENT_TOKEN_ID: LIVE_AGENT_TOKEN_ID,
+    });
+
+    expect(snapshot.chain).toEqual({
+      state: "configured",
+      agenticIdState: "configured",
+      campaignRegistryState: "unconfigured",
+      campaignRegistryRequired: false,
+      network: "mainnet",
+      campaignRegistryAddress: null,
+      cityAgentAddress: LIVE_AGENTIC_ID,
+      cityAgentTokenId: LIVE_AGENT_TOKEN_ID,
+    });
+  });
+
+  it.each(["-1", "+1", "1.0", "", "  "])(
+    "rejects a non-decimal AgenticID token ID %j",
+    (tokenId) => {
+      const snapshot = createTerraProofSnapshot({
+        ZERO_G_NETWORK: "mainnet",
+        ZERO_G_CITY_AGENT_ADDRESS: LIVE_AGENTIC_ID,
+        ZERO_G_CITY_AGENT_TOKEN_ID: tokenId,
+      });
+
+      expect(snapshot.chain.agenticIdState).toBe("misconfigured");
+      expect(snapshot.chain.cityAgentTokenId).toBeNull();
+    },
+  );
 
   it("serves private no-store JSON", async () => {
     const response = createProofGetHandler({})();

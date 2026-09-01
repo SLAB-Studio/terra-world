@@ -23,9 +23,13 @@ export type TerraProofSnapshot = Readonly<{
   }>;
   chain: Readonly<{
     state: ProofState;
+    agenticIdState: ProofState;
+    campaignRegistryState: ProofState;
+    campaignRegistryRequired: false;
     network: "testnet" | "mainnet" | null;
     campaignRegistryAddress: string | null;
     cityAgentAddress: string | null;
+    cityAgentTokenId: string | null;
   }>;
   sponsor: Readonly<{
     state: ProofState;
@@ -38,6 +42,7 @@ type ProofEnvironment = Readonly<Record<string, string | undefined>>;
 const HASH_32 = /^0x[0-9a-fA-F]{64}$/u;
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/u;
 const SPONSOR_KEY = /^0x[0-9a-fA-F]{64}$/u;
+const DECIMAL_TOKEN_ID = /^[0-9]+$/u;
 
 /**
  * Produces a public, non-sensitive configuration snapshot. A present but
@@ -64,10 +69,22 @@ export function createTerraProofSnapshot(
     environment.ZERO_G_CITY_AGENT_ADDRESS,
     ADDRESS,
   );
-  const chainState = combineStates(
-    configuredValue(environment.ZERO_G_NETWORK, /^(?:testnet|mainnet)$/u).state,
-    registry.state,
+  const cityAgentTokenId = configuredValue(
+    environment.ZERO_G_CITY_AGENT_TOKEN_ID,
+    DECIMAL_TOKEN_ID,
+  );
+  const networkState = configuredValue(
+    environment.ZERO_G_NETWORK,
+    /^(?:testnet|mainnet)$/u,
+  ).state;
+  const agenticIdState = combineStates(
+    networkState,
     cityAgent.state,
+    cityAgentTokenId.state,
+  );
+  const campaignRegistryState = optionalChainResourceState(
+    networkState,
+    registry.state,
   );
   const sponsor = configuredValue(
     environment.ZERO_G_SPONSOR_PRIVATE_KEY,
@@ -96,12 +113,17 @@ export function createTerraProofSnapshot(
       teeVerificationRequired: true as const,
     }),
     chain: Object.freeze({
-      state: chainState,
-      network: chainState === "configured" ? network : null,
+      state: agenticIdState,
+      agenticIdState,
+      campaignRegistryState,
+      campaignRegistryRequired: false as const,
+      network: networkState === "configured" ? network : null,
       campaignRegistryAddress:
         registry.state === "configured" ? registry.value : null,
       cityAgentAddress:
         cityAgent.state === "configured" ? cityAgent.value : null,
+      cityAgentTokenId:
+        cityAgentTokenId.state === "configured" ? cityAgentTokenId.value : null,
     }),
     sponsor: Object.freeze({
       state: sponsor.state,
@@ -150,6 +172,17 @@ function combineStates(...states: readonly ProofState[]): ProofState {
   if (states.every((state) => state === "configured")) return "configured";
   if (states.every((state) => state === "unconfigured")) return "unconfigured";
   return "misconfigured";
+}
+
+function optionalChainResourceState(
+  networkState: ProofState,
+  resourceState: ProofState,
+): ProofState {
+  if (resourceState === "unconfigured") return "unconfigured";
+  if (networkState !== "configured" || resourceState === "misconfigured") {
+    return "misconfigured";
+  }
+  return "configured";
 }
 
 function parseNetwork(raw: string | undefined): "testnet" | "mainnet" | null {
