@@ -61,14 +61,26 @@ printing remote error bodies. Run its deterministic offline tests with
 
 - The intended model is one evolving Rivergate token, not a token per house,
   bridge, resident, or repair.
-- Official `0gfoundation/0g-agentic-id` source is pinned to a reviewed commit.
-- The repository includes a fail-closed plan validator and a Foundry simulation
-  runner that accepts no private key and has no broadcast option.
-- No AgenticID contract or token has been broadcast from this repository.
-- Official 0G mainnet Tapp/Sandbox/attestor deployments are not currently
-  published. The prepared path is therefore a non-seal token with a disabled
-  verifier. It must not claim a TEE-bound identity, ServeProof, reputation, or
-  secure transfer.
+- An application-managed instance of the official `0gfoundation/0g-agentic-id`
+  contracts is deployed on 0G mainnet from pinned commit
+  `afc4d0e94af94ad5f2351215ed32c94e2fe7a54e`.
+- AgenticID is `0x0953a70D8c055799ef55404dE72d1d6c541046a9`,
+  TEEDataVerifier is `0x191DfE1D3Ca2485bD363268286672C989bF57828`,
+  AgenticIDReputationRegistry is
+  `0x3319604Cd1A1467e9d4419354Bf6259984A7f592`, and the timelock is
+  `0x20677959956561cb1034189c77511cA32D36aEfa`.
+- The stack is custody-bound to the canonical ERC-8004 IdentityRegistry at
+  `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432`. The canonical ERC-8004
+  ReputationRegistry at `0x8004BAa17C55a88189AE136b182e5fdA19dE9b63`
+  is also live on 0G mainnet.
+- The complete public transaction, block, address, bytecode-hash, governance,
+  and wiring record is
+  `contracts/agentic-id-mainnet/deployment-mainnet.v1.json`.
+- No Rivergate token registration is recorded yet. The verifier oracle is the
+  zero address, so this deployment must not claim a TEE-bound identity, sealed
+  runtime, ServeProof, verified AgenticID reputation, or secure transfer.
+- The official 0G-hosted AgenticID service remains Galileo-only. This deployed
+  stack is not an official 0G-operated mainnet attestor.
 
 ## Service configuration
 
@@ -143,32 +155,37 @@ Normal pedestrian movement, traffic, rendering, doors, local saves, and authored
 ambient dialogue do not call 0G Compute. This keeps token consumption and latency
 away from the frame loop.
 
-## AgenticID deployment and registration
+## AgenticID registration and governance
 
-Follow [`agentic-id-mainnet-runbook.md`](agentic-id-mainnet-runbook.md). The
-operation needs public values for a contract-based owner multisig, separate
-pauser, dedicated funded deployer, timelock policy, Agent Card URI, finalized
-encrypted 0G Storage root, wrapped data key, and recovery evidence.
+Follow [`agentic-id-mainnet-runbook.md`](agentic-id-mainnet-runbook.md). Contract
+deployment is complete and is recorded in the versioned public manifest.
+Registration remains a separate irreversible approval:
 
-Deployment and registration are distinct irreversible approvals:
+1. Recheck the manifest's ten addresses, receipt statuses, runtime bytecode
+   hashes, beacon ownership, proxy wiring, canonical binding, versions, and
+   two-day timelock against the live chain.
+2. Prepare one ERC-8004 Agent Card for Rivergate, upload its exact bytes to 0G
+   Storage, wait for finality, retrieve it, and verify its root and contents.
+3. Explicitly choose direct canonical ERC-8004 registration or non-seal
+   registration through the deployed AgenticID proxy. Neither route may be
+   presented as TEE-backed while the verifier oracle is zero.
+4. Independently decode and review the exact registration calldata, intended
+   owner, target, chain ID, nonce, and gas before signing.
+5. After mining, create a separate versioned registration manifest containing
+   the transaction, block, canonical agent ID, owner, Agent Card URI, and
+   Storage evidence. No token ID is currently claimed.
 
-1. Validate the public plan and live chain.
-2. Run the pinned source tests and no-broadcast Foundry simulation.
-3. Review gas, bytecode, roles, canonical ERC-8004 binding, and manifests with a
-   second operator.
-4. Explicitly approve and perform the contract deployment outside this repo's
-   safety-only tooling.
-5. Verify all proxy, beacon, timelock, owner, pauser, and explorer records.
-6. Explicitly approve one non-seal Rivergate token registration.
-7. Verify ownership, Agent Card, intelligent data, sealed key event, canonical
-   ERC-8004 visibility, and the absence of an agent seal.
+Owner, proposer, pauser, and deployer are currently the same public EOA,
+`0x402eA1d4e1335Cc6BdcB6b1AA1563AD93eb5392e`. Before unattended production use,
+move ownership/proposal authority to reviewed governance and separate the
+emergency pauser through an independently reviewed timelock operation.
 
 Routine repairs remain local and inexpensive. At a meaningful milestone, the
 server should create a minimal encrypted city-memory artifact, upload it to 0G
 Storage, and enqueue one idempotent `updateAt` operation for the Rivergate token.
-That milestone worker is not implemented yet because its wrapped-key policy and
-deployed AgenticID address/token ID do not exist. A Storage sync is therefore not
-labelled as AgenticID-anchored today.
+That milestone worker is not implemented yet because no Rivergate registration,
+token ID, or wrapped-key policy exists. A Storage sync is therefore not labelled
+as AgenticID-anchored today.
 
 ## Remaining release gates
 
@@ -182,9 +199,9 @@ labelled as AgenticID-anchored today.
   current self-issued checkpoint session is suitable only for a controlled
   demo and must not guard a funded public sponsor.
 - A sanitized durable Compute trace/audit sink.
-- Multisig, pauser, deployer, wrapped-key policy, security review, explicit
-  deployment approval, verified AgenticID deployment, and one token registration.
-- Durable milestone outbox/worker after the AgenticID address and token ID exist.
+- Governance migration, separate pauser, wrapped-key policy, registration
+  security review, and one explicitly approved Rivergate token registration.
+- Durable milestone outbox/worker after the Rivergate token ID exists.
 - Monitoring and alerts for Router failures, Storage retries, database errors,
   sponsor balance, stuck transactions, and unexpected contract events.
 
@@ -195,3 +212,5 @@ Official references:
 - [Verifiable execution](https://docs.0g.ai/developer-hub/building-on-0g/compute-network/router/features/verifiable-execution)
 - [0G Storage SDK](https://docs.0g.ai/developer-hub/building-on-0g/storage/sdk)
 - [Official AgenticID contracts](https://github.com/0gfoundation/0g-agentic-id)
+- [Official ERC-8004 deployments](https://github.com/erc-8004/erc-8004-contracts/blob/master/README.md#0g-mainnet)
+- [ERC-8004 specification](https://eips.ethereum.org/EIPS/eip-8004)

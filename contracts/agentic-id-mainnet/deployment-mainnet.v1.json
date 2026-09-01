@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 1,
+  "kind": "terra-world-agentic-id-deployment",
+  "status": "deployed",
+  "network": {
+    "name": "0G Mainnet",
+    "chainId": 16661,
+    "rpcUrl": "https://evmrpc.0g.ai",
+    "explorerUrl": "https://chainscan.0g.ai",
+    "canonicalERC8004IdentityRegistry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "canonicalERC8004IdentityRegistryVersion": "2.0.0",
+    "canonicalERC8004ReputationRegistry": "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63"
+  },
+  "source": {
+    "repository": "https://github.com/0gfoundation/0g-agentic-id.git",
+    "commit": "afc4d0e94af94ad5f2351215ed32c94e2fe7a54e",
+    "contractsDirectory": "contracts",
+    "deploymentScript": "contracts/script/Deploy.s.sol"
+  },
+  "configuration": {
+    "nftName": "Rivergate AgenticID",
+    "nftSymbol": "RGAID",
+    "timelockDelaySeconds": 172800,
+    "owner": "0x402eA1d4e1335Cc6BdcB6b1AA1563AD93eb5392e",
+    "ownerAccountTypeAtVerification": "EOA",
+    "pauser": "0x402eA1d4e1335Cc6BdcB6b1AA1563AD93eb5392e",
+    "proposers": ["0x402eA1d4e1335Cc6BdcB6b1AA1563AD93eb5392e"],
+    "executors": ["0x0000000000000000000000000000000000000000"],
+    "teeOracle": "0x0000000000000000000000000000000000000000"
+  },
+  "deployment": {
+    "deployer": "0x402eA1d4e1335Cc6BdcB6b1AA1563AD93eb5392e",
+    "startedAt": "2026-09-01T00:14:39.000Z",
+    "completedAt": "2026-09-01T00:16:02.000Z",
+    "contracts": [
+      {
+        "component": "TimelockController",
+        "role": "timelock",
+        "address": "0x20677959956561cb1034189c77511cA32D36aEfa",
+        "runtimeCodeHash": "0x121138afef5eff702ff567f58e34f5d56eec230c1a5db67a77ec42c78b5b76c5",
+        "deployerNonce": 2,
+        "transactionHash": "0x50d3a0c7fe2cd29f2db2a580f25a1d2b769e76c9ebe1c1debe5822d4a232c6da",
+        "blockNumber": 43181101,
+        "blockHash": "0x3d0ef7749e0c690a489ac6a004ec77b1c2b438ba396a9d508585295b06c493a9",
+        "timestamp": "2026-09-01T00:14:39.000Z",
+        "gasUsed": "1772085",
+        "receiptStatus": 1
+      },
+      {
+        "component": "TEEDataVerifier",
+        "role": "implementation",
+        "address": "0x3901ee0c5C19A54d080E4D8C24fa890C11049a76",
+        "runtimeCodeHash": "0x6e5b081e27c449ef86d09e59443d4d704b5692748af4814d106a3c74a532b58d",
+        "deployerNonce": 3,
+        "transactionHash": "0x6d04f46264d57416a23782fd4e5732139c9c362098c185b5175bb3ebe0f80463",
+        "blockNumber": 43181110,
+        "blockHash": "0x618ff71c6e87a1aaf586d8a23bf1707f655567fe0e3b2ac1644fb3eff12bae50",
+        "timestamp": "2026-09-01T00:14:48.000Z",
+        "gasUsed": "1664318",
+        "receiptStatus": 1
+      },
+      {
+        "component": "TEEDataVerifier",
+        "role": "beacon",
+        "address": "0x83b3AB01A671dBc7e7F123a990D3cbe01F28318C",
+        "runtimeCodeHash": "0x40ff1316333a937082475cc818696e9dbbd21e7e9d9e2be40b6f947edf141001",
+        "deployerNonce": 4,
+        "transactionHash": "0x38249c70c176dd8ef8e61d47885dcad77109af344c25722b5b4ceafbc4b3b91f",
+        "blockNumber": 43181118,
+        "blockHash": "0xf8b5e781cf6e91fe2e79e8a9859b5c9b3a7b291ce8454a7f8972366a10fa8512",
+        "timestamp": "2026-09-01T00:14:56.000Z",
+        "gasUsed": "315205",
+        "receiptStatus": 1
+      },
+      {
+        "component": "TEEDataVerifier",
+        "role": "proxy",
+        "address": "0x191DfE1D3Ca2485bD363268286672C989bF57828",
+        "runtimeCodeHash": "0x95125f3806cd9d046a0e4fd531b66ce3e72b038578946f897bd3b29fdc2e677d",
+        "deployerNonce": 5,
+        "transactionHash": "0x0b9cd581ab85aeae981e912021f5bbdf70102d6280de345edf0023da0277c13f",
+        "blockNumber": 43181128,
+        "blockHash": "0xff6b6323e67e8bc27775e28b52cc41a1baa83bb68c0714786a37c5878684e3f2",
+        "timestamp": "2026-09-01T00:15:05.000Z",
+        "gasUsed": "373969",
+        "receiptStatus": 1
+      },
+      {
+        "component": "AgenticID",
+        "role": "implementation",
+        "address": "0x3D0CD1c73022e8f5160F200f75a9dc9cF85353F8",
+        "runtimeCodeHash": "0x6b0fd986678c9f3ca0734a5421aec029bd8c3617ca652dbc5844591b2e59f209",
+        "deployerNonce": 6,
+        "transactionHash": "0x1ff991dfb43c1b96e96436e66589ffc136868b07a6c1e5d17798b8385418951c",
+        "blockNumber": 43181136,
+        "blockHash": "0xee4c5a2d0832ff820c281e56db29edc14d09463a4498c34ee971667498258b70",
+        "timestamp": "2026-09-01T00:15:12.000Z",
+        "gasUsed": "7010672",
+        "receiptStatus": 1
+      },
+      {
+        "component": "AgenticID",
+        "role": "beacon",
+        "address": "0x80b745AF9967f6F6674e6746D7De26aaa99ee6a9",
+        "runtimeCodeHash": "0x40ff1316333a937082475cc818696e9dbbd21e7e9d9e2be40b6f947edf141001",
+        "deployerNonce": 7,
+        "transactionHash": "0x496c7157dc530963bf64eb13643aae7b3b1c555f3e5024c56a63faaa9a0c0198",
+        "blockNumber": 43181144,
+        "blockHash": "0x89ffc81368f69185a8cdf5823dd4ba2ebed1cbc9af18602ad6ace41d87a13163",
+        "timestamp": "2026-09-01T00:15:20.000Z",
+        "gasUsed": "315205",
+        "receiptStatus": 1
+      },
+      {
+        "component": "AgenticID",
+        "role": "proxy",
+        "address": "0x0953a70D8c055799ef55404dE72d1d6c541046a9",
+        "runtimeCodeHash": "0x1568aeb8f76ee7d6b0583a0d006f0210b3857e5c9635e420252434fe47ef20bf",
+        "deployerNonce": 8,
+        "transactionHash": "0x99090331b17a49a296598cd6fbfc2def3e7a295167e22a576f5ac58abef083de",
+        "blockNumber": 43181155,
+        "blockHash": "0x487766bcbd27a27d16c6cee0c1cab2d9df80324deba426a7e002d902fce336ff",
+        "timestamp": "2026-09-01T00:15:31.000Z",
+        "gasUsed": "500630",
+        "receiptStatus": 1
+      },
+      {
+        "component": "AgenticIDReputationRegistry",
+        "role": "implementation",
+        "address": "0xcEC00E7386Ebef54541807669A106f7D08B8Fba5",
+        "runtimeCodeHash": "0x183ce14dea8db8fde2e583cac283500e380802acd6f430a1e47f339b284a658a",
+        "deployerNonce": 9,
+        "transactionHash": "0x866311635a03ca6ed87dbe037a7d3eac4466395a0395e0413ff6f3f64865da08",
+        "blockNumber": 43181164,
+        "blockHash": "0xb326bf694acac120325268089b903c2c594c9ce01aa88ac54634a89bbec8176f",
+        "timestamp": "2026-09-01T00:15:39.000Z",
+        "gasUsed": "3490182",
+        "receiptStatus": 1
+      },
+      {
+        "component": "AgenticIDReputationRegistry",
+        "role": "beacon",
+        "address": "0x6Bd96987174c3C4c46976E661624025cC956a9eE",
+        "runtimeCodeHash": "0x40ff1316333a937082475cc818696e9dbbd21e7e9d9e2be40b6f947edf141001",
+        "deployerNonce": 10,
+        "transactionHash": "0x8509a52548bf78195fa5a3b78741acb37049b47107b1d27944544536b53e0402",
+        "blockNumber": 43181179,
+        "blockHash": "0x0843a1e565c3523ee3144d7f440202a88d36ec0c9bc276bc981f18c9a9db0d5f",
+        "timestamp": "2026-09-01T00:15:54.000Z",
+        "gasUsed": "315205",
+        "receiptStatus": 1
+      },
+      {
+        "component": "AgenticIDReputationRegistry",
+        "role": "proxy",
+        "address": "0x3319604Cd1A1467e9d4419354Bf6259984A7f592",
+        "runtimeCodeHash": "0x27f5dc2cb1b537a480617c92ec7272d5384669099ab8e31bf9eeea48116d68e5",
+        "deployerNonce": 11,
+        "transactionHash": "0xc173c2761458f09f16f4df6ab46d60ef5798deb48b72895d968afc0758f3342d",
+        "blockNumber": 43181188,
+        "blockHash": "0xf176550a752e127802040bc3281cd0cacc51377c1a7b9bb776b075293f579b5b",
+        "timestamp": "2026-09-01T00:16:02.000Z",
+        "gasUsed": "371140",
+        "receiptStatus": 1
+      }
+    ]
+  },
+  "onChainVerification": {
+    "verifiedOn": "2026-09-01",
+    "allTenAddressesHaveRuntimeCode": true,
+    "versions": {
+      "AgenticID": "1.1.0",
+      "TEEDataVerifier": "1.1.0",
+      "AgenticIDReputationRegistry": "1.2.0"
+    },
+    "wiring": {
+      "agenticIdCanonicalERC8004": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+      "agenticIdVerifier": "0x191DfE1D3Ca2485bD363268286672C989bF57828",
+      "reputationIdentityRegistry": "0x0953a70D8c055799ef55404dE72d1d6c541046a9",
+      "teeDataVerifierBeaconImplementation": "0x3901ee0c5C19A54d080E4D8C24fa890C11049a76",
+      "agenticIdBeaconImplementation": "0x3D0CD1c73022e8f5160F200f75a9dc9cF85353F8",
+      "reputationBeaconImplementation": "0xcEC00E7386Ebef54541807669A106f7D08B8Fba5",
+      "allBeaconOwners": "0x20677959956561cb1034189c77511cA32D36aEfa"
+    },
+    "governance": {
+      "timelockMinimumDelaySeconds": 172800,
+      "ownerHasProposerRole": true,
+      "executionIsOpen": true
+    },
+    "safetyState": {
+      "contractsPaused": false,
+      "teeOracleConfigured": false,
+      "teeAttestationAvailable": false,
+      "sealedRegistrationAvailable": false,
+      "serveProofAvailable": false
+    }
+  },
+  "rivergateRegistration": {
+    "status": "not-registered",
+    "note": "No Rivergate token identifier or registration transaction is recorded in this manifest."
+  },
+  "provenance": [
+    "https://docs.0g.ai/developer-hub/mainnet/mainnet-overview",
+    "https://github.com/erc-8004/erc-8004-contracts/blob/master/README.md#0g-mainnet",
+    "https://github.com/0gfoundation/0g-agentic-id/blob/afc4d0e94af94ad5f2351215ed32c94e2fe7a54e/contracts/DEPLOYMENT.md",
+    "https://github.com/0gfoundation/0g-agentic-id/blob/afc4d0e94af94ad5f2351215ed32c94e2fe7a54e/contracts/script/Deploy.s.sol"
+  ]
+}
