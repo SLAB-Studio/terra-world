@@ -37,7 +37,6 @@ describe("Sync City HUD control", () => {
     expect(citySyncCopy("anchoring").label).toBe("Anchoring…");
     expect(citySyncCopy("synced").label).toBe("All synced");
     expect(citySyncCopy("offline-queued").label).toBe("Queued offline");
-    expect(citySyncCopy("attention").label).toBe("Sync needs review");
     expect(citySyncCopy("retry").label).toBe("Retry sync");
     expect(initialCitySyncSnapshot("city-a").phase).toBe("pending");
   });
@@ -106,7 +105,7 @@ describe("Sync City HUD control", () => {
     expect(citySyncCopy(completed.phase).detail).toContain("not stored on 0G");
   });
 
-  it("does not offer a blind retry after an ambiguous network failure", () => {
+  it("offers a retry after a failed sync without losing revision correctness", () => {
     const started = reduceCitySync(initialCitySyncSnapshot("city-a"), {
       type: "start",
       revision: "city-a",
@@ -116,7 +115,38 @@ describe("Sync City HUD control", () => {
       requestedRevision: "city-a",
     });
 
-    expect(failed.phase).toBe("attention");
-    expect(citySyncCopy(failed.phase).detail).toContain("safe on this device");
+    expect(failed).toEqual({
+      phase: "retry",
+      revision: "city-a",
+      requestedRevision: "city-a",
+      root: null,
+    });
+    expect(citySyncCopy(failed.phase)).toEqual({
+      label: "Retry sync",
+      detail: "Ready to try again",
+    });
+
+    const restarted = reduceCitySync(failed, {
+      type: "start",
+      revision: "city-a",
+    });
+    expect(restarted.phase).toBe("syncing");
+  });
+
+  it("keeps a newer revision pending when an older sync fails", () => {
+    const started = reduceCitySync(initialCitySyncSnapshot("city-a"), {
+      type: "start",
+      revision: "city-a",
+    });
+    const edited = reduceCitySync(started, {
+      type: "revision",
+      revision: "city-b",
+    });
+    const failed = reduceCitySync(edited, {
+      type: "fail",
+      requestedRevision: "city-a",
+    });
+
+    expect(failed).toEqual(initialCitySyncSnapshot("city-b"));
   });
 });

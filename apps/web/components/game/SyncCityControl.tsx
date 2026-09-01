@@ -16,7 +16,6 @@ export type CitySyncPhase =
   | "anchoring"
   | "synced"
   | "offline-queued"
-  | "attention"
   | "retry";
 
 export type CitySyncSnapshot = Readonly<{
@@ -53,10 +52,6 @@ const PHASE_COPY: Readonly<
   "offline-queued": {
     label: "Queued offline",
     detail: "City is safe on this device",
-  },
-  attention: {
-    label: "Sync needs review",
-    detail: "City remains safe on this device",
   },
   retry: { label: "Retry sync", detail: "Ready to try again" },
 };
@@ -121,7 +116,7 @@ export function reduceCitySync(
       if (snapshot.revision !== action.requestedRevision) {
         return initialCitySyncSnapshot(snapshot.revision);
       }
-      return { ...snapshot, phase: "attention", root: null };
+      return { ...snapshot, phase: "retry", root: null };
   }
 }
 
@@ -151,10 +146,7 @@ export default function SyncCityControl({
     snapshot.phase === "stored" ||
     snapshot.phase === "synced";
   const isUnavailable =
-    isBusy ||
-    isSettled ||
-    snapshot.phase === "offline-queued" ||
-    snapshot.phase === "attention";
+    isBusy || isSettled || snapshot.phase === "offline-queued";
 
   useEffect(() => {
     dispatch({ type: "revision", revision });

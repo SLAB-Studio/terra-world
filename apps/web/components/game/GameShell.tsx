@@ -22,7 +22,10 @@ import {
 } from "../../lib/game/controller";
 import {
   backUpCampaignSession,
+  CheckpointAnchorError,
+  createAdultSessionHttpClient,
   createCheckpointBackupStore,
+  createCheckpointHttpAnchorClient,
   createCheckpointHttpRemoteStorage,
   parseAdultBackupKit,
   restoreCampaignSession,
@@ -65,6 +68,10 @@ const ADULT_PIN_STORAGE_KEY = "terra-world-adult-pin-v1";
 type PlayerRole = "water-keeper" | "neighbour-helper" | "nature-planner";
 type SaveState = "loading" | "saving" | "saved" | "temporary";
 type BackupState = "idle" | "backing-up" | "ready" | "restoring" | "error";
+type PreparedCitySync = Readonly<{
+  kit: AdultBackupKit;
+  checkpointSavedAt: number;
+}>;
 type ExpertMessage = Readonly<{
   id: string;
   speaker: "child" | "river";
@@ -102,7 +109,7 @@ export default function GameShell() {
     createDeveloperGame(),
   );
   const persistenceRef = useRef<OfflinePersistence | null>(null);
-  const adultSessionReadyRef = useRef(false);
+  const adultSessionExpiresAtRef = useRef(0);
   const adultEntryRef = useRef<HTMLButtonElement | null>(null);
   const adultDialogRef = useRef<HTMLElement | null>(null);
   const expertEntryRef = useRef<HTMLButtonElement | null>(null);
@@ -111,6 +118,9 @@ export default function GameShell() {
   const writeQueueRef = useRef<Promise<void>>(Promise.resolve());
   const citySyncRequestsRef = useRef(
     new Map<string, Promise<CitySyncOutcome>>(),
+  );
+  const citySyncCheckpointsRef = useRef(
+    new Map<string, Promise<PreparedCitySync>>(),
   );
   const expertMessageSequenceRef = useRef(0);
   const [persistenceReady, setPersistenceReady] = useState(false);
@@ -187,6 +197,8 @@ export default function GameShell() {
     () => deterministicHash(createGameSessionSave(state, 0)),
     [state],
   );
+  const currentCitySyncRevisionRef = useRef(citySyncRevision);
+  currentCitySyncRevisionRef.current = citySyncRevision;
 
   useEffect(() => {
     const explanation = displayedFeedback?.explanation;
@@ -624,25 +636,21 @@ export default function GameShell() {
     setAdultGateError(false);
   }
 
+  async function ensureAdultSession(): Promise<void> {
+    if (adultSessionExpiresAtRef.current <= Date.now() + 5_000) {
+      const { expiresAt } = await createAdultSessionHttpClient().begin();
+      if (expiresAt <= Date.now()) {
+        throw new Error("adult-session-unavailable");
+      }
+      adultSessionExpiresAtRef.current = expiresAt;
+    }
+  }
+
   async function openAdultBackupStore(startSession = true): Promise<{
     store: DurableCheckpointBackupStore;
     remote: ReturnType<typeof createCheckpointHttpRemoteStorage>;
   }> {
-    if (startSession && !adultSessionReadyRef.current) {
-      const response = await fetch("/api/checkpoints/session", {
-        method: "POST",
-        cache: "no-store",
-        credentials: "same-origin",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          schemaVersion: 1,
-          operation: "begin-adult-session",
-          adultConfirmed: true,
-        }),
-      });
-      if (!response.ok) throw new Error("adult-session-unavailable");
-      adultSessionReadyRef.current = true;
-    }
+    if (startSession) await ensureAdultSession();
     return {
       store: await createCheckpointBackupStore(),
       remote: createCheckpointHttpRemoteStorage(),
@@ -680,40 +688,112 @@ export default function GameShell() {
     const existing = citySyncRequestsRef.current.get(revision);
     if (existing !== undefined) return existing;
 
-    const session = createGameSessionSave(state);
+    let prepared: Promise<PreparedCitySync> | undefined;
+    let checkpointStored = false;
+    const requestRef: { current?: Promise<CitySyncOutcome> } = {};
     const request = (async () => {
-      let store: DurableCheckpointBackupStore | null = null;
       try {
         await writeQueueRef.current.catch(() => undefined);
-        const opened = await openAdultBackupStore();
-        store = opened.store;
-        const kit = await backUpCampaignSession({
-          session,
-          store,
-          remote: opened.remote,
+        prepared = citySyncCheckpointsRef.current.get(revision);
+        if (prepared === undefined) {
+          const checkpointSavedAt = Date.now();
+          const session = createGameSessionSave(state, checkpointSavedAt);
+          prepared = (async (): Promise<PreparedCitySync> => {
+            let store: DurableCheckpointBackupStore | null = null;
+            try {
+              const opened = await openAdultBackupStore();
+              store = opened.store;
+              const kit = await backUpCampaignSession({
+                session,
+                store,
+                remote: opened.remote,
+                now: checkpointSavedAt,
+              });
+              return { kit, checkpointSavedAt };
+            } finally {
+              store?.close();
+            }
+          })();
+          citySyncCheckpointsRef.current.set(revision, prepared);
+          if (citySyncCheckpointsRef.current.size > 8) {
+            const oldestRevision = citySyncCheckpointsRef.current
+              .keys()
+              .next().value;
+            if (oldestRevision !== undefined && oldestRevision !== revision) {
+              citySyncCheckpointsRef.current.delete(oldestRevision);
+            }
+          }
+        }
+
+        const { kit, checkpointSavedAt } = await prepared;
+        checkpointStored = true;
+        if (currentCitySyncRevisionRef.current === revision) {
+          setBackupKit(kit);
+          setBackupState("ready");
+          setBackupMessage(
+            "Encrypted recovery point ready. Keep the recovery code private.",
+          );
+        }
+        if (!ZERO_G_STORAGE_ROOT.test(kit.reference.root)) {
+          return { root: kit.reference.root, status: "demo" as const };
+        }
+
+        await ensureAdultSession();
+        const evidence = await createCheckpointHttpAnchorClient().anchor({
+          root: kit.reference.root as `0x${string}`,
+          contentHash: kit.reference.contentHash as `sha256:${string}`,
+          byteLength: kit.reference.byteLength,
+          checkpointSavedAt,
         });
-        setBackupKit(kit);
-        setBackupState("ready");
-        setBackupMessage(
-          "Encrypted recovery point ready. Keep the recovery code private.",
-        );
+        if (currentCitySyncRevisionRef.current === revision) {
+          setBackupMessage(
+            "Encrypted recovery point stored and anchored to Rivergate on 0G.",
+          );
+        }
         return {
-          root: kit.reference.root,
-          status: ZERO_G_STORAGE_ROOT.test(kit.reference.root)
-            ? ("stored" as const)
-            : ("demo" as const),
+          root: evidence.checkpointRoot,
+          status: "synced" as const,
         };
       } catch (error) {
-        citySyncRequestsRef.current.delete(revision);
-        setBackupState("error");
-        setBackupMessage(
-          "The network backup is waiting. Rivergate is still safe on this device.",
-        );
+        if (citySyncRequestsRef.current.get(revision) === requestRef.current) {
+          citySyncRequestsRef.current.delete(revision);
+        }
+        if (
+          !checkpointStored &&
+          prepared !== undefined &&
+          citySyncCheckpointsRef.current.get(revision) === prepared
+        ) {
+          citySyncCheckpointsRef.current.delete(revision);
+        }
+        if (
+          error instanceof CheckpointAnchorError &&
+          error.code === "not_authorized"
+        ) {
+          adultSessionExpiresAtRef.current = 0;
+        }
+        if (
+          error instanceof CheckpointAnchorError &&
+          (error.code === "not_found" || error.code === "checkpoint_rejected")
+        ) {
+          citySyncCheckpointsRef.current.delete(revision);
+        }
+        if (currentCitySyncRevisionRef.current === revision) {
+          if (checkpointStored) {
+            setBackupState("ready");
+            setBackupMessage(
+              "Recovery point stored on 0G. Its AgenticID confirmation is waiting for retry.",
+            );
+          } else {
+            setBackupState("error");
+            setBackupMessage(
+              "The network backup is waiting. Rivergate is still safe on this device.",
+            );
+          }
+        }
         throw error;
-      } finally {
-        store?.close();
       }
     })();
+    requestRef.current = request;
 
     citySyncRequestsRef.current.set(revision, request);
     if (citySyncRequestsRef.current.size > 8) {
