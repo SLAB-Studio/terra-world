@@ -17,7 +17,8 @@
     "phaser": "^3.90.0",
     "postgres": "3.4.9",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/react": "^19.0.10",
