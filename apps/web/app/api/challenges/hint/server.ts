@@ -121,12 +121,12 @@ Return exactly one JSON object with only these keys: message, hints.
         signal: context.signal,
       },
     );
-    if (
-      context.signal.aborted ||
-      completion.trustMode !== "private" ||
-      completion.teeVerificationRequested !== true ||
-      completion.teeVerified !== true
-    )
+    const trustSatisfied =
+      completion.trustMode === "provider-direct" ||
+      (completion.trustMode === "private" &&
+        completion.teeVerificationRequested === true &&
+        completion.teeVerified === true);
+    if (context.signal.aborted || !trustSatisfied)
       throw new Error("private-compute-required");
     const serialized = extractAssistantContent(completion.payload);
     const value = JSON.parse(serialized) as unknown;

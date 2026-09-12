@@ -120,12 +120,14 @@ export function createPrivateZeroGGuideProvider(
     const result = await client.createChatCompletion(completion, {
       signal: context.signal,
     });
-    if (
-      context.signal.aborted ||
-      result.trustMode !== "private" ||
-      result.teeVerificationRequested !== true ||
-      result.teeVerified !== true
-    ) {
+    // In private mode a successful TEE attestation is mandatory; in
+    // provider-direct mode a plain 0G completion (no TEE envelope) is accepted.
+    const trustSatisfied =
+      result.trustMode === "provider-direct" ||
+      (result.trustMode === "private" &&
+        result.teeVerificationRequested === true &&
+        result.teeVerified === true);
+    if (context.signal.aborted || !trustSatisfied) {
       throw PROVIDER_CANCELLED;
     }
 

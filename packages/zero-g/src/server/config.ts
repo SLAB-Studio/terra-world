@@ -24,8 +24,11 @@ export type ZeroGComputeConfig = Readonly<{
     baseUrl: string;
     apiKey: string;
     model: string;
-    trustMode: "private";
-    verifyTee: true;
+    // "private" requires a TEE-attested response; "provider-direct" accepts a
+    // plain provider completion without TEE attestation.
+    trustMode: "private" | "provider-direct";
+    verifyTee: boolean;
+    disableThinking?: boolean;
     providerSort?: "price";
     allowProviderFallbacks?: false;
   }>;
@@ -168,8 +171,9 @@ function requestConfig(env: ZeroGEnvironment): ZeroGRequestConfig {
 }
 
 function parseApiKey(value: string): string {
-  // Router keys in circulation include both sk-* and app-sk-* forms.
-  if (!/^(?:app-)?sk-[A-Za-z0-9_-]{8,}$/.test(value)) {
+  // Router keys in circulation include both sk-* and app-sk-* forms. The body
+  // is a base64url payload that may carry `=` padding characters.
+  if (!/^(?:app-)?sk-[A-Za-z0-9_=-]{8,}$/.test(value)) {
     throw new ZeroGConfigError(
       "INVALID_VALUE",
       "ZERO_G_COMPUTE_API_KEY",
@@ -287,6 +291,7 @@ export function loadZeroGComputeConfig(
     "ZERO_G_COMPUTE_ROUTER_URL",
   );
   assertComputeNetwork(network, baseUrl, "ZERO_G_COMPUTE_ROUTER_URL");
+  const verifyTee = configuredVerifyTee(env);
   return Object.freeze({
     network,
     chainId: defaults.chainId,
@@ -295,13 +300,44 @@ export function loadZeroGComputeConfig(
       baseUrl,
       apiKey: parseApiKey(required(env, "ZERO_G_COMPUTE_API_KEY")),
       model: required(env, "ZERO_G_COMPUTE_MODEL"),
-      trustMode: "private" as const,
-      verifyTee: true as const,
+      trustMode: verifyTee ? ("private" as const) : ("provider-direct" as const),
+      verifyTee,
+      disableThinking: configuredBoolean(
+        env.ZERO_G_COMPUTE_DISABLE_THINKING,
+        "ZERO_G_COMPUTE_DISABLE_THINKING",
+      ),
       providerSort: "price" as const,
       allowProviderFallbacks: false as const,
     }),
     request: requestConfig(env),
   });
+}
+
+/**
+ * TEE attestation is required by default. Set ZERO_G_COMPUTE_VERIFY_TEE=false to
+ * accept a plain provider-direct completion (real 0G inference without a TEE
+ * proof) — for example when the key is bound to a Private Computer provider
+ * proxy that does not return an x_0g_trace envelope.
+ */
+function configuredVerifyTee(env: ZeroGEnvironment): boolean {
+  return configuredBoolean(
+    env.ZERO_G_COMPUTE_VERIFY_TEE,
+    "ZERO_G_COMPUTE_VERIFY_TEE",
+    true,
+  );
+}
+
+/** Parses an optional boolean env flag, throwing on anything but true/false. */
+function configuredBoolean(
+  raw: string | undefined,
+  field: string,
+  defaultValue = false,
+): boolean {
+  const value = raw?.trim().toLowerCase();
+  if (value === undefined || value === "") return defaultValue;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new ZeroGConfigError("INVALID_VALUE", field, `${field} must be true or false`);
 }
 
 export function loadZeroGStorageConfig(

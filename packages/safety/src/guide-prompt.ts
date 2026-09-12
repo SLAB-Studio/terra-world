@@ -86,13 +86,17 @@ const TASK_RULES: Readonly<Record<CityGuideRequest["task"], string>> = {
 - Do not include reflectiveQuestion, hints, or vocabulary.`,
 };
 
+// Headroom for the JSON answer. 0G's TeeML models are reasoning models; the
+// compute client disables hidden thinking (chat_template_kwargs.enable_thinking
+// = false) so these budgets fund the answer, not a chain of thought. A small
+// buffer stays in case a provider ignores that flag.
 const MAX_TOKENS: Readonly<
   Record<CityGuideRequest["task"], Record<CityGuideRequest["ageBand"], number>>
 > = {
-  explain: { "8-10": 360, "11-13": 440 },
-  hint: { "8-10": 300, "11-13": 360 },
-  react: { "8-10": 180, "11-13": 220 },
-  memory: { "8-10": 220, "11-13": 260 },
+  explain: { "8-10": 600, "11-13": 700 },
+  hint: { "8-10": 600, "11-13": 700 },
+  react: { "8-10": 500, "11-13": 600 },
+  memory: { "8-10": 500, "11-13": 600 },
 };
 
 /**

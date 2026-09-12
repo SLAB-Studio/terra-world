@@ -75,6 +75,59 @@ describe("loadZeroGServerConfig", () => {
     });
   });
 
+  it("enters provider-direct mode when TEE verification is disabled", () => {
+    expect(
+      loadZeroGComputeConfig({
+        ZERO_G_COMPUTE_API_KEY: "app-sk-mainnet-key",
+        ZERO_G_COMPUTE_MODEL: "0GM-1.0-35B-A3B",
+        ZERO_G_COMPUTE_VERIFY_TEE: "false",
+        ZERO_G_COMPUTE_DISABLE_THINKING: "true",
+      }),
+    ).toMatchObject({
+      compute: {
+        trustMode: "provider-direct",
+        verifyTee: false,
+        disableThinking: true,
+      },
+    });
+  });
+
+  it("defaults to TEE-verified private mode with thinking enabled", () => {
+    expect(
+      loadZeroGComputeConfig({
+        ZERO_G_COMPUTE_API_KEY: "app-sk-mainnet-key",
+        ZERO_G_COMPUTE_MODEL: "0GM-1.0-35B-A3B",
+      }),
+    ).toMatchObject({
+      compute: {
+        trustMode: "private",
+        verifyTee: true,
+        disableThinking: false,
+      },
+    });
+  });
+
+  it("rejects a non-boolean ZERO_G_COMPUTE_VERIFY_TEE", () => {
+    expect(() =>
+      loadZeroGComputeConfig({
+        ZERO_G_COMPUTE_API_KEY: "app-sk-mainnet-key",
+        ZERO_G_COMPUTE_MODEL: "0GM-1.0-35B-A3B",
+        ZERO_G_COMPUTE_VERIFY_TEE: "maybe",
+      }),
+    ).toThrow();
+  });
+
+  it("accepts an app-sk- key whose base64url body carries = padding", () => {
+    expect(
+      loadZeroGComputeConfig({
+        ZERO_G_COMPUTE_API_KEY: "app-sk-YWJjZGVmZ2hpamtsbW5vcA==",
+        ZERO_G_COMPUTE_MODEL: "0GM-1.0-35B-A3B",
+      }),
+    ).toMatchObject({
+      compute: { apiKey: "app-sk-YWJjZGVmZ2hpamtsbW5vcA==" },
+    });
+  });
+
   it("accepts a 0G Private Computer provider proxy endpoint for app-scoped keys", () => {
     expect(
       loadZeroGComputeConfig({

@@ -65,6 +65,43 @@ describe("0G Compute Router client", () => {
     });
   });
 
+  it("accepts a provider-direct completion with no TEE envelope", async () => {
+    const providerDirectConfig: ZeroGComputeConfig = {
+      ...CONFIG,
+      compute: {
+        ...CONFIG.compute,
+        trustMode: "provider-direct",
+        verifyTee: false,
+        disableThinking: true,
+      },
+    };
+    const fetchRequest = vi.fn<FetchLike>(async () =>
+      jsonResponse(
+        {
+          id: "chatcmpl-abc123",
+          choices: [{ message: { content: "Water is flowing." } }],
+        },
+        200,
+      ),
+    );
+    const client = createZeroGComputeClient(providerDirectConfig, {
+      fetch: fetchRequest,
+    });
+
+    await expect(client.createChatCompletion(INPUT)).resolves.toMatchObject({
+      trustMode: "provider-direct",
+      teeVerificationRequested: false,
+      teeVerified: false,
+      requestId: "chatcmpl-abc123",
+      provider: `0x${"0".repeat(40)}`,
+    });
+    const [, init] = fetchRequest.mock.calls[0] ?? [];
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      verify_tee: false,
+      chat_template_kwargs: { enable_thinking: false },
+    });
+  });
+
   it("fails closed when private providers remain unavailable", async () => {
     const fetchRequest = vi.fn<FetchLike>(async () =>
       jsonResponse(

@@ -106,12 +106,12 @@ describe("Leo guide completion construction", () => {
   });
 
   it.each([
-    ["explain", 360, 440],
-    ["hint", 300, 360],
-    ["react", 180, 220],
-    ["memory", 220, 260],
+    ["explain", 600, 700],
+    ["hint", 600, 700],
+    ["react", 500, 600],
+    ["memory", 500, 600],
   ] as const)(
-    "retains legacy safety limits for %s without child-directed framing",
+    "reserves reasoning-model token budget for %s without child-directed framing",
     (task, youngerLimit, olderLimit) => {
       const younger = createRivergateGuideCompletion(
         makeGuideRequest(task, "8-10"),

@@ -244,12 +244,12 @@ export function createPrivateChapterGuideProvider(
       createChapterGuideCompletion(facts),
       { signal: context.signal },
     );
-    if (
-      context.signal.aborted ||
-      result.trustMode !== "private" ||
-      result.teeVerificationRequested !== true ||
-      result.teeVerified !== true
-    )
+    const trustSatisfied =
+      result.trustMode === "provider-direct" ||
+      (result.trustMode === "private" &&
+        result.teeVerificationRequested === true &&
+        result.teeVerified === true);
+    if (context.signal.aborted || !trustSatisfied)
       throw new Error("Unverified provider result");
     const payload = result.payload;
     if (!isRecord(payload) || !Array.isArray(payload.choices))

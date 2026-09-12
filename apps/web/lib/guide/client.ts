@@ -380,7 +380,7 @@ function remoteResult(payload: RemoteGuidePayload): CityGuideClientResult {
   > = {
     provider: {
       source: "private-compute",
-      label: "Private 0G Compute response, checked against city facts",
+      label: "0G Compute response, checked against city facts",
     },
     cache: {
       source: "verified-cache",

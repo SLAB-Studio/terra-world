@@ -24,7 +24,7 @@ export type ZeroGComputeResult = Readonly<{
   provider: `0x${string}`;
   requestId: string;
   billing?: ZeroGBillingMetadata;
-  trustMode: "private";
+  trustMode: "private" | "provider-direct";
   teeVerificationRequested: boolean;
   teeVerified: boolean;
 }>;
@@ -82,6 +82,11 @@ export function createZeroGComputeClient(
         temperature: input.temperature ?? 0.2,
         stream: false,
         verify_tee: config.compute.verifyTee,
+        // Reasoning models otherwise spend the whole budget on hidden thinking
+        // and return empty content. Disable it so tokens go to the answer.
+        ...(config.compute.disableThinking
+          ? { chat_template_kwargs: { enable_thinking: false } }
+          : {}),
       });
 
       let latestError: ZeroGServiceError | undefined;
@@ -221,12 +226,28 @@ async function parseJsonResponse(response: Response): Promise<unknown> {
   }
 }
 
+const ZERO_ADDRESS = `0x${"0".repeat(40)}` as const;
+
 function parseRouterTrace(
   payload: unknown,
   teeRequested: boolean,
 ): RouterTrace {
   if (!isRecord(payload) || !isRecord(payload.x_0g_trace)) {
-    throw invalidTrace("0G Compute response is missing x_0g_trace");
+    if (teeRequested) {
+      throw invalidTrace("0G Compute response is missing x_0g_trace");
+    }
+    // Provider-direct mode: a Private Computer provider proxy returns a plain
+    // completion with no TEE envelope. Accept it without attestation.
+    const rawId = isRecord(payload) ? payload.id : undefined;
+    const requestId =
+      typeof rawId === "string" && /^[A-Za-z0-9._:-]{1,256}$/u.test(rawId)
+        ? rawId
+        : "provider-direct";
+    return Object.freeze({
+      provider: ZERO_ADDRESS,
+      requestId,
+      teeVerified: false,
+    });
   }
   const trace = payload.x_0g_trace;
   if (
