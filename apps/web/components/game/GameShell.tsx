@@ -38,6 +38,10 @@ import {
   type CityGuideControllerSnapshot,
   type CityGuideProof,
 } from "../../lib/guide";
+import type {
+  CityGuideProjectionInput,
+  ResidentPersona,
+} from "../../../../packages/safety/src/city-guide";
 import { CHALLENGE_PROGRESS_STORAGE_KEY } from "../../lib/challenges/catalog";
 import { CASEWORK_STORAGE_KEY } from "../../lib/immersive-town/neighborhood-casework";
 import {
@@ -74,9 +78,31 @@ type PreparedCitySync = Readonly<{
 }>;
 type ExpertMessage = Readonly<{
   id: string;
-  speaker: "child" | "river";
+  speaker: "child" | "river" | "maya" | "malik" | "nia";
   text: string;
+  name?: string;
 }>;
+
+type NeighbourVoice = Readonly<{
+  persona: Exclude<ResidentPersona, "leo">;
+  name: string;
+  ask: string;
+  blurb: string;
+}>;
+
+/** The fictional Rivergate residents a player can hear from about a change. */
+const NEIGHBOUR_VOICES: readonly NeighbourVoice[] = [
+  { persona: "maya", name: "Maya", ask: "Ask Maya", blurb: "the bakery" },
+  { persona: "malik", name: "Malik", ask: "Ask Malik", blurb: "repairs" },
+  { persona: "nia", name: "Nia", ask: "Ask Nia", blurb: "the riverbank" },
+];
+
+function neighbourNameFor(persona: ResidentPersona | null): string {
+  return (
+    NEIGHBOUR_VOICES.find((voice) => voice.persona === persona)?.name ??
+    "Your neighbour"
+  );
+}
 
 const PLAYER_ROLES: readonly {
   id: PlayerRole;
@@ -169,6 +195,11 @@ export default function GameShell() {
   const [guideSnapshot, setGuideSnapshot] = useState(() =>
     guideController.getSnapshot(),
   );
+  const [neighbourController] = useState(() => createCityGuideController());
+  const [neighbourBusy, setNeighbourBusy] = useState<ResidentPersona | null>(
+    null,
+  );
+  const lastReactInputRef = useRef<CityGuideProjectionInput | null>(null);
   const previousCommittedStateRef = useRef<GameState>(state);
   const currentMission = useMemo(() => getCurrentMission(state), [state]);
   const childFeedback = useMemo(() => getChildFeedback(state), [state]);
@@ -322,8 +353,11 @@ export default function GameShell() {
   }, [expertDrawerOpen]);
 
   useEffect(() => {
-    return () => guideController.dispose();
-  }, [guideController]);
+    return () => {
+      guideController.dispose();
+      neighbourController.dispose();
+    };
+  }, [guideController, neighbourController]);
 
   useEffect(() => {
     const before = previousCommittedStateRef.current;
@@ -338,7 +372,7 @@ export default function GameShell() {
     if (action === undefined || causes === undefined || mission === undefined)
       return;
 
-    void guideController.request({
+    const explainInput: CityGuideProjectionInput = {
       ageBand: "8-10",
       task: "explain",
       cityPersonality: personalityFor(playerRole),
@@ -349,7 +383,10 @@ export default function GameShell() {
       causes,
       allowedFactKeys: mission.learningFactKeys,
       relevantMemories: [],
-    });
+    };
+    // Neighbours react to the same verified turn Leo just explained.
+    lastReactInputRef.current = explainInput;
+    void guideController.request(explainInput);
   }, [guideController, playerRole, state]);
 
   useEffect(() => {
@@ -887,6 +924,38 @@ export default function GameShell() {
     setExpertQuestion("");
   }
 
+  function askNeighbour(persona: Exclude<ResidentPersona, "leo">) {
+    const name = neighbourNameFor(persona);
+    const base = lastReactInputRef.current;
+    if (base === null) {
+      setExpertMessages((messages) => [
+        ...messages.slice(-6),
+        {
+          id: `neighbour-empty-${Date.now()}`,
+          speaker: "river",
+          text: `Make one change in the city first, then ${name} can tell you what it means for them.`,
+        },
+      ]);
+      setExpertDrawerOpen(true);
+      return;
+    }
+    setExpertDrawerOpen(true);
+    setNeighbourBusy(persona);
+    void neighbourController
+      .request({ ...base, task: "react", persona })
+      .then((result) => {
+        const text =
+          result.ok && result.guide !== null
+            ? result.guide.message
+            : `${name} is busy in the city right now. Try again after your next change.`;
+        setExpertMessages((messages) => [
+          ...messages.slice(-6),
+          { id: `neighbour-${persona}-${Date.now()}`, speaker: persona, name, text },
+        ]);
+      })
+      .finally(() => setNeighbourBusy(null));
+  }
+
   function shareBuilderLearning(message: string) {
     expertMessageSequenceRef.current += 1;
     setExpertMessages((messages) => [
@@ -1083,12 +1152,22 @@ export default function GameShell() {
                     className={`chat-bubble chat-${message.speaker}`}
                     key={message.id}
                   >
+                    {message.name !== undefined && (
+                      <strong className="chat-speaker">{message.name}</strong>
+                    )}
                     {message.text}
                   </p>
                 ))}
                 {guideSnapshot.status === "loading" && (
                   <p className="chat-bubble chat-river chat-thinking">
                     I’m checking what changed…
+                  </p>
+                )}
+                {neighbourBusy !== null && (
+                  <p
+                    className={`chat-bubble chat-${neighbourBusy} chat-thinking`}
+                  >
+                    {neighbourNameFor(neighbourBusy)} is looking at the city…
                   </p>
                 )}
               </div>
@@ -1105,6 +1184,25 @@ export default function GameShell() {
                 >
                   Explain the impact
                 </button>
+              </div>
+              <div className="expert-neighbours" aria-label="Hear from a neighbour">
+                <span className="expert-neighbours-label">
+                  Hear from a neighbour
+                </span>
+                <div className="expert-neighbours-row">
+                  {NEIGHBOUR_VOICES.map((voice) => (
+                    <button
+                      className={`neighbour-chip neighbour-${voice.persona}`}
+                      disabled={neighbourBusy !== null}
+                      key={voice.persona}
+                      onClick={() => askNeighbour(voice.persona)}
+                      type="button"
+                    >
+                      <span className="neighbour-chip-name">{voice.ask}</span>
+                      <span className="neighbour-chip-blurb">{voice.blurb}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
               <form
                 className="expert-form"

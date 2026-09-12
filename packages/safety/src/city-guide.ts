@@ -39,6 +39,13 @@ export const CityGuideTaskSchema = z.enum([
   "memory",
 ]);
 
+/**
+ * The voice a verified guide reply speaks in. "leo" is the default city
+ * companion; the named residents are fictional Rivergate neighbours who may
+ * only react to verified state, never advise, hint, or propose memories.
+ */
+export const ResidentPersonaSchema = z.enum(["leo", "maya", "malik", "nia"]);
+
 export const CityPersonalityTraitSchema = z.enum([
   "careful-planner",
   "curious-builder",
@@ -201,6 +208,7 @@ export const CityGuideRequestSchema = z
     schemaVersion: z.literal(1),
     ageBand: CityGuideAgeBandSchema,
     task: CityGuideTaskSchema,
+    persona: ResidentPersonaSchema.optional(),
     cityPersonality: SafeCityPersonalitySchema,
     mission: SafeMissionViewSchema,
     before: IndicatorSnapshotSchema,
@@ -215,10 +223,24 @@ export const CityGuideRequestSchema = z
       .array(SafeCityMemorySchema)
       .max(CITY_GUIDE_LIMITS.memories),
   })
-  .strict();
+  .strict()
+  .superRefine((request, ctx) => {
+    if (
+      request.persona !== undefined &&
+      request.persona !== "leo" &&
+      request.task !== "react"
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A named neighbour persona may only react to verified state",
+        path: ["persona"],
+      });
+    }
+  });
 
 export type CityGuideAgeBand = z.infer<typeof CityGuideAgeBandSchema>;
 export type CityGuideTask = z.infer<typeof CityGuideTaskSchema>;
+export type ResidentPersona = z.infer<typeof ResidentPersonaSchema>;
 export type SafeCityPersonality = z.infer<typeof SafeCityPersonalitySchema>;
 export type SafeCityMemory = z.infer<typeof SafeCityMemorySchema>;
 export type CityGuideRequest = z.infer<typeof CityGuideRequestSchema>;
@@ -226,6 +248,7 @@ export type CityGuideRequest = z.infer<typeof CityGuideRequestSchema>;
 export type CityGuideProjectionInput = {
   readonly ageBand: CityGuideAgeBand;
   readonly task: CityGuideTask;
+  readonly persona?: ResidentPersona;
   readonly cityPersonality: SafeCityPersonality;
   readonly mission: Mission;
   readonly before: CityState;
@@ -260,6 +283,7 @@ export function projectCityGuideRequest(
     schemaVersion: 1,
     ageBand: source.ageBand,
     task: source.task,
+    ...(source.persona === undefined ? {} : { persona: source.persona }),
     cityPersonality: source.cityPersonality,
     mission: {
       missionId: mission.id,

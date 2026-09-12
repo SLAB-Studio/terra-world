@@ -284,13 +284,10 @@ function authoredFallback(request: CityGuideRequest): unknown | null {
         ],
         grounding,
       };
-    case "react":
-      return {
-        headline: "Something changed",
-        message:
-          "I noticed one verified change in our city. What else looks different around it?",
-        grounding,
-      };
+    case "react": {
+      const react = neighbourReactFallback(request.persona);
+      return { headline: react.headline, message: react.message, grounding };
+    }
     case "memory": {
       const milestone = request.causes.find((cause) =>
         cause.code.startsWith("milestone."),
@@ -317,6 +314,42 @@ function authoredFallback(request: CityGuideRequest): unknown | null {
         },
       };
     }
+  }
+}
+
+/**
+ * Authored, in-character react lines used when private Compute is unavailable.
+ * Each stays within the react word and character limits and speaks in the
+ * chosen neighbour's voice rather than leaking Leo's.
+ */
+function neighbourReactFallback(
+  persona: CityGuideRequest["persona"],
+): { readonly headline: string; readonly message: string } {
+  switch (persona) {
+    case "maya":
+      return {
+        headline: "News from the bakery",
+        message:
+          "From the bakery I can see one verified change in our city. I am watching what it means for the neighbours who shop and stay here.",
+      };
+    case "malik":
+      return {
+        headline: "A builder's note",
+        message:
+          "I checked one verified change in our city. I am thinking about what it means for the repairs and builds we still need.",
+      };
+    case "nia":
+      return {
+        headline: "From the riverbank",
+        message:
+          "I noticed one verified change in our city. I am watching how it sits with the nature along the river.",
+      };
+    default:
+      return {
+        headline: "Something changed",
+        message:
+          "I noticed one verified change in our city. What else looks different around it?",
+      };
   }
 }
 

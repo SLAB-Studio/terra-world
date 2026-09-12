@@ -387,6 +387,46 @@ describe("CityGuide request projection", () => {
   });
 });
 
+describe("CityGuide neighbour persona", () => {
+  it("projects a named neighbour persona through for a react task", () => {
+    const projected = projectCityGuideRequest({
+      ...baseInput,
+      task: "react",
+      persona: "maya",
+    });
+    expect(projected.persona).toBe("maya");
+    expect(scanProhibitedComputeData(projected)).toEqual([]);
+  });
+
+  it("omits the persona field entirely when it is not supplied", () => {
+    const projected = projectCityGuideRequest(baseInput);
+    expect("persona" in projected).toBe(false);
+  });
+
+  it("allows the default leo persona on any task", () => {
+    expect(() =>
+      projectCityGuideRequest({ ...baseInput, task: "explain", persona: "leo" }),
+    ).not.toThrow();
+  });
+
+  it("rejects a named neighbour persona on a non-react task", () => {
+    expect(() =>
+      projectCityGuideRequest({
+        ...baseInput,
+        task: "explain",
+        persona: "malik",
+      }),
+    ).toThrow();
+    expect(
+      CityGuideRequestSchema.safeParse({
+        ...projectCityGuideRequest({ ...baseInput, task: "react" }),
+        task: "hint",
+        persona: "nia",
+      }).success,
+    ).toBe(false);
+  });
+});
+
 describe("prohibited Compute data scanner", () => {
   it("recursively finds prohibited keys and PII-like values", () => {
     const findings = scanProhibitedComputeData({
