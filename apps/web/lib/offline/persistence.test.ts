@@ -5,7 +5,12 @@ import {
   MemoryOfflinePersistence,
   migrationPlan,
 } from "./persistence";
-import type { CampaignSessionSave, CitySave, SyncQueueEntry } from "./types";
+import type {
+  CampaignSessionSave,
+  CitySave,
+  DeviceSettings,
+  SyncQueueEntry,
+} from "./types";
 
 const city: CitySave = {
   cityId: "rivergate",
@@ -115,6 +120,54 @@ describe("offline persistence", () => {
     });
     await expect(persistence.getPendingSync(150)).resolves.toEqual([sync]);
   });
+
+  it("keeps legacy settings valid and persists independent wardrobe choices", async () => {
+    const persistence = new MemoryOfflinePersistence();
+    const legacySettings: DeviceSettings = {
+      profileId: "guest-1",
+      reducedMotion: false,
+      highContrast: false,
+      textScale: 1,
+      muted: true,
+      locale: "en",
+      updatedAt: 3,
+    };
+
+    await persistence.saveSettings(legacySettings);
+    await expect(persistence.getSettings("guest-1")).resolves.toEqual(
+      legacySettings,
+    );
+
+    const wardrobeSettings: DeviceSettings = {
+      ...legacySettings,
+      playerOutfit: "casual",
+      leoOutfit: "field",
+      updatedAt: 4,
+    };
+    await persistence.saveSettings(wardrobeSettings);
+    await expect(persistence.getSettings("guest-1")).resolves.toEqual(
+      wardrobeSettings,
+    );
+  });
+
+  it.each(["playerOutfit", "leoOutfit"] as const)(
+    "rejects an invalid present %s",
+    async (field) => {
+      const persistence = new MemoryOfflinePersistence();
+      const settings = {
+        profileId: "guest-1",
+        reducedMotion: false,
+        highContrast: false,
+        textScale: 1,
+        muted: true,
+        locale: "en",
+        updatedAt: 3,
+        [field]: "formal",
+      } as unknown as DeviceSettings;
+
+      await expect(persistence.saveSettings(settings)).rejects.toThrow(field);
+    },
+  );
 
   it("rejects corrupt records safely and emits metadata without record contents", async () => {
     const notices: unknown[] = [];

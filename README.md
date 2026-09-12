@@ -4,8 +4,9 @@
 
 Terra World is a browser-based 3D city restoration game set in **Rivergate**.
 Explore illuminated streets, step inside homes and public buildings, restore
-essential services, and see the neighbourhood respond. **LEO**, Rivergate's female
-dog companion, helps you understand what needs attention and what your choices change.
+essential services, and see the neighbourhood respond. **LEO**, Rivergate's human
+engineer companion and your fellow engineer, helps you understand what needs
+attention and what your choices change.
 
 The game combines a populated, explorable world with local-first gameplay and
 server-side integration foundations for **0G Compute, 0G Storage and Agentic NFTs**.
@@ -14,8 +15,11 @@ Core play does not require a wallet or a live blockchain connection.
 ## Explore Rivergate
 
 - **Two ways to explore.** Survey the city from above or choose **Walk with Leo**
-  for third-person walking with a realistic human character and LEO alongside.
-  Walk or run, approach a door, explore the interior and return to the street.
+  for third-person walking with the player engineer and fellow engineer LEO
+  alongside. Their wardrobe settings are independent; LEO's default engineer
+  outfit is a complete skinned worker with a hard hat, safety vest, work trousers
+  and boots. Walk or run, approach a door, explore the interior and return to the
+  street.
 - **A playable opening chapter.** Investigate the East Bridge closure, hear
   Maya, Malik and Nia, then commit to one of three costed responses. Four
   skippable in-engine shots introduce the story; a notebook records evidence,
@@ -189,25 +193,25 @@ The file belongs in **`apps/web/.env.local`**, where the Next.js application run
 For a deployment, set the corresponding server-side environment variables on
 the host. Never commit credentials or prefix secrets with `NEXT_PUBLIC_`.
 
-| Variable                           | Purpose                                                                                                                                                           |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ZERO_G_NETWORK`                   | `mainnet` by default; use `testnet` only for an explicit Galileo rehearsal.                                                                                       |
-| `ZERO_G_REQUIRED`                  | `true` makes 0G-backed AI routes fail with 503 unless a verified private Compute result is returned. Keep `false` while authored fallback is desired.             |
-| `ZERO_G_COMPUTE_API_KEY`           | Server-only Router inference key beginning with `sk-` or `app-sk-`.                                                                                               |
-| `ZERO_G_COMPUTE_MODEL`             | A currently available TeeML model from the selected Router catalog.                                                                                               |
+| Variable                           | Purpose                                                                                                                                                                    |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ZERO_G_NETWORK`                   | `mainnet` by default; use `testnet` only for an explicit Galileo rehearsal.                                                                                                |
+| `ZERO_G_REQUIRED`                  | `true` makes 0G-backed AI routes fail with 503 unless a verified private Compute result is returned. Keep `false` while authored fallback is desired.                      |
+| `ZERO_G_COMPUTE_API_KEY`           | Server-only Router inference key beginning with `sk-` or `app-sk-`.                                                                                                        |
+| `ZERO_G_COMPUTE_MODEL`             | A currently available TeeML model from the selected Router catalog.                                                                                                        |
 | `ZERO_G_COMPUTE_ROUTER_URL`        | Optional Compute base URL. Leave blank for the central Router, or use the Private Computer provider URL ending in `/v1/proxy` when your key was created for that provider. |
-| `ZERO_G_SPONSOR_PRIVATE_KEY`       | Dedicated, limited-balance signer for authorized Storage operations. Never expose it to the browser.                                                              |
-| `ZERO_G_AGENTIC_OWNER_PRIVATE_KEY` | Separate server-only owner authorized to update Rivergate AgenticID. Never expose it to the browser or reuse it as a public sponsor.                              |
-| `ZERO_G_STORAGE_UPLOAD_TIMEOUT_MS` | Finality-aware Storage upload deadline; defaults to five minutes. A timeout is an unknown, non-retryable paid outcome until an operator reconciles it.            |
-| `TERRA_CHECKPOINT_MODE`            | `demo`, `disabled`, or `zero-g`. `zero-g` selects the real official SDK path and requires the sponsor key plus database.                                          |
-| `TERRA_AGENTIC_SYNC_ENABLED`       | Explicitly enables the allowlisted AgenticID milestone worker in `zero-g` mode.                                                                                   |
-| `TERRA_CHECKPOINT_REPOSITORY`      | `postgres` in production. `memory` is rejected in production and requires a separate opt-in for controlled local mainnet testing.                                 |
-| `TERRA_APP_ORIGIN`                 | Exact application origin, such as `https://play.example.com`. Production requires HTTPS.                                                                          |
-| `DATABASE_URL`                     | PostgreSQL connection used only for opaque checkpoint session/root metadata when real Storage mode is enabled. Production requires `sslmode=require` or stronger. |
-| `ZERO_G_RIVERGATE_STORAGE_ROOT`    | Public finalized 0G Storage root committed by Rivergate AgenticID `3531123`.                                                                                      |
-| `ZERO_G_RIVERGATE_STORAGE_TX_HASH` | Public transaction that submitted the encrypted Rivergate intelligence artifact to the 0G Storage Flow contract.                                                  |
-| `ZERO_G_CITY_AGENT_ADDRESS`        | Public application-managed AgenticID proxy that owns the canonical ERC-8004 token in custody.                                                                     |
-| `ZERO_G_CITY_AGENT_TOKEN_ID`       | Canonical decimal agent ID, currently `3531123`.                                                                                                                  |
+| `ZERO_G_SPONSOR_PRIVATE_KEY`       | Dedicated, limited-balance signer for authorized Storage operations. Never expose it to the browser.                                                                       |
+| `ZERO_G_AGENTIC_OWNER_PRIVATE_KEY` | Separate server-only owner authorized to update Rivergate AgenticID. Never expose it to the browser or reuse it as a public sponsor.                                       |
+| `ZERO_G_STORAGE_UPLOAD_TIMEOUT_MS` | Finality-aware Storage upload deadline; defaults to five minutes. A timeout is an unknown, non-retryable paid outcome until an operator reconciles it.                     |
+| `TERRA_CHECKPOINT_MODE`            | `demo`, `disabled`, or `zero-g`. `zero-g` selects the real official SDK path and requires the sponsor key plus database.                                                   |
+| `TERRA_AGENTIC_SYNC_ENABLED`       | Explicitly enables the allowlisted AgenticID milestone worker in `zero-g` mode.                                                                                            |
+| `TERRA_CHECKPOINT_REPOSITORY`      | `postgres` in production. `memory` is rejected in production and requires a separate opt-in for controlled local mainnet testing.                                          |
+| `TERRA_APP_ORIGIN`                 | Exact application origin, such as `https://play.example.com`. Production requires HTTPS.                                                                                   |
+| `DATABASE_URL`                     | PostgreSQL connection used only for opaque checkpoint session/root metadata when real Storage mode is enabled. Production requires `sslmode=require` or stronger.          |
+| `ZERO_G_RIVERGATE_STORAGE_ROOT`    | Public finalized 0G Storage root committed by Rivergate AgenticID `3531123`.                                                                                               |
+| `ZERO_G_RIVERGATE_STORAGE_TX_HASH` | Public transaction that submitted the encrypted Rivergate intelligence artifact to the 0G Storage Flow contract.                                                           |
+| `ZERO_G_CITY_AGENT_ADDRESS`        | Public application-managed AgenticID proxy that owns the canonical ERC-8004 token in custody.                                                                              |
+| `ZERO_G_CITY_AGENT_TOKEN_ID`       | Canonical decimal agent ID, currently `3531123`.                                                                                                                           |
 
 Compute, Storage, chain, and sponsor configuration are loaded independently: a
 Storage sync does not require a Compute key. Testnet and mainnet use different

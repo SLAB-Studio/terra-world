@@ -39,6 +39,16 @@ describe("shared player and Leo presentation", () => {
         );
         expect(party.player.position.y).toBe(indoors ? 0.275 : 0.75);
         expect(party.leo.position.y).toBe(party.player.position.y);
+        expect(party.player.metadata.ageGroup).toBe("adult");
+        expect(party.leo.metadata.ageGroup).toBe("adult");
+        expect(party.leo.metadata.kind).toBe("engineer-companion");
+        expect(party.player.metadata.outfit).toBe("engineer");
+        expect(party.leo.metadata.outfit).toBe("engineer");
+        expect(
+          scene.meshes.some((mesh) =>
+            /(hard-hat|safety-vest|briefcase)/.test(mesh.name),
+          ),
+        ).toBe(false);
         party.setActive(false);
         expect(party.root.isEnabled()).toBe(false);
         party.setActive(true);

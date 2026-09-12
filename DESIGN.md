@@ -4,8 +4,14 @@
 
 Terra World should feel like a **community science museum discovery table**:
 warm, tactile, optimistic, and information-rich without resembling a school
-worksheet or a crypto dashboard. The child is the city planner; Leo is the
-bounded in-world companion who helps them notice verified consequences.
+worksheet or a crypto dashboard. The player is the city engineer; Leo is their
+fellow human engineer and bounded in-world companion, helping them notice
+verified consequences without inventing facts or actions.
+
+The player and Leo have independent wardrobe settings. Their default engineer
+look is one coherent skinned worker model with a fitted hard hat, safety vest,
+work trousers and boots. Blue and red uniforms keep the pair readable together
+in third-person views without floating costume geometry.
 
 Direction seed: `514fbb03`.
 

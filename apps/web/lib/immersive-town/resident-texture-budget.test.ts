@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import catalog from "../../public/models/residents/conversion.json";
+import { RESIDENT_MODELS } from "./resident-models";
+
+const residents = catalog.filter(({ id }) =>
+  (RESIDENT_MODELS as readonly string[]).includes(id),
+);
 
 function imageDimensions(bytes: Buffer, mime: string): [number, number] {
   if (mime === "image/png")
@@ -19,7 +24,7 @@ function imageDimensions(bytes: Buffer, mime: string): [number, number] {
 }
 
 describe("resident texture and provenance budget", () => {
-  it.each(catalog)(
+  it.each(residents)(
     "$id embeds only 512px source textures in both details",
     ({ id }) => {
       for (const detail of ["near", "far"]) {
@@ -62,10 +67,10 @@ describe("resident texture and provenance budget", () => {
     );
     expect(readme).toContain("0943055db6ec570bcef9f2c8b41c9e5467c808f9");
     expect(license).toContain("Permission is hereby granted");
-    expect(new Set(catalog.map((entry) => entry.source)).size).toBe(
-      catalog.length,
+    expect(new Set(residents.map((entry) => entry.source)).size).toBe(
+      residents.length,
     );
-    for (const entry of catalog) {
+    for (const entry of residents) {
       expect(entry.license).toBe("MIT");
       expect(readme).toContain(entry.source);
     }

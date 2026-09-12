@@ -428,7 +428,7 @@ export default function OpeningChapter({
               <div className={styles.speaker}>
                 <strong>{line.speaker === "Leo" ? "LEO" : line.speaker}</strong>
                 {line.speaker === "Leo" ? (
-                  <span>Your canine companion</span>
+                  <span>Your fellow engineer</span>
                 ) : null}
               </div>
               <p key={introLine?.id} aria-live="polite" aria-atomic="true">
@@ -554,7 +554,7 @@ export default function OpeningChapter({
                 </strong>
                 <span>
                   {outcomeLine.speaker === "Leo"
-                    ? "Your canine companion"
+                    ? "Your fellow engineer"
                     : outcomeLine.kind}
                 </span>
               </div>
@@ -603,7 +603,7 @@ export default function OpeningChapter({
                 </strong>
                 <span>
                   {evidenceLine.speaker === "Leo"
-                    ? "Your canine companion"
+                    ? "Your fellow engineer"
                     : evidenceLine.kind}
                 </span>
               </div>
@@ -774,7 +774,7 @@ export default function OpeningChapter({
                       <div className={styles.leoReply}>
                         <div className={styles.speaker}>
                           <strong>LEO</strong>
-                          <span>Your canine companion</span>
+                          <span>Your fellow engineer</span>
                         </div>
                         <p>{leoReply.text}</p>
                         <p className={styles.leoSource}>
@@ -927,7 +927,7 @@ export default function OpeningChapter({
                     <article key={entry.id}>
                       <h4>
                         {entry.speaker === "Leo"
-                          ? "LEO · your canine companion"
+                          ? "LEO · your fellow engineer"
                           : entry.speaker}
                       </h4>
                       <p>{entry.text}</p>

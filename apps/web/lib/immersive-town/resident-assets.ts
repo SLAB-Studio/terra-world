@@ -111,5 +111,10 @@ export function loadLocalSceneAsset(
       });
   });
   owned.assets.set(key, promise);
+  void promise.catch(() => {
+    // A transient network/parse failure must remain retryable on the next
+    // wardrobe selection instead of poisoning this scene's shared cache.
+    if (owned.assets.get(key) === promise) owned.assets.delete(key);
+  });
   return promise;
 }

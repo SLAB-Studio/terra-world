@@ -23,7 +23,7 @@ const LeoSpeechBubble = forwardRef<HTMLDivElement, LeoSpeechBubbleProps>(
           <div className={styles.heading}>
             <span className={styles.identity}>
               <span className={styles.mark} aria-hidden="true">
-                <GameIcon name="paw" size={18} />
+                <GameIcon name="tools" size={18} />
               </span>
               <strong>Leo</strong>
             </span>

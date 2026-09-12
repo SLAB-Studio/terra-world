@@ -2,10 +2,14 @@ import type { AnimationGroup } from "@babylonjs/core/Animations/animationGroup";
 import type { Bone } from "@babylonjs/core/Bones/bone";
 import type { InstantiatedEntries } from "@babylonjs/core/assetContainer";
 import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
+import type { Material } from "@babylonjs/core/Materials/material";
+import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
+import { Color3 } from "@babylonjs/core/Maths/math.color";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import type { Scene } from "@babylonjs/core/scene";
+import { ENGINEER_ROLE_PALETTES } from "../engineer-wardrobe";
 import type { TownCharacterRig } from "./characters-3d";
 import { loadPlayerRun, createPlayerRunClip } from "./player-run";
 import {
@@ -14,6 +18,7 @@ import {
 } from "./interior-resident-poses";
 import {
   residentAsset,
+  residentAnimationClipFor,
   residentClipFor,
   residentClipProgress,
   residentDetailFor,
@@ -31,6 +36,7 @@ type ResidentInstance = {
   entries: InstantiatedEntries;
   mount: TransformNode;
   meshes: AbstractMesh[];
+  materials: Material[];
   clips: Map<ResidentClip, AnimationGroup>;
   poses: Pose[];
   bindings: Array<{ bone: Bone; node: TransformNode }>;
@@ -79,6 +85,26 @@ function disposeInstance(
   instance.meshes.forEach((mesh) => shadows?.removeShadowCaster(mesh, false));
   instance.entries.dispose();
   instance.mount.dispose();
+  instance.materials.forEach((material) => material.dispose());
+}
+
+function applyEngineerPalette(meshes: AbstractMesh[], role: "player" | "leo") {
+  const palette = ENGINEER_ROLE_PALETTES[role];
+  const copies = new Map<Material, PBRMaterial>();
+  for (const mesh of meshes) {
+    const source = mesh.material;
+    if (!(source instanceof PBRMaterial)) continue;
+    const color = palette[source.name as keyof typeof palette];
+    if (!color) continue;
+    let material = copies.get(source);
+    if (!material) {
+      material = source.clone(`${source.name}-${role}`) as PBRMaterial;
+      material.albedoColor = Color3.FromHexString(color);
+      copies.set(source, material);
+    }
+    mesh.material = material;
+  }
+  return [...copies.values()];
 }
 
 /** Sample authored channels directly: no thousands of paused Animatable objects. */
@@ -89,7 +115,7 @@ function samplePose(
 ) {
   for (const { animation, target } of group.targetedAnimations) {
     const node = target as TransformNode;
-    const weight = conversation ? residentTalkWeight(node.name) : 1;
+    const weight = conversation ? residentTalkWeight(poseName(node)) : 1;
     if (weight === 0) continue;
     const value = animation.evaluate(frame);
     if (animation.targetProperty === "rotationQuaternion") {
@@ -112,6 +138,16 @@ function samplePose(
 
 function poseName(node: TransformNode) {
   return node.name.slice(node.name.lastIndexOf(":") + 1);
+}
+
+/** Restore every authored joint before sampling sparse clips such as Idle/Wave. */
+function resetPose(instance: ResidentInstance) {
+  for (const pose of instance.poses) {
+    if (!pose.node.rotationQuaternion)
+      pose.node.rotationQuaternion = Quaternion.Identity();
+    pose.node.rotationQuaternion.copyFrom(pose.rotation);
+    pose.node.position.copyFrom(pose.position);
+  }
 }
 
 function syncBones(instance: ResidentInstance) {
@@ -138,7 +174,7 @@ async function requestDetail(state: ResidentState, detail: ResidentDetail) {
     if (state.disposed) return;
     const container = await loadResidentAsset(state.scene, model, detail);
     const runData =
-      state.rig.profile.id === "player-rivergate"
+      state.rig.profile.id === "player-rivergate" && model !== "engineer-worker"
         ? await loadPlayerRun().catch(() => null)
         : null;
     if (state.disposed || state.rig.root.isDisposed() || state.scene.isDisposed)
@@ -171,17 +207,29 @@ async function requestDetail(state: ResidentState, detail: ResidentDetail) {
       mesh.isPickable = false;
       mesh.checkCollisions = false;
       mesh.receiveShadows = true;
-      if (detail === "near" && mesh.getTotalVertices() > 0)
+      if (
+        (detail === "near" || model === "engineer-worker") &&
+        mesh.getTotalVertices() > 0
+      )
         state.shadows?.addShadowCaster(mesh, false);
     }
     const clips = new Map<ResidentClip, AnimationGroup>();
-    for (const group of entries.animationGroups) {
-      const name = (["idle", "walk", "talk"] as const).find((clip) =>
-        group.name.endsWith(clip),
-      );
-      if (name) clips.set(name, group);
+    const retainedGroups: AnimationGroup[] = [];
+    for (const group of [...entries.animationGroups]) {
+      const name = residentAnimationClipFor(model, group.name);
+      if (name) {
+        clips.set(name, group);
+        retainedGroups.push(group);
+      } else group.dispose();
     }
-    if (clips.size !== 3) {
+    entries.animationGroups.splice(
+      0,
+      entries.animationGroups.length,
+      ...retainedGroups,
+    );
+    if (
+      !["idle", "walk", "talk"].every((clip) => clips.has(clip as ResidentClip))
+    ) {
       entries.dispose();
       mount.dispose();
       throw new Error("Resident model is missing a required animation");
@@ -222,10 +270,18 @@ async function requestDetail(state: ResidentState, detail: ResidentDetail) {
       clips.set("run", run);
       entries.animationGroups.push(run); // Owned and disposed with this LOD.
     }
+    const materials =
+      model === "engineer-worker"
+        ? applyEngineerPalette(
+            meshes,
+            state.rig.root.metadata?.engineerRole === "leo" ? "leo" : "player",
+          )
+        : [];
     const next = {
       entries,
       mount,
       meshes,
+      materials,
       clips,
       poses,
       bindings,
@@ -269,13 +325,16 @@ async function requestDetail(state: ResidentState, detail: ResidentDetail) {
       appearance: model,
       modelDetail: detail,
       modelState: "ready",
+      modelError: null,
     };
-  } catch {
+  } catch (error) {
     if (!state.disposed) {
       if (detail === "near") state.failedNear = true;
       state.rig.root.metadata = {
         ...state.rig.root.metadata,
         modelState: state.instance ? "ready" : "fallback",
+        modelError:
+          error instanceof Error ? error.message : "Resident model failed",
       };
     }
   } finally {
@@ -332,9 +391,11 @@ export function updateRealisticResident(
   const distance = camera
     ? Vector3.Distance(camera.globalPosition, rig.root.getAbsolutePosition())
     : 100;
+  const modelId = residentModelFor(rig.profile);
   if (
-    seconds - state.lastDistance > 0.5 ||
-    (reducedMotion && Math.abs(distance - state.lastMeasuredDistance) > 1)
+    modelId !== "engineer-worker" &&
+    (seconds - state.lastDistance > 0.5 ||
+      (reducedMotion && Math.abs(distance - state.lastMeasuredDistance) > 1))
   ) {
     state.lastDistance = seconds;
     state.lastMeasuredDistance = distance;
@@ -386,7 +447,7 @@ export function updateRealisticResident(
   const group = instance.clips.get(clip)!;
   const frameRate = group.targetedAnimations[0]?.animation.framePerSecond ?? 60;
   const duration = (group.to - group.from) / frameRate;
-  const model = residentAsset(residentModelFor(rig.profile), state.detail);
+  const model = residentAsset(modelId, state.detail);
   const indoorPose = rig.root.metadata?.indoorPose as IndoorPose | undefined;
   const stature =
     (indoorPose?.height ?? residentHeightFor(rig.profile)) / model.height;
@@ -400,6 +461,7 @@ export function updateRealisticResident(
         (clip === "run" ? instance.runDistance : model.walkDistance) * stature,
         duration,
       );
+  resetPose(instance);
   if (clip === "talk") {
     const idle = instance.clips.get("idle")!;
     const idleDuration = (idle.to - idle.from) / frameRate;

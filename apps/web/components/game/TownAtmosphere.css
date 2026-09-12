@@ -88,7 +88,6 @@
     .town-walk-help,
     .town-walk-entry p,
     .town-camera-controls button,
-    .town-walk-controls button,
     .chat-bubble,
     .expert-prompts button,
     .expert-form input,
@@ -122,8 +121,7 @@
 .game-shell[data-time-of-day="night"]
   :is(
     .town-view-switch button[aria-pressed="true"],
-    .town-view-switch button:hover,
-    .town-walk-controls button:active
+    .town-view-switch button:hover
   ) {
   color: #2b190f;
   background: #ffd24a;

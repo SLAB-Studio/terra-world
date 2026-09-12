@@ -27,14 +27,14 @@ const oneCar = () =>
   ]);
 
 describe("traffic and walking share physical bodies", () => {
-  it("reads real Babylon player and dog coordinates through Vector3 accessors", () => {
+  it("reads real Babylon coordinates for both engineers through Vector3 accessors", () => {
     const people = collectTrafficPeople([], [], {
       player: new Vector3(12, 2, 34),
       dog: new Vector3(13, 1, 35),
     });
     expect(people).toEqual([
       { id: "player-rivergate", x: 12, z: 34, radius: 0.4 },
-      { id: "leo-dog", x: 13, z: 35, radius: 0.75 },
+      { id: "leo-dog", x: 13, z: 35, radius: 0.4 },
     ]);
   });
   it("includes visible residents, bystanders, player and Leo, not indoor people or seated passengers", () => {

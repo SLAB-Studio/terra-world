@@ -9,7 +9,8 @@ AI story systems are already playable. See [the implementation architecture](doc
 for the existing foundation, missing systems and delivery gates.
 
 The product remains **Terra World**. The city remains **Rivergate**.
-**Leo** is the companion; **LEO** is acceptable display styling.
+**Leo** is the player's fellow human engineer and bounded companion; **LEO** is
+acceptable display styling.
 The construction entrepreneur is **Malik**, not a second Leo. Physical rivers,
 Rivergate, River Studios and other geographic names do not change.
 
@@ -82,10 +83,10 @@ Leo's opening:
 
 ## 3. Leo: a companion, not an oracle
 
-Leo is the in-world voice of Rivergate's city intelligence. Curious, observant,
-occasionally dry, and willing to be corrected, Leo experiences the city's
-development alongside the player. He is neither a classroom teacher nor a
-constant tutorial narrator.
+Leo is a human engineer and the in-world voice of Rivergate's city intelligence.
+Curious, observant, occasionally dry, and willing to be corrected, he experiences
+the city's development alongside the player as a fellow engineer. He is neither a
+classroom teacher nor a constant tutorial narrator.
 
 He notices a closed shop, remembers a promise, suggests who to speak with,
 compares evidence and asks a useful question. He offers competing explanations

@@ -58,7 +58,8 @@ describe("opening chapter overlay", () => {
   it("keeps the introduction subtitled and skippable without narration support", () => {
     const html = render(createChapterState());
     expect(html).toContain("Skip introduction");
-    expect(html).toContain("Your canine companion");
+    expect(html).toContain("Your fellow engineer");
+    expect(html).not.toContain("canine companion");
     expect(html).toContain("So… you&#x27;re the person they sent.");
     expect(html).toContain("Voice off");
     expect(html).not.toContain("AI-generated");

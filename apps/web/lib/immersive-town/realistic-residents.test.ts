@@ -5,6 +5,7 @@ import "@babylonjs/loaders/glTF/glTFFileLoader";
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine";
 import { FreeCamera } from "@babylonjs/core/Cameras/freeCamera";
+import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Scene } from "@babylonjs/core/scene";
@@ -112,6 +113,98 @@ function rotationDifference(a: Quaternion, b: Quaternion) {
 }
 
 describe("realistic resident lifecycle", () => {
+  it.each([
+    { role: "player" as const, id: "player-rivergate", color: "#2F6F8F" },
+    { role: "leo" as const, id: "leo-dog", color: "#9B443B" },
+  ])(
+    "loads the $role uniform from the coherent skinned worker model",
+    async ({ role, id, color }) => {
+      const { engine, scene, parent, profile } = testWorld();
+      const containers: AssetContainer[] = [];
+      loader.mockImplementation(
+        async (
+          target: Scene,
+          model: ResidentModelId,
+          detail: ResidentDetail,
+        ) => {
+          const bytes = readFileSync(
+            new URL(
+              `../../public${residentAsset(model, detail).url}`,
+              import.meta.url,
+            ),
+          );
+          const container = await LoadAssetContainerAsync(
+            new Uint8Array(bytes),
+            target,
+            {
+              pluginExtension: ".glb",
+              pluginOptions: { gltf: { animationStartMode: 0 } },
+            },
+          );
+          containers.push(container);
+          return container;
+        },
+      );
+      try {
+        const rig = createTownCharacter(scene, parent, null, {
+          ...profile,
+          id,
+          model: "engineer-worker",
+          ...(role === "leo" ? { storyRole: "leo" as const } : {}),
+        });
+        rig.root.metadata.engineerRole = role;
+        await vi.waitFor(() => expect(hasRealisticResident(rig)).toBe(true));
+        const uniform = rig.root
+          .getChildMeshes()
+          .find((mesh) => mesh.material?.name === `Worker_Vest-${role}`)
+          ?.material as PBRMaterial;
+        expect(uniform.albedoColor.toHexString()).toBe(color);
+        expect(
+          rig.root
+            .getChildMeshes()
+            .some((mesh) => /(hard-hat|safety-vest|briefcase)/.test(mesh.name)),
+        ).toBe(false);
+        expect(
+          scene.animationGroups.some((group) => group.name.endsWith("|Run")),
+        ).toBe(false);
+        expect(
+          scene.animationGroups.some((group) => group.name === "player-run"),
+        ).toBe(false);
+        expect(rig.root.metadata.modelDetail).toBe("far");
+        expect(loader).toHaveBeenCalledOnce();
+
+        const foot = rig.root
+          .getChildTransformNodes()
+          .find((node) => node.name.endsWith(":Foot.L"))!;
+        const idleFoot = foot.rotationQuaternion!.clone();
+        rig.root.metadata.routineMotion = {
+          activity: "walk",
+          speed: 1.8,
+          travelled: 0.6,
+        };
+        updateRealisticResident(rig, 1, false, 1.8, 0.6);
+        updateRealisticResident(rig, 1.5, false, 1.8, 0.9);
+        expect(
+          rotationDifference(idleFoot, foot.rotationQuaternion!),
+        ).toBeGreaterThan(0.05);
+        rig.root.metadata.routineMotion = {
+          activity: "idle",
+          speed: 0,
+          travelled: 0.6,
+        };
+        updateRealisticResident(rig, 2, false, 0, 0.6);
+        updateRealisticResident(rig, 2.5, false, 0, 0.6);
+        expect(
+          rotationDifference(idleFoot, foot.rotationQuaternion!),
+        ).toBeLessThan(0.001);
+      } finally {
+        scene.dispose();
+        containers.forEach((container) => container.dispose());
+        engine.dispose();
+      }
+    },
+  );
+
   it("uses the authored run on the actual player and returns smoothly to idle", async () => {
     const { engine, scene, parent, profile } = testWorld();
     const containers: AssetContainer[] = [];

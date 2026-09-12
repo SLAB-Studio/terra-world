@@ -1,5 +1,12 @@
 [
   {
+    "id": "engineer-worker",
+    "source": "Quaternius/Ultimate Modular Men Pack/Worker",
+    "height": 1.8627584293962547,
+    "walkDistance": 1.2,
+    "license": "CC0-1.0"
+  },
+  {
     "id": "man-denim",
     "source": "Assets/Avatars/Adults/Male_Adult_12",
     "height": 1.8025871515274048,

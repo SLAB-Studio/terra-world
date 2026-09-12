@@ -15,18 +15,38 @@ export const RESIDENT_MODELS = [
   "man-jacket",
   "boy-sport",
 ] as const;
-export type ResidentModelId = (typeof RESIDENT_MODELS)[number];
+export const ENGINEER_CHARACTER_MODELS = ["engineer-worker"] as const;
+export type ResidentModelId =
+  (typeof RESIDENT_MODELS)[number] | (typeof ENGINEER_CHARACTER_MODELS)[number];
 export type ResidentDetail = "near" | "far";
 export type ResidentClip = "idle" | "walk" | "talk" | "run";
+
+export function residentAnimationClipFor(
+  model: ResidentModelId,
+  animationName: string,
+): ResidentClip | null {
+  if (model === "engineer-worker") {
+    if (animationName.endsWith("|Idle")) return "idle";
+    if (animationName.endsWith("|Walk")) return "walk";
+    if (animationName.endsWith("|Wave")) return "talk";
+    return null;
+  }
+  return (
+    (["idle", "walk", "talk"] as const).find((clip) =>
+      animationName.endsWith(clip),
+    ) ?? null
+  );
+}
 
 export function residentModelFor(
   profile: Pick<TownCharacterProfile, "id" | "age" | "hair" | "model">,
 ): ResidentModelId {
-  // The player's running clip is retargeted to this specific rig.
-  if (profile.id === "player-rivergate") return "man-casual";
+  // The walking party may select a dedicated appearance for either engineer.
+  if (profile.id === "player-rivergate") return profile.model ?? "man-casual";
   const children: readonly ResidentModelId[] = ["boy", "girl", "boy-sport"];
   if (
     profile.model &&
+    (profile.model !== "engineer-worker" || profile.id === "leo-dog") &&
     children.includes(profile.model) === (profile.age === "child")
   )
     return profile.model;
@@ -72,7 +92,13 @@ export function residentHeightFor(
 export function residentAsset(id: ResidentModelId, detail: ResidentDetail) {
   const metadata = converted.find((entry) => entry.id === id);
   if (!metadata) throw new Error(`Missing resident conversion: ${id}`);
-  return { ...metadata, url: `/models/residents/${id}-${detail}.glb` };
+  return {
+    ...metadata,
+    url:
+      id === "engineer-worker"
+        ? "/models/engineers/quaternius-worker.glb"
+        : `/models/residents/${id}-${detail}.glb`,
+  };
 }
 
 /** Hysteresis avoids replacing the model every time the camera crosses an edge. */
@@ -104,6 +130,10 @@ export function residentClipFor(
 
 /** Conversation is a small upper-body layer; hips and feet stay in idle. */
 export function residentTalkWeight(nodeName: string): number {
+  if (/^(Shoulder|UpperArm|LowerArm|Wrist)\.[LR]$/.test(nodeName)) return 0.24;
+  if (/^(Index|Middle|Ring|Pinky|Thumb)\d\.[LR]$/.test(nodeName)) return 0.18;
+  if (/^(Head|Neck)$/.test(nodeName)) return 0.16;
+  if (/^(Abdomen|Torso|Chest)$/.test(nodeName)) return 0.1;
   if (/ (Clavicle|UpperArm|Forearm|Hand)$/.test(nodeName)) return 0.24;
   if (/ Finger\d+$/.test(nodeName)) return 0.18;
   if (/ (Head|Neck)$/.test(nodeName)) return 0.16;

@@ -30,9 +30,9 @@ A living city, a thousand stories, your decisions. The distinguishing feature
 is a verified connection between decisions, evolving city systems, resident
 memory and generated stories.
 
-Leo is the city's curious female virtual dog companion. She can form uncertain
-theories and admit mistakes, but neither she nor the story model may invent
-historical facts.
+Leo is the city's curious human engineer companion and the player's fellow
+engineer. He can form uncertain theories and admit mistakes, but neither Leo nor
+the story model may invent historical facts or actions.
 AI interprets evidence and expresses fictional characters; deterministic,
 versioned rules own the world and its consequences.
 
@@ -61,9 +61,12 @@ real-world-time penalties.
 ## Existing playable foundation
 
 - A populated town with 28 homes, 18 public venues and 32 ambient residents.
-- Aerial exploration and third-person “Walk with Leo,” with a controllable human
-  character and Leo accompanying the player outdoors and inside buildings;
-  building interiors, day/night and graphics controls remain available.
+- Aerial exploration and third-person “Walk with Leo,” with the player engineer
+  and fellow engineer Leo exploring outdoors and inside buildings; building
+  interiors, day/night and graphics controls remain available. Their wardrobes
+  are configured independently. Their default engineer look is a complete
+  skinned worker with a hard hat, safety vest, work trousers and boots; blue and
+  red uniforms keep the two characters easy to distinguish.
 - Local resident journeys, building handoffs, rides and limited authored nearby
   conversations. These are not yet persistent household/economic agents.
 - Fifteen residential repair missions across five stages, plus the separate
@@ -127,8 +130,10 @@ delivery gates for this pivot.
 ## Brand Commitments
 
 The product is **Terra World**; the playable city is **Rivergate**; its companion
-is **Leo**, a female virtual dog (LEO in display headings). The new draft's
-builder named Leo becomes **Malik**, retaining the established
+is **Leo**, a human engineer and the player's fellow engineer (LEO in display
+headings). The player and Leo retain independent wardrobe settings and default
+to complete skinned engineer workwear in distinct blue and red uniforms. The new
+draft's entrepreneur named Leo becomes **Malik**, retaining the established
 companion/character distinction.
 
 Maya, Malik, Nia and Sam have the new roles defined in the story bible. Preserve

@@ -63,6 +63,7 @@ import "./TownWalking.css";
 import "./OpeningChapterWorld.css";
 import "./MissionMinimapPlacement.css";
 import BuildingVisit3D from "./BuildingVisit3D";
+import { GameIcon } from "./GameIcon";
 import type {
   BuildingTraversal,
   BuildingVisit,
@@ -1304,11 +1305,18 @@ function ImmersiveTownMap({
     setViewMode(mode);
   };
 
-  const movementButton = (command: WalkCommand, label: string) => (
+  const movementButton = (
+    command: WalkCommand,
+    label: string,
+    shortcut: "W" | "A" | "S" | "D",
+    rotation: number,
+  ) => (
     <button
       key={command}
       type="button"
       className={`walk-${command}`}
+      aria-keyshortcuts={shortcut}
+      aria-label={label}
       disabled={residentJournalOpen}
       onPointerDown={(event) => {
         event.currentTarget.focus({ preventScroll: true });
@@ -1325,7 +1333,16 @@ function ImmersiveTownMap({
         if (event.detail === 0) runtimeRef.current?.traversal.nudge(command);
       }}
     >
-      {label}
+      <span
+        aria-hidden="true"
+        className="walk-control-icon"
+        style={{ transform: `rotate(${rotation}deg)` }}
+      >
+        <GameIcon name="arrow" size={22} />
+      </span>
+      <kbd aria-hidden="true" className="walk-control-shortcut">
+        {shortcut}
+      </kbd>
     </button>
   );
 
@@ -1706,12 +1723,22 @@ function ImmersiveTownMap({
           </div>
           <div
             aria-label="Walking controls"
-            className="town-walk-controls"
+            className="town-walk-controls town-walk-control-deck"
             role="group"
           >
+            <div
+              aria-label="Directional pad"
+              className="walk-dpad"
+              role="group"
+            >
+              {movementButton("forward", "Forward", "W", -90)}
+              {movementButton("left", "Turn left", "A", 180)}
+              {movementButton("back", "Back", "S", 90)}
+              {movementButton("right", "Turn right", "D", 0)}
+            </div>
             <button
               type="button"
-              className="walk-run"
+              className="walk-run walk-sprint"
               aria-pressed={running}
               aria-keyshortcuts="Shift"
               disabled={
@@ -1724,12 +1751,16 @@ function ImmersiveTownMap({
                 if (walker) walker.setRunning(!walker.running);
               }}
             >
-              {running ? "Run · On" : "Run"}
+              <span aria-hidden="true" className="walk-control-icon">
+                <GameIcon name="energy" size={22} />
+              </span>
+              <span className="walk-control-label">
+                {running ? "Run · On" : "Run"}
+              </span>
+              <kbd aria-hidden="true" className="walk-control-shortcut">
+                Shift
+              </kbd>
             </button>
-            {movementButton("forward", "Forward")}
-            {movementButton("left", "Turn left")}
-            {movementButton("back", "Back")}
-            {movementButton("right", "Turn right")}
           </div>
           <div className="town-walk-entry">
             <p aria-live="polite" role="status">

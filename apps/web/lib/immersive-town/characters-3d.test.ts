@@ -13,7 +13,8 @@ describe("Rivergate 3D characters", () => {
         Boolean,
       ),
     ).toEqual(expect.arrayContaining(["maya", "malik", "nia", "mr-sam"]));
-    // Leo is the player's dog, not a second human standing in the town cast.
+    // The walking party owns fellow engineer Leo; excluding him here prevents a
+    // duplicate ambient instance of the same human character.
     expect(
       RIVERGATE_CHARACTER_PROFILES.some(({ id }) => id === "guide-elliot"),
     ).toBe(true);

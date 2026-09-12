@@ -1,24 +1,24 @@
 export type PartyModelStatus =
-  "loading" | "ready" | "player-failed" | "dog-failed";
+  "loading" | "ready" | "player-failed" | "leo-failed";
 
-/** Dog readiness cannot hide a failed or still-loading human avatar. */
+/** One engineer's readiness cannot hide a failed or still-loading partner. */
 export function partyModelStatus(
   player: string | undefined,
-  dog: "loading" | "ready" | "failed",
+  leo: string | undefined,
 ): PartyModelStatus {
   if (player === "fallback") return "player-failed";
-  if (dog === "failed") return "dog-failed";
-  return player === "ready" && dog === "ready" ? "ready" : "loading";
+  if (leo === "fallback") return "leo-failed";
+  return player === "ready" && leo === "ready" ? "ready" : "loading";
 }
 
 export function partyLoadMessage(status: PartyModelStatus): string | null {
   switch (status) {
     case "player-failed":
       return "Your character couldn’t load. Reload the game to try again.";
-    case "dog-failed":
+    case "leo-failed":
       return "Leo’s model couldn’t load. You can keep exploring; reload to retry.";
     case "loading":
-      return "Getting your character and Leo ready…";
+      return "Getting both engineers ready…";
     case "ready":
       return null;
   }

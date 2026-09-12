@@ -109,7 +109,9 @@ describe("strict, private 0G chapter composition", () => {
     expect(input.maxTokens).toBe(160);
     expect(input.temperature).toBe(0.2);
     expect(input.messages).toHaveLength(2);
-    expect(input.messages[0]?.content).toContain("female virtual dog");
+    expect(input.messages[0]?.content).toContain("human engineer companion");
+    expect(input.messages[0]?.content).toContain("fellow engineer");
+    expect(input.messages[0]?.content).not.toContain("dog companion");
     expect(input.messages[0]?.content).toContain("Never invent");
     expect(input.messages[0]?.content).toContain("sentence IDs");
     expect(input.messages[1]?.content).toContain(

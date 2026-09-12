@@ -58,7 +58,7 @@ export function collectTrafficPeople(
         x: party.dog.x,
         z: party.dog.z,
         id: "leo-dog",
-        radius: 0.75,
+        radius: 0.4,
       });
   }
   return people;

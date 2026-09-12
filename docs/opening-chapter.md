@@ -19,10 +19,12 @@ introduction**. The notebook retains the opening transcript. These are camera
 views of the live city, not rendered movie files; reduced motion holds the shots
 without their camera drift.
 
-**Walk with Leo** uses a third-person camera, a realistic human player character
-and LEO, the female dog companion. Use W/S or Up/Down to move, A/D to step
-sideways, Left/Right to turn, and drag to look. Hold Shift while moving or toggle
-the on-screen **Run** control. Touch movement controls remain available. Building
+**Walk with Leo** uses a third-person camera for the player engineer and LEO, the
+player's fellow human engineer. Their wardrobe settings are independent; LEO's
+default engineer outfit is a complete skinned worker with a hard hat, safety
+vest, work trousers and boots. Use W/S or Up/Down to move, A/D to step sideways,
+Left/Right to turn, and drag to look. Hold Shift while moving or toggle the
+on-screen **Run** control. Touch movement controls remain available. Building
 entry and exit retain their existing proximity controls; pointer lock is not
 required.
 

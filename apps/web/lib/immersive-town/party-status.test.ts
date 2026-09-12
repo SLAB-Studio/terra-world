@@ -7,7 +7,7 @@ describe("walking party loading and recovery", () => {
     (player) => {
       const status = partyModelStatus(player, "ready");
       expect(status).toBe("loading");
-      expect(partyLoadMessage(status)).toContain("character and Leo");
+      expect(partyLoadMessage(status)).toContain("both engineers");
     },
   );
   it("names a failed player even when Leo is ready and offers recovery", () => {
@@ -16,9 +16,9 @@ describe("walking party loading and recovery", () => {
     expect(partyLoadMessage(status)).toContain("Your character couldn’t load");
     expect(partyLoadMessage(status)).toContain("Reload");
   });
-  it("names a failed dog separately", () => {
-    const status = partyModelStatus("ready", "failed");
-    expect(status).toBe("dog-failed");
+  it("names a failed Leo model separately", () => {
+    const status = partyModelStatus("ready", "fallback");
+    expect(status).toBe("leo-failed");
     expect(partyLoadMessage(status)).toContain("Leo’s model couldn’t load");
   });
   it("clears failure and loading notices only after both assets recover", () => {

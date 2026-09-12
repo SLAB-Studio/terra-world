@@ -58,7 +58,14 @@ import {
   createOfflinePersistence,
   type OfflinePersistence,
 } from "../../lib/offline";
+import {
+  isEngineerOutfit,
+  setEngineerWardrobe,
+  type EngineerOutfit,
+  type EngineerWardrobe,
+} from "../../lib/engineer-wardrobe";
 import CompoundWorld from "./CompoundWorld";
+import CharacterWardrobePreview from "./CharacterWardrobePreview";
 import GameLanding from "./GameLanding";
 import { GameIcon } from "./GameIcon";
 import SyncCityControl, { type CitySyncOutcome } from "./SyncCityControl";
@@ -68,6 +75,15 @@ const ZERO_G_STORAGE_ROOT = /^0x[0-9a-f]{64}$/iu;
 const RIVERGATE_CITY_ID = "rivergate-city";
 const LOCAL_PROFILE_ID = "local-builder";
 const ADULT_PIN_STORAGE_KEY = "terra-world-adult-pin-v1";
+
+const ENGINEER_OUTFIT_OPTIONS: readonly {
+  value: EngineerOutfit;
+  label: string;
+}[] = [
+  { value: "engineer", label: "Engineer" },
+  { value: "casual", label: "Casual" },
+  { value: "field", label: "Field gear" },
+];
 
 type PlayerRole = "water-keeper" | "neighbour-helper" | "nature-planner";
 type SaveState = "loading" | "saving" | "saved" | "temporary";
@@ -171,6 +187,8 @@ export default function GameShell() {
   const [textScale, setTextScale] = useState(1);
   const [highContrast, setHighContrast] = useState(false);
   const [muted, setMuted] = useState(true);
+  const [playerOutfit, setPlayerOutfit] = useState<EngineerOutfit>("engineer");
+  const [leoOutfit, setLeoOutfit] = useState<EngineerOutfit>("engineer");
   const [audioReady, setAudioReady] = useState(false);
   const [timeOfDay, setTimeOfDay] = useState<TownTimeOfDay>("night");
   const [backupKit, setBackupKit] = useState<AdultBackupKit | null>(null);
@@ -284,7 +302,7 @@ export default function GameShell() {
       if (event.key !== "Tab" || dialog === null) return;
       const controls = [
         ...dialog.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
+          'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
         ),
       ].filter((control) => control.getClientRects().length > 0);
       const first = controls[0];
@@ -416,6 +434,10 @@ export default function GameShell() {
           setTextScale(settings.textScale);
           setHighContrast(settings.highContrast);
           setMuted(settings.muted);
+          if (settings.playerOutfit !== undefined)
+            setPlayerOutfit(settings.playerOutfit);
+          if (settings.leoOutfit !== undefined)
+            setLeoOutfit(settings.leoOutfit);
         }
         let campaignRestored = false;
         if (saved !== null) {
@@ -505,6 +527,10 @@ export default function GameShell() {
     );
   }, [textScale]);
 
+  useEffect(() => {
+    setEngineerWardrobe({ player: playerOutfit, leo: leoOutfit });
+  }, [leoOutfit, playerOutfit]);
+
   function enterRivergate() {
     const persistence = persistenceRef.current;
     const now = Date.now();
@@ -536,6 +562,8 @@ export default function GameShell() {
           highContrast,
           textScale,
           muted,
+          playerOutfit,
+          leoOutfit,
           locale: "en",
           updatedAt: now,
         }),
@@ -595,6 +623,28 @@ export default function GameShell() {
         highContrast: nextContrast,
         textScale: nextTextScale,
         muted: nextMuted,
+        playerOutfit,
+        leoOutfit,
+        locale: "en",
+        updatedAt: Date.now(),
+      })
+      .catch(() => setSaveState("temporary"));
+  }
+
+  function saveWardrobeSettings(next: Partial<EngineerWardrobe>) {
+    const nextPlayerOutfit = next.player ?? playerOutfit;
+    const nextLeoOutfit = next.leo ?? leoOutfit;
+    setPlayerOutfit(nextPlayerOutfit);
+    setLeoOutfit(nextLeoOutfit);
+    void persistenceRef.current
+      ?.saveSettings({
+        profileId: LOCAL_PROFILE_ID,
+        reducedMotion: false,
+        highContrast,
+        textScale,
+        muted,
+        playerOutfit: nextPlayerOutfit,
+        leoOutfit: nextLeoOutfit,
         locale: "en",
         updatedAt: Date.now(),
       })
@@ -936,13 +986,17 @@ export default function GameShell() {
 
     void fetch("/api/leo-chat", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
       body: JSON.stringify({ question: question.slice(0, 300), context }),
       cache: "no-store",
     })
       .then(async (response) =>
         response.ok
-          ? ((await response.json()) as { reply?: string | null }).reply ?? null
+          ? (((await response.json()) as { reply?: string | null }).reply ??
+            null)
           : null,
       )
       .catch(() => null)
@@ -984,7 +1038,12 @@ export default function GameShell() {
             : `${name} is busy in the city right now. Try again after your next change.`;
         setExpertMessages((messages) => [
           ...messages.slice(-6),
-          { id: `neighbour-${persona}-${Date.now()}`, speaker: persona, name, text },
+          {
+            id: `neighbour-${persona}-${Date.now()}`,
+            speaker: persona,
+            name,
+            text,
+          },
         ]);
       })
       .finally(() => setNeighbourBusy(null));
@@ -1176,7 +1235,7 @@ export default function GameShell() {
                 </div>
                 <div>
                   <h2 id="expert-heading">Leo</h2>
-                  <p>Your canine companion · {playerDisplayName(playerName)}</p>
+                  <p>Your fellow engineer · {playerDisplayName(playerName)}</p>
                   <span className="expert-online">Watching the town</span>
                 </div>
               </header>
@@ -1224,7 +1283,10 @@ export default function GameShell() {
                   Explain the impact
                 </button>
               </div>
-              <div className="expert-neighbours" aria-label="Hear from a neighbour">
+              <div
+                className="expert-neighbours"
+                aria-label="Hear from a neighbour"
+              >
                 <span className="expert-neighbours-label">
                   Hear from a neighbour
                 </span>
@@ -1238,7 +1300,9 @@ export default function GameShell() {
                       type="button"
                     >
                       <span className="neighbour-chip-name">{voice.ask}</span>
-                      <span className="neighbour-chip-blurb">{voice.blurb}</span>
+                      <span className="neighbour-chip-blurb">
+                        {voice.blurb}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -1270,8 +1334,8 @@ export default function GameShell() {
                 </button>
               </form>
               <p className="expert-safety">
-                Leo answers with 0G Compute and only talks about the town.
-                Avoid sharing personal details.
+                Leo answers with 0G Compute and only talks about the town. Avoid
+                sharing personal details.
               </p>
             </section>
             <div className="river-learning-card">
@@ -1308,13 +1372,20 @@ export default function GameShell() {
               role="dialog"
             >
               <button
-                aria-label="Close adult controls"
+                aria-label="Close settings"
                 className="dialog-close"
                 onClick={closeAdultPanel}
                 type="button"
               >
                 <GameIcon name="close" />
               </button>
+              <div className="adult-controls">
+                <CharacterWardrobe
+                  leoOutfit={leoOutfit}
+                  onWardrobeChange={saveWardrobeSettings}
+                  playerOutfit={playerOutfit}
+                />
+              </div>
               {!adultUnlocked ? (
                 <div className="adult-gate">
                   <span className="adult-gate-icon" aria-hidden="true">
@@ -1336,7 +1407,6 @@ export default function GameShell() {
                   </label>
                   <div className="adult-check-row">
                     <input
-                      autoFocus
                       autoComplete="off"
                       id="adult-check"
                       inputMode="numeric"
@@ -1462,6 +1532,71 @@ function expertReplyFor(
   return nextObjective === undefined
     ? "Try running the town, then tell me the first change you notice."
     : `Let’s inspect the town first. What do you notice near this goal: ${nextObjective.description}`;
+}
+
+function CharacterWardrobe({
+  leoOutfit,
+  onWardrobeChange,
+  playerOutfit,
+}: {
+  readonly leoOutfit: EngineerOutfit;
+  readonly onWardrobeChange: (next: Partial<EngineerWardrobe>) => void;
+  readonly playerOutfit: EngineerOutfit;
+}) {
+  return (
+    <section
+      className="adult-section character-wardrobe"
+      aria-labelledby="wardrobe-heading"
+    >
+      <h3 id="wardrobe-heading">Character wardrobe</h3>
+      <p>
+        Engineer includes a fitted hard hat, safety vest, workwear, and boots.
+      </p>
+      <CharacterWardrobePreview
+        leoOutfit={leoOutfit}
+        playerOutfit={playerOutfit}
+      />
+      <div className="character-wardrobe-grid">
+        <label htmlFor="player-outfit">
+          <strong>Your engineer</strong>
+          <select
+            autoFocus
+            id="player-outfit"
+            onChange={(event) => {
+              if (isEngineerOutfit(event.target.value)) {
+                onWardrobeChange({ player: event.target.value });
+              }
+            }}
+            value={playerOutfit}
+          >
+            {ENGINEER_OUTFIT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label htmlFor="leo-outfit">
+          <strong>Leo</strong>
+          <select
+            id="leo-outfit"
+            onChange={(event) => {
+              if (isEngineerOutfit(event.target.value)) {
+                onWardrobeChange({ leo: event.target.value });
+              }
+            }}
+            value={leoOutfit}
+          >
+            {ENGINEER_OUTFIT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </section>
+  );
 }
 
 type AdultControlsProps = {

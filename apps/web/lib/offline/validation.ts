@@ -9,6 +9,7 @@ import type {
   StoredCityState,
   SyncQueueEntry,
 } from "./types";
+import { isEngineerOutfit } from "../engineer-wardrobe";
 
 const IDENTIFIER = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
 const PROHIBITED_KEYS = new Set([
@@ -160,6 +161,15 @@ export function assertValidSettings(value: DeviceSettings): void {
   }
   if (value.locale !== "en")
     throw new TypeError("Settings locale is not supported");
+  if (
+    value.playerOutfit !== undefined &&
+    !isEngineerOutfit(value.playerOutfit)
+  ) {
+    throw new TypeError("Settings playerOutfit is invalid");
+  }
+  if (value.leoOutfit !== undefined && !isEngineerOutfit(value.leoOutfit)) {
+    throw new TypeError("Settings leoOutfit is invalid");
+  }
   assertFiniteTimestamp(value.updatedAt, "settings updatedAt");
   assertJsonSafeWithoutPersonalData(value);
 }

@@ -29,10 +29,10 @@ export function createPartyContactShadows(scene: Scene, parent: TransformNode) {
   mat.emissiveColor = Color3.Black();
   mat.specularColor = Color3.Black();
   mat.zOffset = -1;
-  const shadows = [0.85, 0.7].map((width, i) => {
+  const shadows = [0.85, 0.85].map((width, i) => {
     const mesh = MeshBuilder.CreateGround(
       `party-contact-${i}`,
-      { width, height: i === 0 ? 0.65 : 1.05 },
+      { width, height: 0.65 },
       scene,
     );
     mesh.material = mat;

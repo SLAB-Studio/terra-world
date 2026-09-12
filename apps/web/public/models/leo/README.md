@@ -1,6 +1,8 @@
-# LEO — Shiba Inu companion
+# Legacy Shiba Inu asset
 
-Real textured/skinned dog, not a sprite or primitive stand-in.
+This is the retired dog presentation formerly used for Leo. The playable Leo is
+now a human engineer rendered through the resident model pipeline; this asset is
+kept only as a licensed historical source artifact and is not loaded by the game.
 
 Source model: **Animated Dog, Shiba Inu** by **quander**, licensed CC Attribution:
 https://sketchfab.com/3d-models/animated-dog-shiba-inu-9abfce885a834399b2c3ccaed51cd474
@@ -23,5 +25,5 @@ Original sitting/shaking/rolling/play-dead clips are not
 looped as locomotion. `scripts/convert-leo.py` reproduces the conversion; source
 checksum, mesh budget and stride calibration are in `manifest.json`.
 
-All animation and following runs locally. No AI calls, remote model services,
-or transactions are triggered by the dog walking.
+The archived animation contains no AI calls, remote model services or
+transactions.

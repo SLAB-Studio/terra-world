@@ -7,6 +7,7 @@ import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader";
 import { Scene } from "@babylonjs/core/scene";
 import {
   residentAsset,
+  residentAnimationClipFor,
   residentClipFor,
   residentClipProgress,
   residentDetailFor,
@@ -52,12 +53,77 @@ describe("realistic Rivergate resident assets", () => {
     ).toBe("man-casual");
     expect(
       residentModelFor({
+        id: "player-rivergate",
+        age: "adult",
+        hair: "short",
+        model: "man-jacket",
+      }),
+    ).toBe("man-jacket");
+    expect(
+      residentModelFor({
         id: "test-child",
         age: "child",
         hair: "short",
         model: "elder-man",
       }),
     ).not.toBe("elder-man");
+    expect(
+      residentModelFor({
+        id: "ordinary-adult",
+        age: "adult",
+        hair: "short",
+        model: "engineer-worker",
+      }),
+    ).not.toBe("engineer-worker");
+    expect(
+      residentModelFor({
+        id: "leo-dog",
+        age: "adult",
+        hair: "coils",
+        model: "engineer-worker",
+      }),
+    ).toBe("engineer-worker");
+  });
+
+  it("ships the default engineer as one coherent animated worker asset", () => {
+    const near = residentAsset("engineer-worker", "near");
+    const far = residentAsset("engineer-worker", "far");
+    expect(near.url).toBe("/models/engineers/quaternius-worker.glb");
+    expect(far.url).toBe(near.url);
+    expect(near.license).toBe("CC0-1.0");
+    const bytes = readFileSync(
+      new URL(`../../public${near.url}`, import.meta.url),
+    );
+    expect(bytes.toString("ascii", 0, 4)).toBe("glTF");
+    const gltf = JSON.parse(
+      bytes.subarray(20, 20 + bytes.readUInt32LE(12)).toString("utf8"),
+    );
+    const clips = new Set(
+      gltf.animations
+        .map((animation: { name: string }) =>
+          residentAnimationClipFor("engineer-worker", animation.name),
+        )
+        .filter(Boolean),
+    );
+    expect(clips).toEqual(new Set(["idle", "walk", "talk"]));
+    expect(
+      residentAnimationClipFor("engineer-worker", "WorkerArmature|Run"),
+    ).toBeNull();
+    expect(gltf.meshes.map((mesh: { name: string }) => mesh.name)).toEqual([
+      "Worker_Feet",
+      "Worker_Legs",
+      "Worker_Body",
+      "Worker_Head",
+    ]);
+    expect(gltf.skins).toHaveLength(4);
+    expect(
+      gltf.skins.every(
+        (skin: { joints: number[] }) => skin.joints.length === 62,
+      ),
+    ).toBe(true);
+    expect(
+      gltf.materials.map((material: { name: string }) => material.name),
+    ).toEqual(expect.arrayContaining(["Worker_Yellow", "Worker_Vest", "Skin"]));
   });
 
   it("varies stature deterministically and rejects extreme or invalid heights", () => {
@@ -317,6 +383,8 @@ describe("realistic Rivergate resident assets", () => {
   it("layers small conversational gestures above planted legs and eases starts/stops", () => {
     expect(residentTalkWeight("person:near:Bip01 L UpperArm")).toBe(0.24);
     expect(residentTalkWeight("person:near:Bip02 Spine1")).toBe(0.1);
+    expect(residentTalkWeight("UpperArm.L")).toBe(0.24);
+    expect(residentTalkWeight("Head")).toBe(0.16);
     for (const bone of [
       "Bip01",
       "Bip01 Pelvis",

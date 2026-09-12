@@ -1,3 +1,5 @@
+import type { EngineerOutfit } from "../engineer-wardrobe";
+
 /**
  * Local records deliberately contain no identity fields. Profile IDs are opaque
  * device-local identifiers; display names, dates of birth, schools, locations,
@@ -101,6 +103,8 @@ export type DeviceSettings = Readonly<{
   highContrast: boolean;
   textScale: number;
   muted: boolean;
+  playerOutfit?: EngineerOutfit;
+  leoOutfit?: EngineerOutfit;
   locale: "en";
   updatedAt: number;
 }>;
