@@ -199,6 +199,7 @@ export default function GameShell() {
   const [neighbourBusy, setNeighbourBusy] = useState<ResidentPersona | null>(
     null,
   );
+  const [leoBusy, setLeoBusy] = useState(false);
   const lastReactInputRef = useRef<CityGuideProjectionInput | null>(null);
   const previousCommittedStateRef = useRef<GameState>(state);
   const currentMission = useMemo(() => getCurrentMission(state), [state]);
@@ -910,18 +911,51 @@ export default function GameShell() {
     setExpertMessages((messages) => [
       ...messages.slice(-6),
       { id: `child-${messageId}`, speaker: "child", text: question },
-      {
-        id: `river-${messageId}`,
-        speaker: "river",
-        text: expertReplyFor(
-          question,
-          state,
-          currentMission,
-          displayedFeedback,
-        ),
-      },
     ]);
     setExpertQuestion("");
+    setLeoBusy(true);
+
+    const clamp = (value: number) =>
+      Math.min(100, Math.max(0, Math.round(value)));
+    const nextObjective = currentMission?.objectives.find(
+      (objective) => !objective.completed,
+    );
+    const context = {
+      turn: state.city.turn,
+      stage: String(state.city.stage),
+      budget: Math.max(0, Math.round(state.city.budget)),
+      population: Math.max(0, Math.round(state.city.population)),
+      water: clamp(state.city.indicators.water),
+      energy: clamp(state.city.indicators.energy),
+      nature: clamp(state.city.indicators.nature),
+      community: clamp(state.city.indicators.community),
+      resilience: clamp(state.city.indicators.resilience),
+      missionTitle: currentMission?.title ?? "Rivergate",
+      ...(nextObjective ? { nextObjective: nextObjective.description } : {}),
+    };
+
+    void fetch("/api/leo-chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ question: question.slice(0, 300), context }),
+      cache: "no-store",
+    })
+      .then(async (response) =>
+        response.ok
+          ? ((await response.json()) as { reply?: string | null }).reply ?? null
+          : null,
+      )
+      .catch(() => null)
+      .then((reply) => {
+        const text =
+          reply ??
+          expertReplyFor(question, state, currentMission, displayedFeedback);
+        setExpertMessages((messages) => [
+          ...messages.slice(-6),
+          { id: `river-${messageId}`, speaker: "river", text },
+        ]);
+      })
+      .finally(() => setLeoBusy(false));
   }
 
   function askNeighbour(persona: Exclude<ResidentPersona, "leo">) {
@@ -1170,6 +1204,11 @@ export default function GameShell() {
                     {neighbourNameFor(neighbourBusy)} is looking at the city…
                   </p>
                 )}
+                {leoBusy && (
+                  <p className="chat-bubble chat-river chat-thinking">
+                    Leo is thinking…
+                  </p>
+                )}
               </div>
               <div className="expert-prompts" aria-label="Quick questions">
                 <button
@@ -1231,7 +1270,8 @@ export default function GameShell() {
                 </button>
               </form>
               <p className="expert-safety">
-                Leo only talks about the town. Your words stay on this device.
+                Leo answers with 0G Compute and only talks about the town.
+                Avoid sharing personal details.
               </p>
             </section>
             <div className="river-learning-card">
